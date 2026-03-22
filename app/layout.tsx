@@ -19,8 +19,8 @@ export const metadata: Metadata = {
     template: "%s | Vaultex Market",
   },
   description:
-    "Experience the future of crypto trading on a secure, simulated brokerage platform tailored for professionals. Trade BTC, ETH, USDT and more.",
-  keywords: ["crypto", "trading", "bitcoin", "ethereum", "broker", "simulation", "portfolio"],
+    "Vaultex Market — institutional-grade crypto brokerage platform. Trade BTC, ETH, USDT and 50+ digital assets with real-time execution, advanced charting, and enterprise security.",
+  keywords: ["crypto", "trading", "bitcoin", "ethereum", "broker", "digital assets", "portfolio", "brokerage", "institutional"],
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   openGraph: {
     title: "Vaultex Market | Premium Crypto Broker Platform",

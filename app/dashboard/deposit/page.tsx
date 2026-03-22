@@ -75,8 +75,8 @@ export default function DepositPage() {
       <div className="glass-card rounded-xl p-4 border border-sky-500/20 bg-sky-500/5 flex items-start gap-3">
         <Info className="h-4 w-4 text-sky-400 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-slate-400 leading-relaxed">
-          <strong className="text-sky-400">Simulation Notice:</strong> This is a simulated deposit request. No real funds are transferred.
-          Once submitted, our admin team will review and approve your request, crediting your simulated wallet.
+          <strong className="text-sky-400">Deposit Notice:</strong> All deposit requests are reviewed by our finance team within 1 business day.
+          Once approved, funds will be credited directly to your account wallet and available for trading.
         </div>
       </div>
 

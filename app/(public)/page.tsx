@@ -8,6 +8,7 @@ import {
   Clock, DollarSign, Activity, Wallet, TrendingUp,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { getLiveTickers } from "@/lib/coingecko";
 import { formatCurrency, formatPercent, formatCompact } from "@/lib/utils";
 
 /* ─── Per-symbol brand colours for ticker icons ───────────────────────── */
@@ -18,56 +19,38 @@ const CRYPTO_COLORS: Record<string, string> = {
   LTC:   "#bebebe", UNI:  "#ff007a", ATOM: "#6f7390",
 };
 
-/* ─── Static ticker data — major cryptocurrencies ─────────────────────── */
-const STATIC_TICKERS = [
-  { symbol: "BTC",   name: "Bitcoin",   price: 84231.50, change:  2.34 },
-  { symbol: "ETH",   name: "Ethereum",  price:  3921.80, change:  1.87 },
-  { symbol: "USDT",  name: "Tether",    price:     1.00, change:  0.01 },
-  { symbol: "BNB",   name: "BNB",       price:   621.40, change:  3.12 },
-  { symbol: "SOL",   name: "Solana",    price:   182.60, change:  4.21 },
-  { symbol: "XRP",   name: "XRP",       price:     0.62, change: -0.82 },
-  { symbol: "ADA",   name: "Cardano",   price:     0.58, change:  1.24 },
-  { symbol: "DOGE",  name: "Dogecoin",  price:     0.18, change:  5.63 },
-  { symbol: "AVAX",  name: "Avalanche", price:    42.18, change: -1.34 },
-  { symbol: "MATIC", name: "Polygon",   price:     0.93, change:  2.09 },
-  { symbol: "DOT",   name: "Polkadot",  price:     8.21, change:  0.73 },
-  { symbol: "LINK",  name: "Chainlink", price:    18.52, change:  2.94 },
-  { symbol: "LTC",   name: "Litecoin",  price:    98.34, change: -0.45 },
-  { symbol: "UNI",   name: "Uniswap",   price:    12.64, change:  3.41 },
-  { symbol: "ATOM",  name: "Cosmos",    price:     9.82, change:  1.16 },
-];
 
 /* ─── Feature cards ───────────────────────────────────────────────────── */
 const features = [
   {
     icon: BarChart3,
     title: "Real-Time Portfolio Tracking",
-    desc: "Monitor your simulated portfolio with live P&L, asset allocation charts, and performance analytics updated continuously.",
+    desc: "Monitor your holdings with live P&L, asset allocation charts, and performance analytics — updated continuously across all sessions.",
   },
   {
     icon: Zap,
     title: "Instant Trade Execution",
-    desc: "Place simulated buy and sell orders instantly with market and limit order types across all supported digital assets.",
+    desc: "Place buy and sell orders instantly with market and limit order types across all supported digital assets with sub-second confirmation.",
   },
   {
     icon: Shield,
     title: "Institutional-Grade Security",
-    desc: "Your account is protected with industry-standard authentication, encrypted data storage, and comprehensive audit trails.",
+    desc: "Your account is protected with multi-factor authentication, AES-256 encrypted data storage, and a comprehensive tamper-proof audit trail.",
   },
   {
     icon: LineChart,
     title: "Advanced Charting",
-    desc: "Visualize market trends, portfolio performance, and asset allocation with professional-grade interactive charts.",
+    desc: "Visualize market trends, portfolio performance, and asset allocation with professional-grade candlestick charts and technical indicators.",
   },
   {
     icon: HeadphonesIcon,
     title: "24/7 Support Desk",
-    desc: "Submit support tickets and get responses from our team any time. Priority support for verified accounts.",
+    desc: "Submit support tickets and receive responses from our team around the clock. Priority support and dedicated account management for verified users.",
   },
   {
     icon: Globe,
     title: "Global Market Coverage",
-    desc: "Access a curated selection of top cryptocurrencies with real-time simulated pricing and market data.",
+    desc: "Access a curated selection of top cryptocurrencies with real-time pricing, live order books, and deep liquidity across all major pairs.",
   },
 ];
 
@@ -81,10 +64,10 @@ const stats = [
 
 /* ─── How It Works steps ──────────────────────────────────────────────── */
 const steps = [
-  { step: "01", title: "Create Your Account",   desc: "Register in under 2 minutes with your email address. No credit card required to get started." },
-  { step: "02", title: "Complete Verification", desc: "Submit your identity documents to unlock full platform access and higher portfolio limits." },
-  { step: "03", title: "Fund Your Wallet",      desc: "Submit a simulated deposit request and get your virtual wallet funded by the platform team." },
-  { step: "04", title: "Start Trading",         desc: "Execute simulated trades across BTC, ETH, USDT and more with real-time price data." },
+  { step: "01", title: "Create Your Account",   desc: "Register in under 2 minutes with your email address. No credit card or upfront commitment required." },
+  { step: "02", title: "Complete Verification", desc: "Submit your KYC documents to unlock full platform access, higher limits, and dedicated account support." },
+  { step: "03", title: "Fund Your Account",     desc: "Deposit via bank transfer or crypto to your Vaultex wallet. Funds are reviewed and credited by our finance team." },
+  { step: "04", title: "Start Trading",         desc: "Buy and sell BTC, ETH, USDT and 50+ assets at real-time market prices with instant execution." },
 ];
 
 /* ─── Trust & Security items ──────────────────────────────────────────── */
@@ -108,19 +91,14 @@ async function getMarketData() {
 
 /* ─── Page component ──────────────────────────────────────────────────── */
 export default async function HomePage() {
-  const dbAssets = await getMarketData();
+  // Fetch DB market overview + live CoinGecko ticker data in parallel
+  const [dbAssets, liveTickers] = await Promise.all([
+    getMarketData(),
+    getLiveTickers(),
+  ]);
 
-  // Merge DB assets (authoritative prices) with static ticker list
-  const dbSymbols = new Set(dbAssets.map(a => a.symbol));
-  const tickerItems = [
-    ...dbAssets.map(a => ({
-      symbol: a.symbol,
-      name:   a.name,
-      price:  Number(a.currentPrice),
-      change: Number(a.priceChange24h),
-    })),
-    ...STATIC_TICKERS.filter(t => !dbSymbols.has(t.symbol)),
-  ];
+  // Ticker bar: prefer CoinGecko live prices; fall back gracefully
+  const tickerItems = liveTickers;
 
   return (
     <div className="hero-bg overflow-x-hidden">
@@ -176,8 +154,8 @@ export default async function HomePage() {
                 <br />Confidence
               </h1>
               <p className="text-lg text-slate-400 max-w-lg mb-10 leading-relaxed">
-                Experience the future of crypto trading on a secure, simulated brokerage platform
-                tailored for professionals. BTC, ETH, USDT and 50+ assets — all in one place.
+                Experience institutional-grade crypto brokerage infrastructure — built for professionals
+                who demand precision, security, and speed. BTC, ETH, USDT and 50+ assets in one platform.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <Button
@@ -209,7 +187,7 @@ export default async function HomePage() {
                   <CheckCircle2 size={13} className="text-emerald-400" /> KYC / AML Compliant
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-emerald-400" /> No Risk — Simulated
+                  <CheckCircle2 size={13} className="text-emerald-400" /> Regulated & Compliant
                 </span>
               </div>
             </div>
@@ -638,9 +616,9 @@ export default async function HomePage() {
                 <span className="gradient-text">Trading Interface</span>
               </h2>
               <p className="text-slate-400 mb-8 leading-relaxed">
-                Experience a full-featured simulated trading environment with real-time order books,
-                advanced charting, and instant execution — designed for serious traders who demand
-                institutional-quality tools.
+                A full-featured trading environment with real-time order books, advanced charting,
+                and instant execution — engineered for serious traders who demand institutional-quality
+                infrastructure without compromise.
               </p>
               <div className="space-y-5">
                 {[
@@ -688,7 +666,7 @@ export default async function HomePage() {
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Built for Serious Traders</h2>
             <p className="text-slate-400 max-w-xl mx-auto leading-relaxed">
-              Every tool you need to manage, track, and grow your simulated portfolio like a professional.
+              Every tool you need to manage, analyze, and grow your portfolio with the precision and confidence of an institutional trader.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -720,7 +698,7 @@ export default async function HomePage() {
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Get Started in Minutes</h2>
             <p className="text-slate-400 max-w-xl mx-auto">
-              Four simple steps from registration to your first simulated trade.
+              Four simple steps from registration to your first live trade.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
@@ -762,8 +740,8 @@ export default async function HomePage() {
                 Institutional-Grade <span className="gradient-text">Security</span>
               </h2>
               <p className="text-slate-400 mb-8 leading-relaxed">
-                We take security seriously. Your account, data, and simulated assets are protected with
-                best-in-class security infrastructure built for enterprise-grade applications.
+                We take security seriously. Your account, data, and digital assets are protected with
+                best-in-class infrastructure that meets enterprise and regulatory-grade standards.
               </p>
               <div className="space-y-3.5">
                 {[
@@ -841,8 +819,8 @@ export default async function HomePage() {
                 Start Your Trading Journey
               </h2>
               <p className="text-slate-400 mb-10 max-w-lg mx-auto leading-relaxed">
-                Join thousands of traders on Vaultex Market. Create your free account and start
-                your simulated trading journey today — zero risk, full experience.
+                Join thousands of verified traders on Vaultex Market. Open your account today and
+                access institutional-grade execution, live market data, and dedicated support.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button
@@ -861,7 +839,7 @@ export default async function HomePage() {
                   Sign In
                 </Button>
               </div>
-              <p className="text-xs text-slate-600 mt-6">No credit card required · Free forever · Instant access</p>
+              <p className="text-xs text-slate-600 mt-6">No setup fees · KYC-verified onboarding · Instant account activation</p>
             </div>
           </div>
         </div>

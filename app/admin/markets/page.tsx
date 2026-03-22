@@ -60,7 +60,7 @@ export default function AdminMarketsPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-white">Market Data</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Control simulated asset prices and market data</p>
+        <p className="text-sm text-slate-500 mt-0.5">Manage asset prices, market data, and trading pair configurations</p>
       </div>
 
       <div className="glass-card rounded-xl overflow-hidden">

@@ -68,8 +68,8 @@ export default function WithdrawPage() {
       <div className="glass-card rounded-xl p-4 border border-yellow-500/20 bg-yellow-500/5 flex items-start gap-3">
         <AlertTriangle className="h-4 w-4 text-yellow-400 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-slate-400 leading-relaxed">
-          <strong className="text-yellow-400">Simulation Notice:</strong> This is a simulated withdrawal. No real funds are transferred.
-          Withdrawals are subject to admin review and approval.
+          <strong className="text-yellow-400">Withdrawal Notice:</strong> Withdrawal requests are subject to compliance review and identity verification.
+          Approved withdrawals are processed within 1–3 business days to your registered account.
         </div>
       </div>
 

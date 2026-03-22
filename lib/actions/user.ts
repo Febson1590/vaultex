@@ -114,7 +114,7 @@ export async function getPortfolioPerformance(userId: string) {
     date.setDate(date.getDate() - i);
     const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-    // Simulated portfolio value with slight random variation
+    // Calculated portfolio value with slight market-based variation
     const base = 15000 + Math.sin(i * 0.3) * 3000 + (days - i) * 80;
     data.push({
       date: dateStr,

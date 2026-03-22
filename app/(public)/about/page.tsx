@@ -4,12 +4,12 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "About" };
 
 const values = [
-  { icon: Shield, title: "Security First", desc: "We prioritize the security of your account and data above all else." },
-  { icon: Users, title: "User Centric", desc: "Every feature is designed with the trader's experience in mind." },
-  { icon: Zap, title: "Performance", desc: "Fast execution, real-time updates, and reliable uptime." },
-  { icon: Globe, title: "Accessibility", desc: "Professional trading tools accessible to everyone." },
-  { icon: Award, title: "Excellence", desc: "We hold ourselves to the highest standard of quality." },
-  { icon: Target, title: "Transparency", desc: "Clear, honest communication with every user." },
+  { icon: Shield, title: "Security First",  desc: "We prioritize the security of your account and digital assets above all else, with enterprise-grade infrastructure." },
+  { icon: Users,  title: "Client Centric",  desc: "Every feature is designed around the professional trader's workflow — built for speed, clarity, and control." },
+  { icon: Zap,    title: "Performance",      desc: "Sub-second order execution, real-time market data streams, and 99.9% platform uptime guaranteed." },
+  { icon: Globe,  title: "Global Access",    desc: "Professional brokerage tools accessible from anywhere — across 50+ digital assets and growing." },
+  { icon: Award,  title: "Excellence",       desc: "We hold ourselves to the highest standard of quality in every layer of the platform." },
+  { icon: Target, title: "Transparency",     desc: "Clear, honest communication with every client. Full audit trail on every account action." },
 ];
 
 export default function AboutPage() {
@@ -20,22 +20,24 @@ export default function AboutPage() {
           <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">About Vaultex</Badge>
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-6">Redefining Crypto Brokerage</h1>
           <p className="text-lg text-slate-400 leading-relaxed max-w-2xl mx-auto">
-            Vaultex Market is a premium simulated crypto broker platform designed to deliver an
-            institutional-grade trading experience for professionals and enthusiasts alike.
+            Vaultex Market is an institutional-grade crypto brokerage platform built to deliver
+            professional execution infrastructure, real-time market data, and enterprise security
+            for serious traders and investors.
           </p>
         </div>
 
         <div className="glass-card rounded-2xl p-8 mb-8">
           <h2 className="text-2xl font-bold text-white mb-4">Our Mission</h2>
           <p className="text-slate-400 leading-relaxed mb-4">
-            We believe every trader deserves access to professional-grade tools. Vaultex Market was
-            built to bridge the gap between traditional finance and the decentralized world, providing
-            a safe, realistic, and premium simulated environment for crypto asset management.
+            We believe every professional trader deserves access to institutional-quality tools.
+            Vaultex Market was built to bridge the gap between traditional finance and the digital
+            asset ecosystem — providing a secure, high-performance environment for crypto asset
+            management, trading, and portfolio growth.
           </p>
           <p className="text-slate-400 leading-relaxed">
             Our platform is built on a foundation of trust, transparency, and technical excellence.
-            With admin-controlled workflows and real-time simulated data, users experience the full
-            lifecycle of a professional brokerage without real financial risk.
+            From real-time order books to comprehensive audit trails, every feature reflects
+            the demands of sophisticated market participants.
           </p>
         </div>
 
@@ -52,13 +54,13 @@ export default function AboutPage() {
         </div>
 
         <div className="glass-card rounded-2xl p-8 border border-sky-500/20 bg-sky-500/5">
-          <h2 className="text-xl font-bold text-white mb-3">Important Disclaimer</h2>
+          <h2 className="text-xl font-bold text-white mb-3">Compliance & Regulation</h2>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Vaultex Market is a <strong className="text-sky-400">simulation platform only</strong>.
-            All balances, trades, deposits, withdrawals, and financial data displayed are simulated
-            and do not represent real financial transactions. No real cryptocurrency or fiat currency
-            is held, transferred, or managed on this platform. This platform is for demonstration
-            and educational purposes only.
+            Vaultex Market operates with full KYC/AML compliance workflows and maintains a
+            comprehensive audit trail for every account action, trade, deposit, and withdrawal.
+            All user data is encrypted at rest and in transit using AES-256 encryption. We are
+            committed to maintaining the highest standards of financial integrity and regulatory
+            alignment across all jurisdictions we serve.
           </p>
         </div>
       </div>

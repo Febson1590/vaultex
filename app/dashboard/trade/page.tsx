@@ -66,7 +66,7 @@ export default function TradePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Trade</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Place simulated buy and sell orders</p>
+        <p className="text-sm text-slate-500 mt-0.5">Execute buy and sell orders at real-time market prices</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

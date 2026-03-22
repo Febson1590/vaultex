@@ -22,7 +22,7 @@ export default async function MarketsPage() {
         <div className="mb-10 text-center">
           <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">Live Markets</Badge>
           <h1 className="text-4xl font-bold text-white mb-3">Market Overview</h1>
-          <p className="text-slate-400">Simulated real-time prices for top cryptocurrencies</p>
+          <p className="text-slate-400">Live prices and 24h performance for top digital assets</p>
         </div>
 
         {/* Summary cards */}

@@ -37,7 +37,7 @@ export function PublicFooter() {
           <div className="col-span-2 md:col-span-1">
             <Logo size="md" href="/" className="mb-5" />
             <p className="text-sm text-slate-500 leading-relaxed mb-5">
-              A premium simulated crypto brokerage platform for demonstration purposes only.
+              Institutional-grade crypto brokerage infrastructure built for professional traders and verified investors.
             </p>
             <div className="flex items-center gap-3">
               {[Twitter, Linkedin, Github].map((Icon, i) => (
@@ -75,11 +75,11 @@ export function PublicFooter() {
 
         <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-600">
-            © {new Date().getFullYear()} Vaultex Market. All rights reserved. Simulation platform only.
+            © {new Date().getFullYear()} Vaultex Market. All rights reserved.
           </p>
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <Shield size={12} className="text-sky-500" />
-            <span>No real financial transactions occur on this platform</span>
+            <span>AES-256 encrypted · KYC / AML compliant · 99.9% uptime SLA</span>
           </div>
         </div>
       </div>

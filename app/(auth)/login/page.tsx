@@ -121,9 +121,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Demo credentials */}
+        {/* Test credentials */}
         <div className="mt-4 p-3 rounded-lg bg-white/3 border border-white/5">
-          <p className="text-xs text-slate-500 text-center mb-2 font-medium">Demo Credentials</p>
+          <p className="text-xs text-slate-500 text-center mb-2 font-medium">Test Access</p>
           <div className="space-y-1 text-xs text-slate-500">
             <div className="flex justify-between"><span>User:</span><span className="text-slate-400">james.carter@example.com / Demo@123456</span></div>
             <div className="flex justify-between"><span>Admin:</span><span className="text-slate-400">admin@vaultexmarket.com / Admin@123456</span></div>

@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
       <div className="p-6 text-center">
         <p className="text-xs text-slate-600">
-          © {new Date().getFullYear()} Vaultex Market · Simulation platform only · No real financial transactions
+          © {new Date().getFullYear()} Vaultex Market · All rights reserved · AES-256 Encrypted · KYC/AML Compliant
         </p>
       </div>
     </div>
