@@ -125,6 +125,9 @@ export default async function HomePage() {
   return (
     <div className="hero-bg overflow-x-hidden">
 
+      {/* ── Global grain texture overlay ────────────────────────────────── */}
+      <div className="noise-grain fixed inset-0 pointer-events-none z-0 opacity-[0.018]" aria-hidden="true" />
+
       {/* ── Ticker Bar ─────────────────────────────────────────────────── */}
       <div className="ticker-wrap fixed top-16 left-0 right-0 z-40 h-10 flex items-center overflow-hidden"
         style={{ background: "linear-gradient(180deg, rgba(2,11,24,0.97) 0%, rgba(3,13,27,0.94) 100%)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(14,165,233,0.12)", boxShadow: "0 1px 0 rgba(14,165,233,0.04)" }}>
@@ -166,7 +169,8 @@ export default async function HomePage() {
               <Badge className="mb-6 bg-sky-500/10 text-sky-400 border-sky-500/20 px-4 py-1.5 text-[11px] font-medium tracking-widest uppercase">
                 Premium Crypto Broker Platform
               </Badge>
-              <h1 className="text-5xl sm:text-6xl font-bold text-white mb-6 leading-[1.08] tracking-tight">
+              <h1 className="text-5xl sm:text-6xl font-bold text-white mb-6 leading-[1.08] tracking-tight"
+                style={{ textShadow: "0 2px 30px rgba(14,165,233,0.12), 0 0 60px rgba(255,255,255,0.04)" }}>
                 Trade Digital Assets{" "}
                 <span className="gradient-text">with Institutional</span>
                 <br />Confidence
@@ -211,11 +215,15 @@ export default async function HomePage() {
             </div>
 
             {/* Right — Dashboard mockup */}
-            <div className="relative hidden lg:block">
-              {/* Layered ambient glow */}
-              <div className="absolute -inset-12 bg-sky-500/10 rounded-3xl blur-3xl pointer-events-none" />
-              <div className="absolute -inset-6  bg-cyan-400/5  rounded-3xl blur-2xl pointer-events-none" />
-              <div className="absolute -inset-2  bg-sky-600/3  rounded-3xl blur-xl  pointer-events-none" />
+            <div className="relative hidden lg:block animate-float-slow">
+              {/* Layered ambient glow — brighter */}
+              <div className="absolute -inset-14 rounded-3xl blur-3xl pointer-events-none"
+                style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.18) 0%, transparent 65%)" }} />
+              <div className="absolute -inset-6 bg-cyan-400/6 rounded-3xl blur-2xl pointer-events-none" />
+              <div className="absolute -inset-2 bg-sky-500/4 rounded-3xl blur-lg  pointer-events-none" />
+              {/* Gold accent glow — lower-left */}
+              <div className="absolute -bottom-20 -left-12 w-72 h-56 rounded-full blur-3xl pointer-events-none"
+                style={{ background: "radial-gradient(ellipse, rgba(251,191,36,0.07) 0%, transparent 65%)" }} />
 
               {/* App window frame */}
               <div className="relative mockup-frame rounded-3xl overflow-hidden">
@@ -245,30 +253,47 @@ export default async function HomePage() {
                 </div>
 
                 {/* Dashboard body */}
-                <div className="p-5 space-y-4">
+                <div className="p-5 space-y-3.5">
 
                   {/* Portfolio value row */}
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-[10px] text-slate-500 mb-1 tracking-widest uppercase font-medium">Total Portfolio Value</div>
-                      <div className="text-3xl font-bold text-white tracking-tight" style={{ textShadow: "0 0 30px rgba(255,255,255,0.1)" }}>$284,392.50</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-[10px] text-slate-500 tracking-widest uppercase font-medium">Total Portfolio Value</div>
+                        {/* LIVE indicator */}
+                        <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"
+                            style={{ boxShadow: "0 0 4px rgba(16,185,129,0.8)" }} />
+                          <span className="text-[8px] font-bold text-emerald-400 tracking-wider">LIVE</span>
+                        </div>
+                      </div>
+                      <div className="text-3xl font-bold text-white tracking-tight"
+                        style={{ textShadow: "0 2px 20px rgba(14,165,233,0.15), 0 0 40px rgba(255,255,255,0.06)" }}>
+                        $284,392.50
+                      </div>
                       <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-emerald-400 text-sm flex items-center gap-0.5 font-bold" style={{ textShadow: "0 0 12px rgba(16,185,129,0.5)" }}>
+                        <span className="text-emerald-400 text-sm flex items-center gap-0.5 font-bold"
+                          style={{ textShadow: "0 0 14px rgba(16,185,129,0.55)" }}>
                           <ArrowUpRight size={14} /> +4.28%
                         </span>
                         <span className="text-slate-600 text-[10px]">vs yesterday</span>
                       </div>
                     </div>
-                    <div className="text-right bg-emerald-500/5 border border-emerald-500/15 rounded-xl px-3 py-2">
+                    <div className="text-right rounded-xl px-3 py-2.5"
+                      style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)", boxShadow: "inset 0 1px 0 rgba(16,185,129,0.08)" }}>
                       <div className="text-[10px] text-slate-500 mb-0.5 tracking-wider uppercase">24h P&amp;L</div>
-                      <div className="text-lg font-bold text-emerald-400" style={{ textShadow: "0 0 14px rgba(16,185,129,0.4)" }}>+$11,842</div>
+                      <div className="text-lg font-bold text-emerald-400"
+                        style={{ textShadow: "0 0 16px rgba(16,185,129,0.45)" }}>+$11,842</div>
                       <div className="text-[10px] text-slate-600 mt-0.5">+$234 unrealised</div>
                     </div>
                   </div>
 
+                  {/* Separator */}
+                  <div className="h-px w-full" style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.1), transparent)" }} />
+
                   {/* SVG price chart — sharper, higher contrast */}
                   <div className="relative w-full h-24 rounded-xl overflow-hidden border border-white/[0.06]"
-                    style={{ background: "linear-gradient(180deg, rgba(2,11,24,0.8) 0%, rgba(2,8,18,0.95) 100%)" }}>
+                    style={{ background: "linear-gradient(180deg, rgba(2,11,24,0.8) 0%, rgba(2,8,18,0.95) 100%)", boxShadow: "inset 0 0 24px rgba(14,165,233,0.06), inset 0 1px 0 rgba(14,165,233,0.1)" }}>
                     {/* Timeframe buttons */}
                     <div className="absolute top-2 right-2 flex gap-1 z-10">
                       {["1H","4H","1D","1W"].map((tf, i) => (
@@ -278,12 +303,12 @@ export default async function HomePage() {
                     <svg viewBox="0 0 400 80" preserveAspectRatio="none" className="w-full h-full">
                       <defs>
                         <linearGradient id="heroChartGrad2" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.5" />
-                          <stop offset="70%" stopColor="#0ea5e9" stopOpacity="0.05" />
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.6" />
+                          <stop offset="60%" stopColor="#0ea5e9" stopOpacity="0.08" />
                           <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
                         </linearGradient>
                         <filter id="chartGlow">
-                          <feGaussianBlur stdDeviation="1.5" result="blur" />
+                          <feGaussianBlur stdDeviation="1.2" result="blur" />
                           <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
                         </filter>
                       </defs>
@@ -349,8 +374,8 @@ export default async function HomePage() {
               </div>
 
               {/* Floating badge — trade executed */}
-              <div className="absolute -bottom-5 -right-7 mockup-frame rounded-xl px-4 py-3 border-emerald-500/20 shadow-2xl animate-float"
-                style={{ borderColor: "rgba(16,185,129,0.2)" }}>
+              <div className="absolute -bottom-5 -right-7 mockup-frame rounded-xl px-4 py-3 shadow-2xl"
+                style={{ borderColor: "rgba(16,185,129,0.22)" }}>
                 <div className="text-[9px] text-slate-500 mb-0.5 uppercase tracking-wider">Order Filled</div>
                 <div className="text-sm font-bold text-white">BTC +0.500</div>
                 <div className="text-[10px] font-semibold text-emerald-400 mt-0.5" style={{ textShadow: "0 0 10px rgba(16,185,129,0.5)" }}>@ $84,231.50 · Market</div>
@@ -372,9 +397,10 @@ export default async function HomePage() {
       </section>
 
       {/* ── Stats Strip ────────────────────────────────────────────────── */}
-      <div className="border-y border-sky-500/10 bg-[#040f1f]/90 relative overflow-hidden">
-        {/* Light source behind strip */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-500/3 to-transparent pointer-events-none" />
+      <div className="border-y border-sky-500/10 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, rgba(3,11,22,0.96) 0%, rgba(4,14,28,0.98) 100%)" }}>
+        {/* Horizontal center glow */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-500/[0.04] to-transparent pointer-events-none" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map(stat => (
@@ -449,7 +475,16 @@ export default async function HomePage() {
 
       {/* ── Platform Preview ────────────────────────────────────────────── */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-        style={{ background: "linear-gradient(180deg, #040f1f 0%, #03091a 60%, #040f1f 100%)" }}>
+        style={{ background: "linear-gradient(180deg, oklch(0.065 0.022 240) 0%, oklch(0.06 0.02 240) 55%, oklch(0.065 0.022 240) 100%)" }}>
+        {/* Top border hairline */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.15), transparent)" }} />
+        {/* Left ambient glow — behind mockup */}
+        <div className="absolute top-1/2 -translate-y-1/2 -left-20 w-64 h-96 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.07), transparent)" }} />
+        {/* Right ambient glow */}
+        <div className="absolute top-1/3 right-0 w-48 h-72 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(34,211,238,0.04), transparent)" }} />
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
@@ -638,13 +673,14 @@ export default async function HomePage() {
       </section>
 
       {/* ── Features ───────────────────────────────────────────────────── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, oklch(0.07 0.02 240) 0%, oklch(0.075 0.022 238) 50%, oklch(0.07 0.02 240) 100%)" }}>
         {/* Top border light */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-px pointer-events-none"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.12), transparent)" }} />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.14), transparent)" }} />
         {/* Ambient top-center light */}
-        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-96 h-40 rounded-full blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.05), transparent)" }} />
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-[500px] h-48 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.06), transparent)" }} />
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">
@@ -704,11 +740,18 @@ export default async function HomePage() {
       </section>
 
       {/* ── Trust & Security ───────────────────────────────────────────── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-px pointer-events-none"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.12), transparent)" }} />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-px pointer-events-none"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.06), transparent)" }} />
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, oklch(0.075 0.022 238) 0%, oklch(0.08 0.02 240) 50%, oklch(0.075 0.022 238) 100%)" }}>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.14), transparent)" }} />
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[700px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.08), transparent)" }} />
+        {/* Shield glow — top-right */}
+        <div className="absolute -top-10 right-0 w-80 h-64 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.07), transparent)" }} />
+        {/* Emerald accent — bottom-left */}
+        <div className="absolute -bottom-16 -left-8 w-64 h-48 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(16,185,129,0.04), transparent)" }} />
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -754,30 +797,41 @@ export default async function HomePage() {
       </section>
 
       {/* ── CTA ────────────────────────────────────────────────────────── */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-[#040f1f] relative overflow-hidden">
-        {/* Strong centered background glow behind card */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, oklch(0.065 0.022 240) 0%, oklch(0.055 0.018 240) 50%, oklch(0.06 0.02 240) 100%)" }}>
+        {/* Primary centered glow — much larger and brighter */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[700px] h-[400px] rounded-full blur-[120px]"
-            style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.18) 0%, rgba(34,211,238,0.08) 40%, transparent 70%)" }} />
+          <div className="w-[900px] h-[550px] rounded-full blur-[140px]"
+            style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.26) 0%, rgba(34,211,238,0.12) 35%, transparent 65%)" }} />
         </div>
+        {/* Secondary cyan ring glow */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[600px] h-[320px] rounded-full blur-[80px]"
+            style={{ background: "radial-gradient(ellipse, rgba(56,189,248,0.1) 0%, transparent 60%)" }} />
+        </div>
+        {/* Corner accent lights */}
+        <div className="absolute top-0 left-0 w-64 h-48 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.06), transparent)" }} />
+        <div className="absolute bottom-0 right-0 w-64 h-48 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(34,211,238,0.05), transparent)" }} />
 
         <div className="max-w-4xl mx-auto text-center relative">
           <div className="rounded-3xl p-12 relative overflow-hidden"
             style={{
-              background: "rgba(5, 13, 28, 0.85)",
-              border: "1px solid rgba(14,165,233,0.22)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              boxShadow: "0 0 0 1px rgba(14,165,233,0.06), 0 40px 100px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)"
+              background: "rgba(3, 9, 20, 0.92)",
+              border: "1px solid rgba(14,165,233,0.28)",
+              backdropFilter: "blur(32px)",
+              WebkitBackdropFilter: "blur(32px)",
+              boxShadow: "0 0 0 1px rgba(14,165,233,0.08), 0 50px 120px rgba(0,0,0,0.7), 0 0 80px rgba(14,165,233,0.08), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 60px rgba(14,165,233,0.025)"
             }}>
-            {/* Card inner light layer */}
-            <div className="absolute inset-0 bg-gradient-to-br from-sky-500/6 via-transparent to-cyan-500/4 pointer-events-none" />
-            {/* Top shimmer line */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-px"
-              style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.7), transparent)" }} />
+            {/* Card inner gradient */}
+            <div className="absolute inset-0 bg-gradient-to-br from-sky-500/8 via-transparent to-cyan-500/5 pointer-events-none rounded-3xl" />
+            {/* Top shimmer line — brighter */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.85), transparent)" }} />
             {/* Bottom subtle light */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-40 h-px"
-              style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.2), transparent)" }} />
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-56 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.25), transparent)" }} />
 
             <div className="relative">
               <Badge className="mb-6 bg-sky-500/10 text-sky-400 border-sky-500/25 text-xs tracking-widest uppercase">
@@ -794,7 +848,7 @@ export default async function HomePage() {
                 <Button
                   size="lg"
                   render={<Link href="/register" />}
-                  className="animate-btn-glow bg-sky-500 hover:bg-sky-400 text-white font-bold px-10 h-13 hover:scale-[1.03] transition-all duration-200 rounded-xl"
+                  className="animate-btn-glow bg-sky-500 hover:bg-sky-400 text-white font-bold px-12 h-14 hover:scale-[1.04] active:scale-[0.98] transition-all duration-200 rounded-xl text-base"
                 >
                   Create Free Account <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -802,7 +856,7 @@ export default async function HomePage() {
                   size="lg"
                   variant="outline"
                   render={<Link href="/login" />}
-                  className="border-white/10 text-slate-300 hover:bg-white/5 hover:text-white h-13 px-8 rounded-xl transition-all duration-200"
+                  className="border-sky-500/20 text-slate-300 hover:bg-sky-500/8 hover:text-white hover:border-sky-500/35 h-14 px-8 rounded-xl transition-all duration-200"
                 >
                   Sign In
                 </Button>
