@@ -7,15 +7,21 @@ import { generateWalletAddress } from "@/lib/utils";
 import { z } from "zod";
 
 const registerSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
+  name:     z.string().min(2),
+  email:    z.string().email(),
   password: z.string().min(8),
+  fullName: z.string().optional(),
+  phone:    z.string().optional(),
+  country:  z.string().optional(),
 });
 
 export async function registerUser(data: {
-  name: string;
-  email: string;
-  password: string;
+  name:      string;           // trading username / display name
+  email:     string;
+  password:  string;
+  fullName?: string;           // full legal name → profile
+  phone?:    string;
+  country?:  string;
 }) {
   try {
     const parsed = registerSchema.safeParse(data);
@@ -27,6 +33,7 @@ export async function registerUser(data: {
     if (existing) return { error: "Email already registered" };
 
     const hashed = await bcrypt.hash(data.password, 12);
+    const legal  = data.fullName?.trim() || data.name;
 
     const user = await db.user.create({
       data: {
@@ -35,8 +42,10 @@ export async function registerUser(data: {
         password: hashed,
         profile: {
           create: {
-            firstName: data.name.split(" ")[0],
-            lastName: data.name.split(" ").slice(1).join(" ") || "",
+            firstName: legal.split(" ")[0],
+            lastName:  legal.split(" ").slice(1).join(" ") || "",
+            phone:     data.phone   || null,
+            country:   data.country || null,
           },
         },
         wallets: {
