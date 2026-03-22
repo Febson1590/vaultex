@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, BarChart3, Wallet, TrendingUp, ArrowDownToLine,
   ArrowUpFromLine, History, ShieldCheck, HeadphonesIcon, Settings,
-  ChevronLeft, ChevronRight, LogOut, Bell,
+  ChevronLeft, ChevronRight, LogOut, Bell, Copy,
 } from "lucide-react";
 import { logoutUser } from "@/lib/actions/auth";
 import { useState } from "react";

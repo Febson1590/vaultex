@@ -7,16 +7,18 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine,
   ShieldCheck, TrendingUp, History, HeadphonesIcon, Bell,
-  Settings, BarChart3, Activity,
+  BarChart3, Activity, Copy,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/investments", label: "Investments", icon: TrendingUp },
+  { href: "/admin/copy-traders", label: "Copy Traders", icon: Copy },
   { href: "/admin/deposits", label: "Deposits", icon: ArrowDownToLine },
   { href: "/admin/withdrawals", label: "Withdrawals", icon: ArrowUpFromLine },
   { href: "/admin/verification", label: "KYC / Verification", icon: ShieldCheck },
-  { href: "/admin/trades", label: "Trades", icon: TrendingUp },
+  { href: "/admin/trades", label: "Trades", icon: Activity },
   { href: "/admin/transactions", label: "Transactions", icon: History },
   { href: "/admin/support", label: "Support", icon: HeadphonesIcon },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },

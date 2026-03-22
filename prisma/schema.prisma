@@ -34,6 +34,9 @@ model User {
   verifications Verification[]
   adminActions  AdminActionLog[] @relation("AdminActions")
   targetActions AdminActionLog[] @relation("TargetActions")
+  investment    UserInvestment?
+  copyTrades    UserCopyTrade[]
+  activityLogs  ActivityLog[]
 
   @@map("users")
 }
@@ -350,6 +353,106 @@ model SiteConfig {
   @@map("site_configs")
 }
 
+// ─── Investment Plans ─────────────────────────────────────
+model InvestmentPlan {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  minAmount        Decimal  @default(100) @db.Decimal(20, 2)
+  minProfit        Decimal  @default(0.5)  @db.Decimal(6, 4)  // e.g. 0.5 = 0.5%
+  maxProfit        Decimal  @default(1.5)  @db.Decimal(6, 4)
+  profitInterval   Int      @default(60)   // seconds between credits
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  userInvestments  UserInvestment[]
+
+  @@map("investment_plans")
+}
+
+model UserInvestment {
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  planId           String?
+  planName         String
+  amount           Decimal          @db.Decimal(20, 2)
+  totalEarned      Decimal          @default(0) @db.Decimal(20, 2)
+  minProfit        Decimal          @db.Decimal(6, 4)
+  maxProfit        Decimal          @db.Decimal(6, 4)
+  profitInterval   Int              @default(60)
+  status           InvestmentStatus @default(ACTIVE)
+  lastProfitAt     DateTime?
+  nextProfitAt     DateTime?
+  startedAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan  InvestmentPlan?  @relation(fields: [planId], references: [id])
+
+  @@map("user_investments")
+}
+
+// ─── Copy Traders ─────────────────────────────────────────
+model CopyTrader {
+  id              String   @id @default(cuid())
+  name            String
+  avatarUrl       String?
+  specialty       String?
+  winRate         Decimal  @default(0) @db.Decimal(5, 2)
+  totalROI        Decimal  @default(0) @db.Decimal(8, 2)
+  followers       Int      @default(0)
+  minCopyAmount   Decimal  @default(100) @db.Decimal(20, 2)
+  description     String?
+  profitInterval  Int      @default(60)
+  minProfit       Decimal  @default(0.3) @db.Decimal(6, 4)
+  maxProfit       Decimal  @default(1.2) @db.Decimal(6, 4)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userCopyTrades  UserCopyTrade[]
+
+  @@map("copy_traders")
+}
+
+model UserCopyTrade {
+  id           String          @id @default(cuid())
+  userId       String
+  traderId     String
+  traderName   String
+  amount       Decimal         @db.Decimal(20, 2)
+  totalEarned  Decimal         @default(0) @db.Decimal(20, 2)
+  minProfit    Decimal         @db.Decimal(6, 4)
+  maxProfit    Decimal         @db.Decimal(6, 4)
+  profitInterval Int           @default(60)
+  status       CopyTradeStatus @default(ACTIVE)
+  lastProfitAt DateTime?
+  nextProfitAt DateTime?
+  startedAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trader  CopyTrader @relation(fields: [traderId], references: [id])
+
+  @@map("user_copy_trades")
+}
+
+// ─── Activity Log ─────────────────────────────────────────
+model ActivityLog {
+  id        String       @id @default(cuid())
+  userId    String
+  type      ActivityType
+  title     String
+  amount    Decimal?     @db.Decimal(20, 2)
+  currency  String       @default("USD")
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
 // ─── Enums ────────────────────────────────────────────────
 enum Role {
   USER
@@ -441,4 +544,31 @@ enum NotificationType {
   WITHDRAWAL
   VERIFICATION
   SUPPORT
+}
+
+enum InvestmentStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum CopyTradeStatus {
+  ACTIVE
+  PAUSED
+  STOPPED
+}
+
+enum ActivityType {
+  INVESTMENT_STARTED
+  INVESTMENT_PROFIT
+  INVESTMENT_PAUSED
+  INVESTMENT_RESUMED
+  INVESTMENT_FUNDS_ADDED
+  INVESTMENT_UPGRADED
+  INVESTMENT_CANCELLED
+  COPY_TRADE_STARTED
+  COPY_TRADE_PROFIT
+  COPY_TRADE_STOPPED
+  COPY_TRADE_PAUSED
 }
