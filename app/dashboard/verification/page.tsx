@@ -11,8 +11,9 @@ import {
   FileImage, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useUploadThing } from "@/lib/uploadthing";
 
-/* ── Status display config ───────────────────────────────────────────────── */
+/* ── Status display config ──────────────────────────────────────────── */
 const STATUS_CONFIG: Record<string, {
   icon: React.ElementType; color: string; bg: string; border: string;
   title: string; message: string;
@@ -43,15 +44,19 @@ const STATUS_CONFIG: Record<string, {
   },
 };
 
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* ───────────────────────────────────────────────────────────────────────────── */
 export default function VerificationPage() {
   const [status,      setStatus]      = useState<string | null>(null);
   const [loading,     setLoading]     = useState(false);
-  const [submitted,   setSubmitted]   = useState(false);
   const [docType,     setDocType]     = useState("Passport");
   const [docFile,     setDocFile]     = useState<File | null>(null);
   const [isDragging,  setIsDragging]  = useState(false);
+  const [firstName,   setFirstName]   = useState("");
+  const [lastName,    setLastName]    = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { startUpload } = useUploadThing("kycDocument");
 
   /* Load existing verification status */
   useEffect(() => {
@@ -61,7 +66,7 @@ export default function VerificationPage() {
       .catch(() => {});
   }, []);
 
-  /* ── File validation & setter ─────────────────────────────────────────── */
+  /* ── File validation & setter ────────────────────────────────────────── */
   function handleFile(file: File | null) {
     if (!file) return;
     const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -96,30 +101,65 @@ export default function VerificationPage() {
     handleFile(e.dataTransfer.files[0] ?? null);
   }
 
-  /* ── Submit ───────────────────────────────────────────────────────────── */
+  /* ── Submit ─────────────────────────────────────────────────────────────────────────────────── */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!docFile) {
       toast.error("Please upload a photo of your document before submitting.");
       return;
     }
+
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1500));
-    toast.success("Verification submitted! Our compliance team will review within 1–3 business days.");
-    setSubmitted(true);
-    setStatus("PENDING");
-    setLoading(false);
+
+    try {
+      // 1. Upload document to UploadThing — get a permanent URL
+      let frontUrl: string | null = null;
+      try {
+        const uploaded = await startUpload([docFile]);
+        frontUrl = uploaded?.[0]?.url ?? null;
+      } catch {
+        // Upload failed — proceed without URL; admin still sees the record
+      }
+
+      // 2. Save the verification record to the database
+      const res = await fetch("/api/user/verification", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentType: docType,
+          frontUrl,
+          firstName:   firstName   || undefined,
+          lastName:    lastName    || undefined,
+          dateOfBirth: dateOfBirth || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        toast.error(data.error || "Submission failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      toast.success("Verification submitted! Our compliance team will review within 1–3 business days.");
+      setStatus("PENDING");
+    } catch {
+      toast.error("Submission failed. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const currentStatus = status ? STATUS_CONFIG[status] : null;
 
-  /* ── Shared input class ───────────────────────────────────────────────── */
+  /* ── Shared input class ────────────────────────────────────────────────────────── */
   const inputCls = "bg-white/[0.06] border-white/[0.18] text-white placeholder:text-slate-500 h-10 focus:border-sky-500/70 focus:bg-white/[0.08] hover:border-white/30 transition-colors";
 
-  /* ── Label class ──────────────────────────────────────────────────────── */
+  /* ── Label class ──────────────────────────────────────────────────────────────────────── */
   const labelCls = "text-xs font-medium text-slate-300 uppercase tracking-widest";
 
-  /* ═══════════════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="max-w-2xl mx-auto space-y-6">
 
@@ -129,7 +169,7 @@ export default function VerificationPage() {
         <p className="text-sm text-slate-400 mt-0.5">Complete KYC to unlock full platform access</p>
       </div>
 
-      {/* ── Status banner ──────────────────────────────────────────────── */}
+      {/* ── Status banner ────────────────────────────────────────────────────── */}
       {currentStatus && (
         <div className={`glass-card rounded-xl p-5 flex items-center gap-4 border ${currentStatus.bg} ${currentStatus.border}`}>
           <div className={`w-12 h-12 rounded-full flex items-center justify-center ${currentStatus.bg}`}>
@@ -142,8 +182,8 @@ export default function VerificationPage() {
         </div>
       )}
 
-      {/* ── KYC Form ──────────────────────────────────────────────────── */}
-      {(!status || status === "REJECTED") && !submitted && (
+      {/* ── KYC Form — hidden once pending/approved ───────────────────────────────────── */}
+      {(!status || status === "REJECTED") && (
         <Card className="glass-card border-0 rounded-xl p-6
           shadow-[0_8px_40px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.07]">
 
@@ -160,6 +200,8 @@ export default function VerificationPage() {
                 <Input
                   required
                   placeholder="John"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
                   className={inputCls}
                 />
               </div>
@@ -168,6 +210,8 @@ export default function VerificationPage() {
                 <Input
                   required
                   placeholder="Doe"
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
                   className={inputCls}
                 />
               </div>
@@ -179,6 +223,8 @@ export default function VerificationPage() {
               <Input
                 required
                 type="date"
+                value={dateOfBirth}
+                onChange={e => setDateOfBirth(e.target.value)}
                 className={`${inputCls} [color-scheme:dark]`}
               />
             </div>
@@ -200,7 +246,7 @@ export default function VerificationPage() {
               </Select>
             </div>
 
-            {/* ── Document Upload ────────────────────────────────────── */}
+            {/* ── Document Upload ────────────────────────────────────────────────────── */}
             <div className="space-y-1.5">
               <Label className={labelCls}>
                 Document Photo <span className="text-red-400">*</span>
@@ -216,7 +262,7 @@ export default function VerificationPage() {
               />
 
               {docFile ? (
-                /* ── File selected — show name + clear button ──────── */
+                /* ── File selected — show name + clear button ──────────── */
                 <div className="flex items-center gap-3 rounded-lg px-4 py-3
                   bg-sky-500/[0.07] border border-sky-500/30 transition-all">
                   <FileImage className="h-5 w-5 text-sky-400 flex-shrink-0" />
@@ -236,7 +282,7 @@ export default function VerificationPage() {
                   </button>
                 </div>
               ) : (
-                /* ── Drop zone ─────────────────────────────────────── */
+                /* ── Drop zone ────────────────────────────────────────────────────────── */
                 <div
                   role="button"
                   tabIndex={0}
@@ -253,8 +299,7 @@ export default function VerificationPage() {
                       : "border-white/[0.22] hover:border-sky-500/50 hover:bg-white/[0.03]"}
                   `}
                 >
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors
-                    ${isDragging ? "bg-sky-500/20" : "bg-white/[0.06]"}`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors ${isDragging ? "bg-sky-500/20" : "bg-white/[0.06]"}`}>
                     <Upload className={`h-5 w-5 transition-colors ${isDragging ? "text-sky-400" : "text-slate-400"}`} />
                   </div>
                   <div className="text-sm font-semibold text-white mb-1">

@@ -78,7 +78,16 @@ export async function registerUser(data: {
 
 export async function loginUser(data: { email: string; password: string }) {
   try {
-    await signIn("credentials", { ...data, redirectTo: "/dashboard" });
+    // Look up the user's role so admins land on /admin after login.
+    // This is done before signIn — if credentials are wrong, signIn will
+    // throw and we return an error, so the redirectTo is never used.
+    const userRecord = await db.user.findUnique({
+      where:  { email: data.email },
+      select: { role: true },
+    });
+    const redirectTo = userRecord?.role === "ADMIN" ? "/admin" : "/dashboard";
+
+    await signIn("credentials", { ...data, redirectTo });
   } catch (error: any) {
     if (error?.message?.includes("AccountSuspended")) {
       return { error: "Account suspended. Contact support." };
