@@ -136,8 +136,9 @@
 /* ─── Backgrounds ────────────────────────────────── */
 .hero-bg {
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(14, 165, 233, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 50%, rgba(34, 211, 238, 0.04), transparent),
+    radial-gradient(ellipse 90% 55% at 50% -5%,  rgba(14, 165, 233, 0.14), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 60%,  rgba(34, 211, 238, 0.05), transparent),
+    radial-gradient(ellipse 50% 35% at 10% 80%,  rgba(14, 165, 233, 0.04), transparent),
     oklch(0.08 0.02 240);
 }
 
@@ -174,10 +175,19 @@
   100% { transform: translateX(-50%); }
 }
 
-.animate-shimmer { animation: shimmer 2s infinite; }
+.animate-shimmer    { animation: shimmer 2s infinite; }
 .animate-pulse-glow { animation: pulse-glow 2s infinite; }
-.animate-float { animation: float 4s ease-in-out infinite; }
-.animate-ticker { animation: ticker 35s linear infinite; }
+.animate-float      { animation: float 4s ease-in-out infinite; }
+.animate-ticker     { animation: ticker 40s linear infinite; }
+
+/* ─── Ticker pause on hover ──────────────────────── */
+.ticker-wrap:hover .animate-ticker { animation-play-state: paused; }
+
+/* ─── Border divider ─────────────────────────────── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(14, 165, 233, 0.2), transparent);
+}
 
 /* ─── Utility ────────────────────────────────────── */
 .text-profit { color: #10b981; }
