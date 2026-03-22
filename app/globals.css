@@ -61,11 +61,11 @@
   --secondary: oklch(0.14 0.02 240);
   --secondary-foreground: oklch(0.95 0.01 220);
   --muted: oklch(0.14 0.02 240);
-  --muted-foreground: oklch(0.55 0.02 220);
+  --muted-foreground: oklch(0.65 0.02 220);
   --accent: oklch(0.65 0.2 215);
   --accent-foreground: oklch(0.08 0.02 240);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.20 0.03 240);
+  --border: oklch(0.27 0.03 240);
   --input: oklch(0.14 0.02 240);
   --ring: oklch(0.65 0.2 215);
   --chart-1: oklch(0.65 0.2 215);
@@ -109,10 +109,10 @@
 
 /* ─── Glass ─────────────────────────────────────── */
 .glass-card {
-  background: rgba(7, 15, 30, 0.7);
+  background: rgba(7, 15, 30, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.16);
 }
 
 .glass-card-hover {
@@ -121,7 +121,7 @@
               border-color 0.3s ease;
 }
 .glass-card-hover:hover {
-  border-color: rgba(14, 165, 233, 0.28);
+  border-color: rgba(14, 165, 233, 0.35);
   box-shadow:
     0 0 0 1px rgba(14, 165, 233, 0.07),
     0 8px 32px rgba(14, 165, 233, 0.08),
@@ -220,7 +220,7 @@
 
 /* ─── Chart styles ───────────────────────────────── */
 .recharts-cartesian-axis-tick-value {
-  fill: oklch(0.55 0.02 220) !important;
+  fill: oklch(0.65 0.02 220) !important;
   font-size: 11px !important;
 }
 .recharts-tooltip-wrapper { outline: none !important; }
