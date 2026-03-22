@@ -10,6 +10,14 @@ import {
 import { db } from "@/lib/db";
 import { formatCurrency, formatPercent, formatCompact } from "@/lib/utils";
 
+/* ─── Per-symbol brand colours for ticker icons ───────────────────────── */
+const CRYPTO_COLORS: Record<string, string> = {
+  BTC:   "#f7931a", ETH:  "#627eea", USDT: "#26a17b", BNB:  "#f3ba2f",
+  SOL:   "#9945ff", XRP:  "#346aa9", ADA:  "#3cc8c8", DOGE: "#c2a633",
+  AVAX:  "#e84142", MATIC:"#8247e5", DOT:  "#e6007a", LINK: "#2a5ada",
+  LTC:   "#bebebe", UNI:  "#ff007a", ATOM: "#6f7390",
+};
+
 /* ─── Static ticker data — major cryptocurrencies ─────────────────────── */
 const STATIC_TICKERS = [
   { symbol: "BTC",   name: "Bitcoin",   price: 84231.50, change:  2.34 },
@@ -118,23 +126,33 @@ export default async function HomePage() {
     <div className="hero-bg overflow-x-hidden">
 
       {/* ── Ticker Bar ─────────────────────────────────────────────────── */}
-      <div className="ticker-wrap fixed top-16 left-0 right-0 z-40 bg-[#020b18]/90 backdrop-blur-md border-b border-sky-500/10 h-9 flex items-center overflow-hidden">
+      <div className="ticker-wrap fixed top-16 left-0 right-0 z-40 h-10 flex items-center overflow-hidden"
+        style={{ background: "linear-gradient(180deg, rgba(2,11,24,0.97) 0%, rgba(3,13,27,0.94) 100%)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(14,165,233,0.12)", boxShadow: "0 1px 0 rgba(14,165,233,0.04)" }}>
         <div className="flex animate-ticker whitespace-nowrap select-none">
-          {[...tickerItems, ...tickerItems].map((asset, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-2 px-5 text-[11px] border-r border-white/5 last:border-0"
-            >
-              <span className="font-bold text-white tracking-wide">{asset.symbol}</span>
-              <span className="text-slate-400">{formatCurrency(asset.price)}</span>
-              <span className={`flex items-center gap-0.5 font-medium ${asset.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {asset.change >= 0
-                  ? <ArrowUpRight size={10} />
-                  : <ArrowDownRight size={10} />}
-                {Math.abs(asset.change).toFixed(2)}%
+          {[...tickerItems, ...tickerItems].map((asset, i) => {
+            const color = CRYPTO_COLORS[asset.symbol] ?? "#0ea5e9";
+            const isUp  = asset.change >= 0;
+            return (
+              <span
+                key={i}
+                className="inline-flex items-center gap-2.5 px-6 text-[11px] border-r border-white/[0.06]"
+              >
+                {/* Coloured icon circle */}
+                <span
+                  className="inline-flex w-4 h-4 rounded-full items-center justify-center flex-shrink-0 text-[7px] font-black"
+                  style={{ background: `${color}22`, border: `1px solid ${color}55`, color }}
+                >
+                  {asset.symbol.slice(0, 1)}
+                </span>
+                <span className="font-bold text-white tracking-wide">{asset.symbol}</span>
+                <span className="text-slate-300 font-medium">{formatCurrency(asset.price)}</span>
+                <span className={`inline-flex items-center gap-0.5 font-semibold ${isUp ? "ticker-up" : "ticker-down"}`}>
+                  {isUp ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                  {Math.abs(asset.change).toFixed(2)}%
+                </span>
               </span>
-            </span>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -194,113 +212,134 @@ export default async function HomePage() {
 
             {/* Right — Dashboard mockup */}
             <div className="relative hidden lg:block">
-              {/* Ambient glow layers */}
-              <div className="absolute -inset-10 bg-sky-500/8 rounded-3xl blur-3xl pointer-events-none" />
-              <div className="absolute -inset-6 bg-cyan-400/4 rounded-3xl blur-2xl pointer-events-none" />
+              {/* Layered ambient glow */}
+              <div className="absolute -inset-12 bg-sky-500/10 rounded-3xl blur-3xl pointer-events-none" />
+              <div className="absolute -inset-6  bg-cyan-400/5  rounded-3xl blur-2xl pointer-events-none" />
+              <div className="absolute -inset-2  bg-sky-600/3  rounded-3xl blur-xl  pointer-events-none" />
 
               {/* App window frame */}
-              <div className="relative glass-card rounded-2xl overflow-hidden border border-sky-500/25 shadow-2xl">
+              <div className="relative mockup-frame rounded-3xl overflow-hidden">
 
                 {/* Titlebar */}
-                <div className="flex items-center gap-3 px-4 py-3 bg-[#030d1a] border-b border-white/5">
+                <div className="flex items-center gap-3 px-4 py-3 bg-[#020b18]/80 border-b border-white/[0.06]"
+                  style={{ boxShadow: "inset 0 -1px 0 rgba(14,165,233,0.06)" }}>
                   <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-500/50" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-                    <div className="w-3 h-3 rounded-full bg-green-500/50" />
+                    <div className="w-3 h-3 rounded-full bg-red-500/60 ring-1 ring-red-500/20" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/60 ring-1 ring-yellow-500/20" />
+                    <div className="w-3 h-3 rounded-full bg-green-500/60 ring-1 ring-green-500/20" />
                   </div>
                   <div className="flex-1 flex justify-center">
-                    <div className="text-[11px] text-slate-500 bg-[#040f1f] px-4 py-1 rounded-md border border-white/5">
+                    <div className="text-[11px] text-slate-400 bg-[#040f1f]/80 px-4 py-1 rounded-lg border border-white/[0.07] tracking-wide">
                       vaultex.market — Portfolio Dashboard
                     </div>
                   </div>
                 </div>
 
+                {/* Nav tabs */}
+                <div className="flex items-center gap-1 px-4 py-2 bg-[#020b18]/60 border-b border-white/[0.04]">
+                  {["Portfolio", "Trade", "History", "Analytics"].map((tab, i) => (
+                    <span key={tab} className={`text-[10px] px-3 py-1 rounded-md font-medium ${i === 0 ? "bg-sky-500/15 text-sky-400 border border-sky-500/20" : "text-slate-600 hover:text-slate-400"}`}>
+                      {tab}
+                    </span>
+                  ))}
+                </div>
+
                 {/* Dashboard body */}
-                <div className="p-5 space-y-5 bg-[#030d1a]/60">
+                <div className="p-5 space-y-4">
 
                   {/* Portfolio value row */}
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-[10px] text-slate-500 mb-0.5 tracking-wider uppercase">Total Portfolio Value</div>
-                      <div className="text-3xl font-bold text-white tracking-tight">$284,392.50</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-emerald-400 text-sm flex items-center gap-0.5 font-semibold">
+                      <div className="text-[10px] text-slate-500 mb-1 tracking-widest uppercase font-medium">Total Portfolio Value</div>
+                      <div className="text-3xl font-bold text-white tracking-tight" style={{ textShadow: "0 0 30px rgba(255,255,255,0.1)" }}>$284,392.50</div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-emerald-400 text-sm flex items-center gap-0.5 font-bold" style={{ textShadow: "0 0 12px rgba(16,185,129,0.5)" }}>
                           <ArrowUpRight size={14} /> +4.28%
                         </span>
-                        <span className="text-slate-500 text-xs">vs yesterday</span>
+                        <span className="text-slate-600 text-[10px]">vs yesterday</span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right bg-emerald-500/5 border border-emerald-500/15 rounded-xl px-3 py-2">
                       <div className="text-[10px] text-slate-500 mb-0.5 tracking-wider uppercase">24h P&amp;L</div>
-                      <div className="text-xl font-bold text-emerald-400">+$11,842</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">+$234 unrealised</div>
+                      <div className="text-lg font-bold text-emerald-400" style={{ textShadow: "0 0 14px rgba(16,185,129,0.4)" }}>+$11,842</div>
+                      <div className="text-[10px] text-slate-600 mt-0.5">+$234 unrealised</div>
                     </div>
                   </div>
 
-                  {/* SVG price chart */}
-                  <div className="relative w-full h-20 rounded-lg overflow-hidden bg-[#020b18]/60 border border-white/5">
-                    <svg viewBox="0 0 400 70" preserveAspectRatio="none" className="w-full h-full">
+                  {/* SVG price chart — sharper, higher contrast */}
+                  <div className="relative w-full h-24 rounded-xl overflow-hidden border border-white/[0.06]"
+                    style={{ background: "linear-gradient(180deg, rgba(2,11,24,0.8) 0%, rgba(2,8,18,0.95) 100%)" }}>
+                    {/* Timeframe buttons */}
+                    <div className="absolute top-2 right-2 flex gap-1 z-10">
+                      {["1H","4H","1D","1W"].map((tf, i) => (
+                        <span key={tf} className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${i === 2 ? "bg-sky-500/20 text-sky-400" : "text-slate-600"}`}>{tf}</span>
+                      ))}
+                    </div>
+                    <svg viewBox="0 0 400 80" preserveAspectRatio="none" className="w-full h-full">
                       <defs>
-                        <linearGradient id="heroChartGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.35" />
+                        <linearGradient id="heroChartGrad2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.5" />
+                          <stop offset="70%" stopColor="#0ea5e9" stopOpacity="0.05" />
                           <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
                         </linearGradient>
+                        <filter id="chartGlow">
+                          <feGaussianBlur stdDeviation="1.5" result="blur" />
+                          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
                       </defs>
-                      {/* Subtle grid */}
-                      {[17, 35, 52].map(y => (
-                        <line key={y} x1="0" y1={y} x2="400" y2={y}
-                          stroke="rgba(14,165,233,0.06)" strokeWidth="1" />
+                      {/* Grid */}
+                      {[20, 40, 60].map(y => (
+                        <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="rgba(14,165,233,0.08)" strokeWidth="1" />
                       ))}
-                      {/* Fill */}
+                      {/* Fill area */}
                       <path
-                        d="M0,60 C30,58 55,54 80,50 C105,46 125,48 150,42 C175,36 195,38 220,30 C245,22 265,25 290,18 C315,11 335,13 360,7 C380,3 390,4 400,2 L400,70 L0,70 Z"
-                        fill="url(#heroChartGrad)"
+                        d="M0,68 C30,65 55,62 80,57 C105,52 125,54 150,47 C175,40 195,43 220,34 C245,25 265,28 290,20 C315,12 335,14 360,8 C380,4 390,5 400,3 L400,80 L0,80 Z"
+                        fill="url(#heroChartGrad2)"
                       />
-                      {/* Line */}
+                      {/* Main price line */}
                       <path
-                        d="M0,60 C30,58 55,54 80,50 C105,46 125,48 150,42 C175,36 195,38 220,30 C245,22 265,25 290,18 C315,11 335,13 360,7 C380,3 390,4 400,2"
-                        stroke="#0ea5e9"
-                        strokeWidth="2"
+                        d="M0,68 C30,65 55,62 80,57 C105,52 125,54 150,47 C175,40 195,43 220,34 C245,25 265,28 290,20 C315,12 335,14 360,8 C380,4 390,5 400,3"
+                        stroke="#38bdf8"
+                        strokeWidth="2.5"
                         fill="none"
                         strokeLinecap="round"
+                        filter="url(#chartGlow)"
                       />
-                      {/* Dot at current price */}
-                      <circle cx="400" cy="2" r="3" fill="#0ea5e9" />
-                      <circle cx="400" cy="2" r="6" fill="#0ea5e9" fillOpacity="0.2" />
+                      {/* Live dot */}
+                      <circle cx="400" cy="3" r="3.5" fill="#38bdf8" />
+                      <circle cx="400" cy="3" r="7" fill="#38bdf8" fillOpacity="0.25" />
                     </svg>
                   </div>
 
                   {/* Asset allocation rows */}
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {[
-                      { s: "BTC", n: "Bitcoin",  p: "$84,231", c: "+2.34%", alloc: "42%", up: true  },
-                      { s: "ETH", n: "Ethereum", p: "$3,921",  c: "+1.87%", alloc: "28%", up: true  },
-                      { s: "SOL", n: "Solana",   p: "$182.60", c: "+4.21%", alloc: "18%", up: true  },
-                      { s: "BNB", n: "BNB",      p: "$621.40", c: "+3.12%", alloc: "12%", up: true  },
+                      { s: "BTC", n: "Bitcoin",  p: "$84,231", c: "+2.34%", alloc: "42%", up: true, color: "#f7931a" },
+                      { s: "ETH", n: "Ethereum", p: "$3,921",  c: "+1.87%", alloc: "28%", up: true, color: "#627eea" },
+                      { s: "SOL", n: "Solana",   p: "$182.60", c: "+4.21%", alloc: "18%", up: true, color: "#9945ff" },
+                      { s: "BNB", n: "BNB",      p: "$621.40", c: "+3.12%", alloc: "12%", up: true, color: "#f3ba2f" },
                     ].map(asset => (
-                      <div key={asset.s} className="flex items-center justify-between">
+                      <div key={asset.s} className="flex items-center justify-between py-1 border-b border-white/[0.04] last:border-0">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-sky-500/10 border border-sky-500/20 flex items-center justify-center flex-shrink-0">
-                            <span className="text-[9px] font-bold text-sky-400 leading-none">{asset.s}</span>
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${asset.color}18`, border: `1px solid ${asset.color}40` }}>
+                            <span className="text-[8px] font-black leading-none" style={{ color: asset.color }}>{asset.s.slice(0,1)}</span>
                           </div>
                           <div>
-                            <div className="text-xs font-semibold text-white">{asset.s}</div>
-                            <div className="text-[10px] text-slate-500">{asset.alloc} portfolio</div>
+                            <div className="text-[11px] font-semibold text-white">{asset.s}</div>
+                            <div className="text-[9px] text-slate-600">{asset.alloc} allocation</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          {/* Mini allocation bar */}
-                          <div className="hidden sm:flex items-center gap-1">
-                            <div className="w-14 h-1 rounded-full bg-white/5 overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-sky-500/60"
-                                style={{ width: asset.alloc }}
-                              />
-                            </div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-0.5 rounded-full bg-white/5 overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: asset.alloc, background: asset.color, opacity: 0.5 }} />
                           </div>
                           <div className="text-right">
-                            <div className="text-xs font-semibold text-white">{asset.p}</div>
-                            <div className={`text-[10px] font-medium ${asset.up ? "text-emerald-400" : "text-red-400"}`}>{asset.c}</div>
+                            <div className="text-[11px] font-semibold text-slate-200">{asset.p}</div>
+                            <div className={`text-[9px] font-bold ${asset.up ? "text-emerald-400" : "text-red-400"}`}
+                              style={{ textShadow: asset.up ? "0 0 8px rgba(16,185,129,0.4)" : "0 0 8px rgba(239,68,68,0.4)" }}>
+                              {asset.c}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -310,17 +349,20 @@ export default async function HomePage() {
               </div>
 
               {/* Floating badge — trade executed */}
-              <div className="absolute -bottom-5 -right-6 glass-card rounded-xl px-4 py-3 border border-emerald-500/25 shadow-xl animate-float">
-                <div className="text-[10px] text-slate-500 mb-0.5">Order Filled</div>
+              <div className="absolute -bottom-5 -right-7 mockup-frame rounded-xl px-4 py-3 border-emerald-500/20 shadow-2xl animate-float"
+                style={{ borderColor: "rgba(16,185,129,0.2)" }}>
+                <div className="text-[9px] text-slate-500 mb-0.5 uppercase tracking-wider">Order Filled</div>
                 <div className="text-sm font-bold text-white">BTC +0.500</div>
-                <div className="text-[10px] text-emerald-400 mt-0.5">@ $84,231.50 · Market</div>
+                <div className="text-[10px] font-semibold text-emerald-400 mt-0.5" style={{ textShadow: "0 0 10px rgba(16,185,129,0.5)" }}>@ $84,231.50 · Market</div>
               </div>
 
               {/* Floating badge — live status */}
-              <div className="absolute -top-5 -left-6 glass-card rounded-xl px-4 py-3 border border-sky-500/25 shadow-xl">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-                  <div className="text-[10px] font-semibold text-slate-300">Markets Live</div>
+              <div className="absolute -top-5 -left-7 mockup-frame rounded-xl px-4 py-3 shadow-2xl"
+                style={{ borderColor: "rgba(14,165,233,0.2)" }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"
+                    style={{ boxShadow: "0 0 6px rgba(16,185,129,0.7)" }} />
+                  <div className="text-[10px] font-semibold text-slate-200 tracking-wide">Markets Live</div>
                 </div>
                 <div className="text-[10px] text-slate-500">50+ assets active</div>
               </div>
@@ -330,7 +372,9 @@ export default async function HomePage() {
       </section>
 
       {/* ── Stats Strip ────────────────────────────────────────────────── */}
-      <div className="border-y border-white/5 bg-[#040f1f]/80">
+      <div className="border-y border-sky-500/10 bg-[#040f1f]/90 relative overflow-hidden">
+        {/* Light source behind strip */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-500/3 to-transparent pointer-events-none" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map(stat => (
@@ -350,7 +394,12 @@ export default async function HomePage() {
 
       {/* ── Market Overview ─────────────────────────────────────────────── */}
       {dbAssets.length > 0 && (
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+          {/* Section light source */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-px pointer-events-none"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.15), transparent)" }} />
+          <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-32 rounded-full blur-3xl pointer-events-none"
+            style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.06), transparent)" }} />
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -399,81 +448,100 @@ export default async function HomePage() {
       )}
 
       {/* ── Platform Preview ────────────────────────────────────────────── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#040f1f]">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, #040f1f 0%, #03091a 60%, #040f1f 100%)" }}>
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
             {/* Trading interface mockup */}
             <div className="relative">
-              <div className="absolute -inset-8 bg-sky-500/6 rounded-3xl blur-3xl pointer-events-none" />
-              <div className="relative glass-card rounded-2xl overflow-hidden border border-sky-500/20">
+              <div className="absolute -inset-10 bg-sky-500/8 rounded-3xl blur-3xl pointer-events-none" />
+              <div className="absolute -inset-4  bg-cyan-400/4 rounded-3xl blur-xl  pointer-events-none" />
+              <div className="relative mockup-frame rounded-3xl overflow-hidden">
 
                 {/* Top bar */}
-                <div className="flex items-center justify-between px-4 py-3 bg-[#020b18]/90 border-b border-white/5">
+                <div className="flex items-center justify-between px-4 py-3 bg-[#020b18]/80 border-b border-white/[0.06]"
+                  style={{ boxShadow: "inset 0 -1px 0 rgba(14,165,233,0.06)" }}>
                   <div className="flex items-center gap-3">
-                    <div className="text-sm font-bold text-white">BTC / USD</div>
-                    <div className="text-sm font-semibold text-emerald-400">$84,231.50</div>
-                    <div className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-medium">▲ +2.34%</div>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[8px] font-black"
+                      style={{ background: "#f7931a18", border: "1px solid #f7931a40", color: "#f7931a" }}>B</div>
+                    <div>
+                      <div className="text-sm font-bold text-white leading-tight">BTC / USD</div>
+                      <div className="text-[9px] text-slate-500">Bitcoin · Spot</div>
+                    </div>
+                    <div className="text-sm font-bold text-emerald-400 ml-1"
+                      style={{ textShadow: "0 0 12px rgba(16,185,129,0.45)" }}>$84,231.50</div>
+                    <div className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md font-semibold">▲ +2.34%</div>
                   </div>
-                  <div className="flex items-center gap-4 text-[10px] text-slate-500">
-                    <span>H <span className="text-slate-400">$85,100</span></span>
-                    <span>L <span className="text-slate-400">$82,400</span></span>
-                    <span>Vol <span className="text-slate-400">$28.4B</span></span>
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className="text-slate-600">H <span className="text-slate-400 font-medium">$85,100</span></span>
+                    <span className="text-slate-600">L <span className="text-slate-400 font-medium">$82,400</span></span>
+                    <span className="text-slate-600">Vol <span className="text-slate-400 font-medium">$28.4B</span></span>
                   </div>
                 </div>
 
                 {/* Chart area */}
-                <div className="p-4 bg-[#020b18]/30">
-                  <div className="h-36 relative rounded-lg overflow-hidden border border-white/5 bg-[#020b18]/40">
-                    <svg viewBox="0 0 500 110" preserveAspectRatio="none" className="w-full h-full">
+                <div className="p-4" style={{ background: "rgba(2,8,18,0.4)" }}>
+                  {/* Timeframe selector */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[10px] text-slate-500 font-medium">Price Chart</div>
+                    <div className="flex gap-1">
+                      {["15m","1H","4H","1D","1W"].map((tf, i) => (
+                        <span key={tf} className={`text-[9px] px-2 py-0.5 rounded font-semibold cursor-pointer transition-colors ${i === 2 ? "bg-sky-500/20 text-sky-400 border border-sky-500/25" : "text-slate-600 hover:text-slate-400"}`}>{tf}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="h-40 relative rounded-xl overflow-hidden border border-white/[0.05]"
+                    style={{ background: "linear-gradient(180deg, rgba(2,8,18,0.9) 0%, rgba(1,6,14,1) 100%)" }}>
+                    <svg viewBox="0 0 500 120" preserveAspectRatio="none" className="w-full h-full">
                       <defs>
-                        <linearGradient id="tradeGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.15" />
+                        <linearGradient id="tradeGrad2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.2" />
                           <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
                         </linearGradient>
+                        <filter id="candleGlow">
+                          <feGaussianBlur stdDeviation="0.8" result="blur"/>
+                          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
                       </defs>
                       {/* Grid lines */}
-                      {[22, 44, 66, 88].map(y => (
-                        <line key={y} x1="0" y1={y} x2="500" y2={y}
-                          stroke="rgba(14,165,233,0.05)" strokeWidth="1" />
+                      {[24, 48, 72, 96].map(y => (
+                        <line key={y} x1="0" y1={y} x2="500" y2={y} stroke="rgba(14,165,233,0.07)" strokeWidth="1" />
                       ))}
                       {/* Candlestick bars */}
                       {[
-                        [25,80,18,8,false],[50,72,16,7,true],[75,64,20,9,true],[100,72,18,8,false],
-                        [125,60,16,7,true],[150,52,18,8,true],[175,58,20,9,false],[200,44,16,7,true],
-                        [225,38,18,8,true],[250,30,16,7,true],[275,24,18,8,true],[300,18,16,7,true],
-                        [325,24,20,9,false],[350,16,18,8,true],[375,10,16,7,true],[400,14,18,8,false],
-                        [425,8,16,7,true],[450,4,18,8,true],[475,6,16,7,false],
+                        [25,92,20,9,false],[50,82,18,8,true],[75,72,22,9,true],[100,82,20,8,false],
+                        [125,68,18,8,true],[150,58,20,8,true],[175,65,22,9,false],[200,50,18,8,true],
+                        [225,42,20,8,true],[250,34,18,8,true],[275,27,20,8,true],[300,20,18,8,true],
+                        [325,26,22,9,false],[350,18,20,8,true],[375,11,18,8,true],[400,15,20,8,false],
+                        [425,9,18,8,true],[450,5,20,8,true],[475,7,18,8,false],
                       ].map(([x,y,h,w,up], i) => (
-                        <g key={i}>
+                        <g key={i} filter="url(#candleGlow)">
                           <line
-                            x1={Number(x)} y1={Number(y) - 5}
-                            x2={Number(x)} y2={Number(y) + Number(h) + 5}
-                            stroke={up ? "rgba(16,185,129,0.5)" : "rgba(239,68,68,0.5)"}
-                            strokeWidth="1"
+                            x1={Number(x)} y1={Number(y) - 6}
+                            x2={Number(x)} y2={Number(y) + Number(h) + 6}
+                            stroke={up ? "rgba(16,185,129,0.6)" : "rgba(239,68,68,0.6)"}
+                            strokeWidth="1.5"
                           />
                           <rect
                             x={Number(x) - Number(w) / 2}
                             y={Number(y)}
                             width={Number(w)}
                             height={Number(h)}
-                            fill={up ? "rgba(16,185,129,0.8)" : "rgba(239,68,68,0.8)"}
-                            rx="1"
+                            fill={up ? "rgba(16,185,129,0.9)" : "rgba(239,68,68,0.9)"}
+                            rx="1.5"
                           />
                         </g>
                       ))}
-                      {/* Overlay trend line */}
+                      {/* Trend line */}
                       <path
-                        d="M0,100 L50,90 L100,85 L150,75 L200,65 L250,55 L300,42 L350,32 L400,22 L450,12 L500,6"
-                        stroke="#0ea5e9"
-                        strokeWidth="1.5"
-                        fill="none"
-                        strokeLinecap="round"
-                        opacity="0.6"
+                        d="M0,110 L50,100 L100,92 L150,82 L200,72 L250,60 L300,46 L350,35 L400,24 L450,13 L500,7"
+                        stroke="#38bdf8" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.5"
                       />
                       <path
-                        d="M0,100 L50,90 L100,85 L150,75 L200,65 L250,55 L300,42 L350,32 L400,22 L450,12 L500,6 L500,110 L0,110 Z"
-                        fill="url(#tradeGrad)"
+                        d="M0,110 L50,100 L100,92 L150,82 L200,72 L250,60 L300,46 L350,35 L400,24 L450,13 L500,7 L500,120 L0,120 Z"
+                        fill="url(#tradeGrad2)"
                       />
                     </svg>
                   </div>
@@ -481,28 +549,30 @@ export default async function HomePage() {
                   {/* Order book */}
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div>
-                      <div className="text-[10px] font-semibold text-emerald-400 mb-2 tracking-wider">BUY ORDERS</div>
+                      <div className="text-[10px] font-bold text-emerald-400 mb-2 tracking-wider uppercase"
+                        style={{ textShadow: "0 0 8px rgba(16,185,129,0.4)" }}>Buy Orders</div>
                       {[
-                        ["$84,100.00", "0.420 BTC"],
-                        ["$84,050.00", "1.205 BTC"],
-                        ["$84,000.00", "2.840 BTC"],
+                        ["$84,100.00", "0.420"],
+                        ["$84,050.00", "1.205"],
+                        ["$84,000.00", "2.840"],
                       ].map(([price, amt]) => (
-                        <div key={price} className="flex justify-between text-[10px] py-0.5 border-b border-white/3">
-                          <span className="text-emerald-400">{price}</span>
-                          <span className="text-slate-500">{amt}</span>
+                        <div key={price} className="flex justify-between text-[10px] py-1 border-b border-white/[0.04]">
+                          <span className="text-emerald-400 font-medium">{price}</span>
+                          <span className="text-slate-500">{amt} BTC</span>
                         </div>
                       ))}
                     </div>
                     <div>
-                      <div className="text-[10px] font-semibold text-red-400 mb-2 tracking-wider">SELL ORDERS</div>
+                      <div className="text-[10px] font-bold text-red-400 mb-2 tracking-wider uppercase"
+                        style={{ textShadow: "0 0 8px rgba(239,68,68,0.4)" }}>Sell Orders</div>
                       {[
-                        ["$84,350.00", "0.310 BTC"],
-                        ["$84,400.00", "0.985 BTC"],
-                        ["$84,450.00", "1.620 BTC"],
+                        ["$84,350.00", "0.310"],
+                        ["$84,400.00", "0.985"],
+                        ["$84,450.00", "1.620"],
                       ].map(([price, amt]) => (
-                        <div key={price} className="flex justify-between text-[10px] py-0.5 border-b border-white/3">
-                          <span className="text-red-400">{price}</span>
-                          <span className="text-slate-500">{amt}</span>
+                        <div key={price} className="flex justify-between text-[10px] py-1 border-b border-white/[0.04]">
+                          <span className="text-red-400 font-medium">{price}</span>
+                          <span className="text-slate-500">{amt} BTC</span>
                         </div>
                       ))}
                     </div>
@@ -510,11 +580,13 @@ export default async function HomePage() {
                 </div>
 
                 {/* Trade buttons */}
-                <div className="px-4 py-3 bg-[#020b18]/70 border-t border-white/5 grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold py-2 rounded-lg text-center">
+                <div className="px-4 py-3 bg-[#020b18]/70 border-t border-white/[0.05] grid grid-cols-2 gap-3">
+                  <div className="text-xs font-bold py-2.5 rounded-xl text-center transition-all cursor-default"
+                    style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)", color: "#10b981", textShadow: "0 0 10px rgba(16,185,129,0.4)" }}>
                     BUY BTC
                   </div>
-                  <div className="bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-bold py-2 rounded-lg text-center">
+                  <div className="text-xs font-bold py-2.5 rounded-xl text-center transition-all cursor-default"
+                    style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", textShadow: "0 0 10px rgba(239,68,68,0.4)" }}>
                     SELL BTC
                   </div>
                 </div>
@@ -566,7 +638,13 @@ export default async function HomePage() {
       </section>
 
       {/* ── Features ───────────────────────────────────────────────────── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        {/* Top border light */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.12), transparent)" }} />
+        {/* Ambient top-center light */}
+        <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-96 h-40 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.05), transparent)" }} />
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">
@@ -579,12 +657,15 @@ export default async function HomePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map(feature => (
-              <div key={feature.title} className="glass-card glass-card-hover rounded-xl p-6 group">
-                <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center mb-5 group-hover:bg-sky-500/15 transition-colors duration-200">
-                  <feature.icon className="h-5 w-5 text-sky-400" />
+              <div key={feature.title} className="feature-card rounded-xl p-6 group">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-110"
+                  style={{ background: "rgba(14,165,233,0.12)", border: "1px solid rgba(14,165,233,0.25)", boxShadow: "0 0 0 0 rgba(14,165,233,0)" }}
+                >
+                  <feature.icon className="h-5 w-5 text-sky-400 group-hover:text-sky-300 transition-colors duration-200"
+                    style={{ filter: "drop-shadow(0 0 6px rgba(14,165,233,0.5))" }} />
                 </div>
-                <h3 className="text-base font-semibold text-white mb-2">{feature.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{feature.desc}</p>
+                <h3 className="text-base font-semibold text-white mb-2 group-hover:text-sky-100 transition-colors duration-200">{feature.title}</h3>
+                <p className="text-sm text-slate-400 leading-relaxed group-hover:text-slate-300 transition-colors duration-200">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -592,7 +673,10 @@ export default async function HomePage() {
       </section>
 
       {/* ── How It Works ───────────────────────────────────────────────── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#040f1f]">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, #040f1f 0%, #030c1c 50%, #040f1f 100%)" }}>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.1), transparent)" }} />
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">
@@ -620,7 +704,11 @@ export default async function HomePage() {
       </section>
 
       {/* ── Trust & Security ───────────────────────────────────────────── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.12), transparent)" }} />
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.06), transparent)" }} />
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -666,23 +754,39 @@ export default async function HomePage() {
       </section>
 
       {/* ── CTA ────────────────────────────────────────────────────────── */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-[#040f1f]">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="glass-card rounded-2xl p-12 border-sky-500/20 relative overflow-hidden">
-            {/* Background gradients */}
-            <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 via-transparent to-cyan-500/5 pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-t from-transparent via-sky-500/2 to-transparent pointer-events-none" />
-            {/* Top accent line */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-px bg-gradient-to-r from-transparent via-sky-500/60 to-transparent" />
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-[#040f1f] relative overflow-hidden">
+        {/* Strong centered background glow behind card */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[700px] h-[400px] rounded-full blur-[120px]"
+            style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.18) 0%, rgba(34,211,238,0.08) 40%, transparent 70%)" }} />
+        </div>
+
+        <div className="max-w-4xl mx-auto text-center relative">
+          <div className="rounded-3xl p-12 relative overflow-hidden"
+            style={{
+              background: "rgba(5, 13, 28, 0.85)",
+              border: "1px solid rgba(14,165,233,0.22)",
+              backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              boxShadow: "0 0 0 1px rgba(14,165,233,0.06), 0 40px 100px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07)"
+            }}>
+            {/* Card inner light layer */}
+            <div className="absolute inset-0 bg-gradient-to-br from-sky-500/6 via-transparent to-cyan-500/4 pointer-events-none" />
+            {/* Top shimmer line */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.7), transparent)" }} />
+            {/* Bottom subtle light */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-40 h-px"
+              style={{ background: "linear-gradient(90deg, transparent, rgba(14,165,233,0.2), transparent)" }} />
 
             <div className="relative">
-              <Badge className="mb-6 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">
+              <Badge className="mb-6 bg-sky-500/10 text-sky-400 border-sky-500/25 text-xs tracking-widest uppercase">
                 Ready to Trade?
               </Badge>
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
                 Start Your Trading Journey
               </h2>
-              <p className="text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
+              <p className="text-slate-400 mb-10 max-w-lg mx-auto leading-relaxed">
                 Join thousands of traders on Vaultex Market. Create your free account and start
                 your simulated trading journey today — zero risk, full experience.
               </p>
@@ -690,7 +794,7 @@ export default async function HomePage() {
                 <Button
                   size="lg"
                   render={<Link href="/register" />}
-                  className="bg-sky-500 hover:bg-sky-400 text-white font-semibold px-8 h-12 shadow-lg shadow-sky-500/30 hover:shadow-sky-500/50 hover:scale-[1.02] transition-all duration-200"
+                  className="animate-btn-glow bg-sky-500 hover:bg-sky-400 text-white font-bold px-10 h-13 hover:scale-[1.03] transition-all duration-200 rounded-xl"
                 >
                   Create Free Account <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -698,7 +802,7 @@ export default async function HomePage() {
                   size="lg"
                   variant="outline"
                   render={<Link href="/login" />}
-                  className="border-white/10 text-white hover:bg-white/5 h-12 px-8"
+                  className="border-white/10 text-slate-300 hover:bg-white/5 hover:text-white h-13 px-8 rounded-xl transition-all duration-200"
                 >
                   Sign In
                 </Button>
