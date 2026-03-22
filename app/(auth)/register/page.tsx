@@ -49,6 +49,88 @@ const STEPS = [
   { n: 3, label: "Security",      icon: Shield, heading: "Account Security",          sub: "Secure your trading account"          },
 ];
 
+/* ── Stepper (module-level — stable reference, no focus-loss risk) ─────── */
+function Stepper({ step }: { step: number }) {
+  return (
+    <div className="flex items-start justify-between mb-8 select-none">
+      {STEPS.map(({ n, label }, i) => (
+        <div key={n} className="flex items-center flex-1">
+          {/* Dot + label */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className={`
+              w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
+              transition-all duration-300 flex-shrink-0
+              ${step > n
+                ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                : step === n
+                  ? "bg-sky-500 text-white shadow-lg shadow-sky-500/30 ring-4 ring-sky-500/20"
+                  : "bg-white/[0.07] text-slate-500 border border-white/10"}
+            `}>
+              {step > n ? <Check size={14} strokeWidth={3} /> : n}
+            </div>
+            <span className={`text-[10px] font-medium tracking-wider whitespace-nowrap hidden sm:block
+              ${step === n ? "text-sky-400" : step > n ? "text-emerald-400" : "text-slate-600"}`}>
+              {label}
+            </span>
+          </div>
+
+          {/* Connector */}
+          {i < STEPS.length - 1 && (
+            <div className={`flex-1 h-px mx-2 transition-all duration-500
+              ${step > n ? "bg-sky-500/40" : "bg-white/[0.08]"}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── StepHeader (module-level — stable reference, no focus-loss risk) ──── */
+function StepHeader({ step }: { step: number }) {
+  const s = STEPS[step - 1];
+  const StepIcon = s.icon;
+  return (
+    <div className="flex items-center gap-3 rounded-xl p-4 mb-6"
+      style={{ background: "rgba(14,165,233,0.07)", border: "1px solid rgba(14,165,233,0.14)" }}>
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: "rgba(14,165,233,0.12)", border: "1px solid rgba(14,165,233,0.22)" }}>
+        <StepIcon className="h-5 w-5 text-sky-400" />
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-white">{s.heading}</div>
+        <div className="text-xs text-slate-500">{s.sub}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Field (module-level — stable reference, no focus-loss risk) ─────────
+   Receives the specific error string directly instead of the whole errors map.
+   ──────────────────────────────────────────────────────────────────────── */
+function Field({
+  label, error, children, required,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-slate-400 uppercase tracking-widest">
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </Label>
+      {children}
+      {error && (
+        <p className="flex items-center gap-1.5 text-xs text-red-400">
+          <AlertCircle size={11} className="flex-shrink-0" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ── Component ─────────────────────────────────────────────────────────── */
 export default function RegisterPage() {
   const router = useRouter();
@@ -168,77 +250,6 @@ export default function RegisterPage() {
     }
   }
 
-  /* ── Stepper ─────────────────────────────────────────────────────────── */
-  const Stepper = () => (
-    <div className="flex items-start justify-between mb-8 select-none">
-      {STEPS.map(({ n, label }, i) => (
-        <div key={n} className="flex items-center flex-1">
-          {/* Dot + label */}
-          <div className="flex flex-col items-center gap-1.5">
-            <div className={`
-              w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
-              transition-all duration-300 flex-shrink-0
-              ${step > n
-                ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                : step === n
-                  ? "bg-sky-500 text-white shadow-lg shadow-sky-500/30 ring-4 ring-sky-500/20"
-                  : "bg-white/[0.07] text-slate-500 border border-white/10"}
-            `}>
-              {step > n ? <Check size={14} strokeWidth={3} /> : n}
-            </div>
-            <span className={`text-[10px] font-medium tracking-wider whitespace-nowrap hidden sm:block
-              ${step === n ? "text-sky-400" : step > n ? "text-emerald-400" : "text-slate-600"}`}>
-              {label}
-            </span>
-          </div>
-
-          {/* Connector */}
-          {i < STEPS.length - 1 && (
-            <div className={`flex-1 h-px mx-2 transition-all duration-500
-              ${step > n ? "bg-sky-500/40" : "bg-white/[0.08]"}`} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-
-  /* ── Step header ─────────────────────────────────────────────────────── */
-  const StepHeader = () => {
-    const s = STEPS[step - 1];
-    const StepIcon = s.icon;
-    return (
-      <div className="flex items-center gap-3 rounded-xl p-4 mb-6"
-        style={{ background: "rgba(14,165,233,0.07)", border: "1px solid rgba(14,165,233,0.14)" }}>
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: "rgba(14,165,233,0.12)", border: "1px solid rgba(14,165,233,0.22)" }}>
-          <StepIcon className="h-5 w-5 text-sky-400" />
-        </div>
-        <div>
-          <div className="text-sm font-semibold text-white">{s.heading}</div>
-          <div className="text-xs text-slate-500">{s.sub}</div>
-        </div>
-      </div>
-    );
-  };
-
-  /* ── Shared input wrapper ────────────────────────────────────────────── */
-  const Field = ({
-    label, name, children, required,
-  }: { label: string; name: string; children: React.ReactNode; required?: boolean }) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-slate-400 uppercase tracking-widest">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-      </Label>
-      {children}
-      {errors[name] && (
-        <p className="flex items-center gap-1.5 text-xs text-red-400">
-          <AlertCircle size={11} className="flex-shrink-0" />
-          {errors[name]}
-        </p>
-      )}
-    </div>
-  );
-
   const inputCls = `pl-10 bg-white/[0.05] border-white/10 text-white placeholder:text-slate-600
     focus:border-sky-500/50 focus:ring-0 h-11 transition-colors duration-200
     hover:border-white/20`;
@@ -261,7 +272,7 @@ export default function RegisterPage() {
 
       <Card className="glass-card border-0 rounded-2xl p-7 sm:p-8">
 
-        <Stepper />
+        <Stepper step={step} />
 
         {/* ── Global submit error ─────────────────────────────────────── */}
         {submitError && (
@@ -277,9 +288,9 @@ export default function RegisterPage() {
         ════════════════════════════════════════════════════════════════ */}
         {step === 1 && (
           <div className="space-y-5">
-            <StepHeader />
+            <StepHeader step={step} />
 
-            <Field label="Trading Username" name="username" required>
+            <Field label="Trading Username" error={errors.username} required>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
@@ -291,7 +302,7 @@ export default function RegisterPage() {
               </div>
             </Field>
 
-            <Field label="Full Name" name="fullName" required>
+            <Field label="Full Name" error={errors.fullName} required>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
@@ -303,7 +314,7 @@ export default function RegisterPage() {
               </div>
             </Field>
 
-            <Field label="Email Address" name="email" required>
+            <Field label="Email Address" error={errors.email} required>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
@@ -316,7 +327,7 @@ export default function RegisterPage() {
               </div>
             </Field>
 
-            <Field label="Phone Number" name="phone">
+            <Field label="Phone Number" error={errors.phone}>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
@@ -336,9 +347,9 @@ export default function RegisterPage() {
         ════════════════════════════════════════════════════════════════ */}
         {step === 2 && (
           <div className="space-y-5">
-            <StepHeader />
+            <StepHeader step={step} />
 
-            <Field label="Country / Region" name="country" required>
+            <Field label="Country / Region" error={errors.country} required>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
                 <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none rotate-90" />
@@ -380,10 +391,10 @@ export default function RegisterPage() {
         ════════════════════════════════════════════════════════════════ */}
         {step === 3 && (
           <div className="space-y-5">
-            <StepHeader />
+            <StepHeader step={step} />
 
             {/* Password */}
-            <Field label="Password" name="password" required>
+            <Field label="Password" error={errors.password} required>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
@@ -419,7 +430,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* Confirm Password */}
-            <Field label="Confirm Password" name="confirmPassword" required>
+            <Field label="Confirm Password" error={errors.confirmPassword} required>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
