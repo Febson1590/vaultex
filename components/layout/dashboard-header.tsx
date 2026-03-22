@@ -32,8 +32,9 @@ export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps)
         <SheetTrigger render={<button className="lg:hidden p-2 text-slate-400 hover:text-white mr-2" />}>
           <Menu size={20} />
         </SheetTrigger>
-        <SheetContent side="left" className="w-60 p-0 bg-[#040f1f] border-sky-500/10">
-          <DashboardSidebar unreadCount={unreadCount} />
+        <SheetContent side="left" className="w-72 p-0 bg-[#040f1f] border-sky-500/10 overflow-hidden">
+          {/* isMobile=true removes the hidden lg:flex class so it renders properly inside the Sheet */}
+          <DashboardSidebar unreadCount={unreadCount} isMobile={true} />
         </SheetContent>
       </Sheet>
 

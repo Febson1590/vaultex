@@ -97,6 +97,70 @@ export async function stopCopyTrade(copyTradeId: string) {
   return { success: true };
 }
 
+// ─── Admin: edit existing investment ─────────────────────────────────────────
+
+export async function adminEditInvestment(userId: string, data: {
+  planName: string;
+  amount: number;
+  minProfit: number;
+  maxProfit: number;
+  profitInterval: number;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  const now = new Date();
+  const nextProfitAt = new Date(now.getTime() + data.profitInterval * 1000);
+
+  await db.userInvestment.update({
+    where: { userId },
+    data: {
+      planName: data.planName,
+      amount: data.amount,
+      minProfit: data.minProfit,
+      maxProfit: data.maxProfit,
+      profitInterval: data.profitInterval,
+      nextProfitAt,
+    },
+  });
+
+  revalidatePath("/admin/investments");
+  return { success: true };
+}
+
+// ─── Admin: add funds to user investment (no wallet deduction) ────────────────
+
+export async function adminAddFundsToInvestment(userId: string, amount: number) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  const inv = await db.userInvestment.findUnique({ where: { userId } });
+  if (!inv) return { error: "Investment not found" };
+
+  await db.$transaction([
+    db.userInvestment.update({
+      where: { userId },
+      data: { amount: { increment: amount } },
+    }),
+    db.activityLog.create({
+      data: {
+        userId,
+        type: "INVESTMENT_FUNDS_ADDED",
+        title: `Admin added $${amount.toLocaleString()} to ${inv.planName}`,
+        amount,
+        currency: "USD",
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/investments");
+  return { success: true };
+}
+
 // ─── Admin actions ───────────────────────────────────────────────────────────
 
 export async function adminAssignInvestment(data: {

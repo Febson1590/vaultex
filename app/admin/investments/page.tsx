@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, TrendingUp, Plus, PauseCircle, PlayCircle, XCircle, ChevronDown } from "lucide-react";
+import { Loader2, TrendingUp, Plus, PauseCircle, PlayCircle, XCircle, ChevronDown, Pencil, DollarSign } from "lucide-react";
 import {
   adminAssignInvestment,
+  adminEditInvestment,
+  adminAddFundsToInvestment,
   adminToggleInvestment,
   adminCancelInvestment,
   adminGetAllInvestments,
@@ -40,108 +42,267 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: "bg-red-500/10 border-red-500/25 text-red-400",
 };
 
-// ─── Assign Modal ─────────────────────────────────────────────────────────────
-function AssignModal({ users, onClose, onSuccess }: {
+const inputCls = "w-full bg-white/[0.06] border border-white/[0.15] rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60";
+const labelCls = "text-xs font-medium text-slate-400 uppercase tracking-wider";
+
+// ─── Investment Modal (Assign + Edit) ─────────────────────────────────────────
+function InvestmentModal({
+  users,
+  investment,
+  isEdit,
+  onClose,
+  onSuccess,
+}: {
   users: UserOption[];
+  investment?: UserInvestment;
+  isEdit: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [form, setForm] = useState({
-    userId: "",
-    planName: "Growth Plan",
-    amount: "",
-    minProfit: "0.5",
-    maxProfit: "1.5",
-    profitInterval: "60",
+    userId:         investment?.userId     ?? "",
+    planName:       investment?.planName   ?? "Growth Plan",
+    amount:         investment?.amount.toString()         ?? "",
+    minProfit:      investment?.minProfit.toString()      ?? "0.5",
+    maxProfit:      investment?.maxProfit.toString()      ?? "1.5",
+    profitInterval: investment?.profitInterval.toString() ?? "60",
   });
   const [loading, setLoading] = useState(false);
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
   async function submit() {
-    if (!form.userId) { toast.error("Select a user"); return; }
+    if (!isEdit && !form.userId) { toast.error("Select a user"); return; }
     if (!form.amount || parseFloat(form.amount) <= 0) { toast.error("Enter a valid amount"); return; }
+
     setLoading(true);
-    const r = await adminAssignInvestment({
-      userId: form.userId,
-      planName: form.planName,
-      amount: parseFloat(form.amount),
-      minProfit: parseFloat(form.minProfit),
-      maxProfit: parseFloat(form.maxProfit),
-      profitInterval: parseInt(form.profitInterval),
-    });
-    setLoading(false);
-    if (r.error) { toast.error(r.error); return; }
-    toast.success("Investment assigned!");
+
+    if (isEdit && investment) {
+      const r = await adminEditInvestment(investment.userId, {
+        planName:       form.planName,
+        amount:         parseFloat(form.amount),
+        minProfit:      parseFloat(form.minProfit),
+        maxProfit:      parseFloat(form.maxProfit),
+        profitInterval: parseInt(form.profitInterval),
+      });
+      setLoading(false);
+      if (r.error) { toast.error(r.error); return; }
+      toast.success("Investment updated!");
+    } else {
+      const r = await adminAssignInvestment({
+        userId:         form.userId,
+        planName:       form.planName,
+        amount:         parseFloat(form.amount),
+        minProfit:      parseFloat(form.minProfit),
+        maxProfit:      parseFloat(form.maxProfit),
+        profitInterval: parseInt(form.profitInterval),
+      });
+      setLoading(false);
+      if (r.error) { toast.error(r.error); return; }
+      toast.success("Investment assigned!");
+    }
+
     onSuccess();
     onClose();
   }
 
-  const inputCls = "w-full bg-white/[0.06] border border-white/[0.15] rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60";
-  const labelCls = "text-xs font-medium text-slate-400 uppercase tracking-wider";
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-bold text-white mb-5">Assign Investment</h3>
+        <h3 className="text-base font-bold text-white mb-5">
+          {isEdit ? "Edit Investment" : "Assign Investment"}
+        </h3>
 
         <div className="space-y-4">
-          {/* User select */}
-          <div>
-            <label className={labelCls}>User</label>
-            <div className="relative mt-1">
-              <select
-                value={form.userId}
-                onChange={e => set("userId", e.target.value)}
-                className={`${inputCls} appearance-none pr-8`}
-              >
-                <option value="" className="bg-[#0d1e3a]">Select user…</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id} className="bg-[#0d1e3a]">
-                    {u.name || "—"} ({u.email})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          {/* User select — only shown when assigning */}
+          {!isEdit && (
+            <div>
+              <label className={labelCls}>User</label>
+              <div className="relative mt-1">
+                <select
+                  value={form.userId}
+                  onChange={e => set("userId", e.target.value)}
+                  className={`${inputCls} appearance-none pr-8`}
+                >
+                  <option value="" className="bg-[#0d1e3a]">Select user…</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id} className="bg-[#0d1e3a]">
+                      {u.name || "—"} ({u.email})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* User display — shown when editing */}
+          {isEdit && investment && (
+            <div>
+              <label className={labelCls}>User</label>
+              <div className="mt-1 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-sm">
+                <span className="text-white font-medium">{investment.user.name || "—"}</span>
+                <span className="text-slate-500 ml-2">{investment.user.email}</span>
+              </div>
+            </div>
+          )}
 
           {/* Plan name */}
           <div>
             <label className={labelCls}>Plan Name</label>
-            <input className={`${inputCls} mt-1`} value={form.planName} onChange={e => set("planName", e.target.value)} placeholder="e.g. Growth Plan" />
+            <input
+              className={`${inputCls} mt-1`}
+              value={form.planName}
+              onChange={e => set("planName", e.target.value)}
+              placeholder="e.g. Growth Plan"
+            />
           </div>
 
           {/* Amount */}
           <div>
             <label className={labelCls}>Investment Amount (USD)</label>
-            <input type="number" className={`${inputCls} mt-1`} value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="e.g. 5000" />
+            <input
+              type="number"
+              className={`${inputCls} mt-1`}
+              value={form.amount}
+              onChange={e => set("amount", e.target.value)}
+              placeholder="e.g. 5000"
+            />
           </div>
 
           {/* Profit range */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Min Profit (%)</label>
-              <input type="number" step="0.01" className={`${inputCls} mt-1`} value={form.minProfit} onChange={e => set("minProfit", e.target.value)} placeholder="0.5" />
+              <input
+                type="number"
+                step="0.01"
+                className={`${inputCls} mt-1`}
+                value={form.minProfit}
+                onChange={e => set("minProfit", e.target.value)}
+                placeholder="0.5"
+              />
             </div>
             <div>
               <label className={labelCls}>Max Profit (%)</label>
-              <input type="number" step="0.01" className={`${inputCls} mt-1`} value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} placeholder="1.5" />
+              <input
+                type="number"
+                step="0.01"
+                className={`${inputCls} mt-1`}
+                value={form.maxProfit}
+                onChange={e => set("maxProfit", e.target.value)}
+                placeholder="1.5"
+              />
             </div>
           </div>
 
           {/* Interval */}
           <div>
             <label className={labelCls}>Profit Interval (seconds)</label>
-            <input type="number" className={`${inputCls} mt-1`} value={form.profitInterval} onChange={e => set("profitInterval", e.target.value)} placeholder="60" />
+            <input
+              type="number"
+              className={`${inputCls} mt-1`}
+              value={form.profitInterval}
+              onChange={e => set("profitInterval", e.target.value)}
+              placeholder="60"
+            />
             <p className="text-[11px] text-slate-500 mt-1">e.g. 60 = every 1 min · 3600 = every hour</p>
           </div>
         </div>
 
         <div className="flex gap-2 mt-6">
-          <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose}>Cancel</Button>
-          <Button className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold" onClick={submit} disabled={loading}>
-            {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : null} Assign
+          <Button
+            variant="outline"
+            className="flex-1 border-white/10 text-slate-300 hover:text-white"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold"
+            onClick={submit}
+            disabled={loading}
+          >
+            {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+            {isEdit ? "Save Changes" : "Assign"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Add Funds Modal ───────────────────────────────────────────────────────────
+function AddFundsModal({
+  investment,
+  onClose,
+  onSuccess,
+}: {
+  investment: UserInvestment;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit() {
+    const val = parseFloat(amount);
+    if (!val || val <= 0) { toast.error("Enter a valid amount"); return; }
+    setLoading(true);
+    const r = await adminAddFundsToInvestment(investment.userId, val);
+    setLoading(false);
+    if (r.error) { toast.error(r.error); return; }
+    toast.success(`$${val.toLocaleString()} added to ${investment.user.name || "user"}'s investment`);
+    onSuccess();
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-white mb-1">Add Funds</h3>
+        <p className="text-xs text-slate-500 mb-5">
+          Funds are added directly to the investment — no wallet deduction.
+        </p>
+
+        {/* User info */}
+        <div className="mb-4 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10">
+          <div className="text-sm text-white font-medium">{investment.user.name || "—"}</div>
+          <div className="text-xs text-slate-500">{investment.user.email}</div>
+          <div className="text-xs text-slate-400 mt-1">
+            Current: <span className="text-white font-semibold">{fmt(investment.amount)}</span>
+            <span className="mx-1.5 text-slate-600">·</span>
+            Plan: <span className="text-sky-400">{investment.planName}</span>
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Amount to Add (USD)</label>
+          <input
+            type="number"
+            className={`${inputCls} mt-1`}
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            placeholder="e.g. 1000"
+            autoFocus
+          />
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          <Button
+            variant="outline"
+            className="flex-1 border-white/10 text-slate-300 hover:text-white"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold"
+            onClick={submit}
+            disabled={loading}
+          >
+            {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : <DollarSign size={14} className="mr-1" />}
+            Add Funds
           </Button>
         </div>
       </div>
@@ -154,7 +315,12 @@ export default function AdminInvestmentsPage() {
   const [investments, setInvestments] = useState<UserInvestment[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAssign, setShowAssign] = useState(false);
+
+  // Modal state
+  const [showAssign, setShowAssign]   = useState(false);
+  const [editTarget, setEditTarget]   = useState<UserInvestment | null>(null);
+  const [fundsTarget, setFundsTarget] = useState<UserInvestment | null>(null);
+
   const [processing, setProcessing] = useState<string | null>(null);
 
   async function load() {
@@ -162,11 +328,11 @@ export default function AdminInvestmentsPage() {
     const [invs, usrs] = await Promise.all([adminGetAllInvestments(), adminGetAllUsers()]);
     setInvestments(invs.map((i: any) => ({
       ...i,
-      amount: Number(i.amount),
-      totalEarned: Number(i.totalEarned),
-      minProfit: Number(i.minProfit),
-      maxProfit: Number(i.maxProfit),
-      startedAt: new Date(i.startedAt).toISOString(),
+      amount:         Number(i.amount),
+      totalEarned:    Number(i.totalEarned),
+      minProfit:      Number(i.minProfit),
+      maxProfit:      Number(i.maxProfit),
+      startedAt:      new Date(i.startedAt).toISOString(),
     })));
     setUsers(usrs);
     setLoading(false);
@@ -177,7 +343,7 @@ export default function AdminInvestmentsPage() {
   async function handleToggle(userId: string, current: string) {
     setProcessing(userId);
     const newStatus = current === "ACTIVE" ? "PAUSED" : "ACTIVE";
-    const r = await adminToggleInvestment(userId, newStatus);
+    const r = await adminToggleInvestment(userId, newStatus as "ACTIVE" | "PAUSED");
     if (r.error) toast.error(r.error);
     else { toast.success(`Investment ${newStatus.toLowerCase()}`); load(); }
     setProcessing(null);
@@ -204,7 +370,10 @@ export default function AdminInvestmentsPage() {
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage user investment plans</p>
         </div>
-        <Button onClick={() => setShowAssign(true)} className="bg-sky-500 hover:bg-sky-400 text-white font-semibold text-sm h-9 px-4">
+        <Button
+          onClick={() => setShowAssign(true)}
+          className="bg-sky-500 hover:bg-sky-400 text-white font-semibold text-sm h-9 px-4"
+        >
           <Plus size={14} className="mr-1.5" /> Assign Investment
         </Button>
       </div>
@@ -212,10 +381,10 @@ export default function AdminInvestmentsPage() {
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total", value: investments.length, color: "text-white" },
-          { label: "Active", value: active, color: "text-emerald-400" },
-          { label: "Paused", value: investments.filter(i => i.status === "PAUSED").length, color: "text-yellow-400" },
-          { label: "Total Earned", value: fmt(investments.reduce((s, i) => s + i.totalEarned, 0)), color: "text-sky-400" },
+          { label: "Total",        value: investments.length,                                             color: "text-white" },
+          { label: "Active",       value: active,                                                         color: "text-emerald-400" },
+          { label: "Paused",       value: investments.filter(i => i.status === "PAUSED").length,          color: "text-yellow-400" },
+          { label: "Total Earned", value: fmt(investments.reduce((s, i) => s + i.totalEarned, 0)),        color: "text-sky-400" },
         ].map(s => (
           <div key={s.label} className="glass-card rounded-xl p-4">
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">{s.label}</div>
@@ -227,21 +396,28 @@ export default function AdminInvestmentsPage() {
       {/* Table */}
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="p-4 border-b border-white/5">
-          <span className="text-sm font-semibold text-white">{investments.length} Investment{investments.length !== 1 ? "s" : ""}</span>
+          <span className="text-sm font-semibold text-white">
+            {investments.length} Investment{investments.length !== 1 ? "s" : ""}
+          </span>
         </div>
+
         {loading ? (
           <div className="p-12 text-center text-slate-500 text-sm flex items-center justify-center gap-2">
             <Loader2 size={16} className="animate-spin" /> Loading…
           </div>
         ) : investments.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-sm">No investments yet. Assign one to get started.</div>
+          <div className="p-12 text-center text-slate-500 text-sm">
+            No investments yet. Assign one to get started.
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full premium-table">
               <thead>
                 <tr className="border-b border-white/5">
                   {["User", "Plan", "Amount", "Earned", "Rate", "Interval", "Status", "Actions"].map(h => (
-                    <th key={h} className="text-left text-xs font-medium text-slate-500 px-4 py-3 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left text-xs font-medium text-slate-500 px-4 py-3 uppercase tracking-widest whitespace-nowrap">
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -255,7 +431,9 @@ export default function AdminInvestmentsPage() {
                     <td className="px-4 py-3 text-sm text-slate-300 font-medium">{inv.planName}</td>
                     <td className="px-4 py-3 text-sm font-bold text-white">{fmt(inv.amount)}</td>
                     <td className="px-4 py-3 text-sm font-bold text-emerald-400">{fmt(inv.totalEarned)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{inv.minProfit}%–{inv.maxProfit}%</td>
+                    <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                      {inv.minProfit}%–{inv.maxProfit}%
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{inv.profitInterval}s</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${STATUS_COLORS[inv.status] || ""}`}>
@@ -263,34 +441,60 @@ export default function AdminInvestmentsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Edit — always available (unless cancelled) */}
+                        {inv.status !== "CANCELLED" && (
+                          <Button
+                            size="sm"
+                            onClick={() => setEditTarget(inv)}
+                            className="h-7 px-2 text-xs bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20"
+                          >
+                            <Pencil size={11} className="mr-1" />Edit
+                          </Button>
+                        )}
+
+                        {/* Add Funds — only for active/paused */}
                         {(inv.status === "ACTIVE" || inv.status === "PAUSED") && (
-                          <>
-                            <Button
-                              size="sm"
-                              disabled={processing === inv.userId}
-                              onClick={() => handleToggle(inv.userId, inv.status)}
-                              className={`h-7 px-2 text-xs border ${
-                                inv.status === "ACTIVE"
-                                  ? "bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/20"
-                                  : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20"
-                              }`}
-                            >
-                              {processing === inv.userId ? <Loader2 size={11} className="animate-spin" /> : (
-                                inv.status === "ACTIVE"
-                                  ? <><PauseCircle size={11} className="mr-1" />Pause</>
-                                  : <><PlayCircle size={11} className="mr-1" />Resume</>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              disabled={processing === inv.userId}
-                              onClick={() => handleCancel(inv.userId)}
-                              className="h-7 px-2 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
-                            >
-                              <XCircle size={11} className="mr-1" />Cancel
-                            </Button>
-                          </>
+                          <Button
+                            size="sm"
+                            onClick={() => setFundsTarget(inv)}
+                            className="h-7 px-2 text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                          >
+                            <DollarSign size={11} className="mr-1" />Funds
+                          </Button>
+                        )}
+
+                        {/* Pause / Resume */}
+                        {(inv.status === "ACTIVE" || inv.status === "PAUSED") && (
+                          <Button
+                            size="sm"
+                            disabled={processing === inv.userId}
+                            onClick={() => handleToggle(inv.userId, inv.status)}
+                            className={`h-7 px-2 text-xs border ${
+                              inv.status === "ACTIVE"
+                                ? "bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/20"
+                                : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20"
+                            }`}
+                          >
+                            {processing === inv.userId
+                              ? <Loader2 size={11} className="animate-spin" />
+                              : inv.status === "ACTIVE"
+                                ? <><PauseCircle size={11} className="mr-1" />Pause</>
+                                : <><PlayCircle size={11} className="mr-1" />Resume</>
+                            }
+                          </Button>
+                        )}
+
+                        {/* Cancel */}
+                        {(inv.status === "ACTIVE" || inv.status === "PAUSED") && (
+                          <Button
+                            size="sm"
+                            disabled={processing === inv.userId}
+                            onClick={() => handleCancel(inv.userId)}
+                            className="h-7 px-2 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
+                          >
+                            <XCircle size={11} className="mr-1" />Cancel
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -302,8 +506,34 @@ export default function AdminInvestmentsPage() {
         )}
       </div>
 
+      {/* Assign modal */}
       {showAssign && (
-        <AssignModal users={users} onClose={() => setShowAssign(false)} onSuccess={load} />
+        <InvestmentModal
+          users={users}
+          isEdit={false}
+          onClose={() => setShowAssign(false)}
+          onSuccess={load}
+        />
+      )}
+
+      {/* Edit modal */}
+      {editTarget && (
+        <InvestmentModal
+          users={users}
+          investment={editTarget}
+          isEdit={true}
+          onClose={() => setEditTarget(null)}
+          onSuccess={load}
+        />
+      )}
+
+      {/* Add Funds modal */}
+      {fundsTarget && (
+        <AddFundsModal
+          investment={fundsTarget}
+          onClose={() => setFundsTarget(null)}
+          onSuccess={load}
+        />
       )}
     </div>
   );
