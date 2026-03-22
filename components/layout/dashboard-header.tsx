@@ -98,11 +98,11 @@ export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps)
               Support
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/5" />
-            <DropdownMenuItem className="p-0 hover:bg-red-500/10 focus:bg-red-500/10">
+            <DropdownMenuItem className="p-0 text-red-400 hover:bg-red-500/10 focus:text-red-400 focus:bg-red-500/10">
               <form action={logoutUser} className="w-full">
                 <button
                   type="submit"
-                  className="w-full flex items-center px-1.5 py-1 text-sm text-red-400 cursor-pointer"
+                  className="w-full flex items-center px-1.5 py-1 text-sm !text-red-400 cursor-pointer"
                 >
                   Sign Out
                 </button>
