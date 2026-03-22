@@ -5,24 +5,22 @@ import { usePathname } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, BarChart3, Wallet, TrendingUp, ArrowDownToLine,
-  ArrowUpFromLine, History, ShieldCheck, HeadphonesIcon, Settings,
+  LayoutDashboard, TrendingUp, Users, ArrowDownToLine,
+  ArrowUpFromLine, History, HeadphonesIcon, Settings,
   ChevronLeft, ChevronRight, LogOut, Bell,
 } from "lucide-react";
 import { logoutUser } from "@/lib/actions/auth";
 import { useState } from "react";
 
 const navItems = [
-  { href: "/dashboard",               label: "Overview",     icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/portfolio",     label: "Portfolio",    icon: BarChart3 },
-  { href: "/dashboard/wallets",       label: "Wallets",      icon: Wallet },
-  { href: "/dashboard/trade",         label: "Trade",        icon: TrendingUp },
-  { href: "/dashboard/deposit",       label: "Deposit",      icon: ArrowDownToLine },
-  { href: "/dashboard/withdraw",      label: "Withdraw",     icon: ArrowUpFromLine },
-  { href: "/dashboard/transactions",  label: "Transactions", icon: History },
-  { href: "/dashboard/verification",  label: "Verification", icon: ShieldCheck },
-  { href: "/dashboard/support",       label: "Support",      icon: HeadphonesIcon },
-  { href: "/dashboard/settings",      label: "Settings",     icon: Settings },
+  { href: "/dashboard",                 label: "Overview",      icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/investments",     label: "Investments",   icon: TrendingUp },
+  { href: "/dashboard/copy-trading",    label: "Copy Trading",  icon: Users },
+  { href: "/dashboard/transactions",    label: "Transactions",  icon: History },
+  { href: "/dashboard/deposit",         label: "Deposit",       icon: ArrowDownToLine },
+  { href: "/dashboard/withdraw",        label: "Withdraw",      icon: ArrowUpFromLine },
+  { href: "/dashboard/support",         label: "Support",       icon: HeadphonesIcon },
+  { href: "/dashboard/settings",        label: "Settings",      icon: Settings },
 ];
 
 interface DashboardSidebarProps {

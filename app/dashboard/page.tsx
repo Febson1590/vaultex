@@ -81,6 +81,15 @@ export default async function DashboardPage() {
     createdAt: a.createdAt.toISOString(),
   }));
 
+  // Serialize wallets (all non-zero balances) for the Overview wallet strip
+  const serializedWallets = wallets
+    .filter(w => Number(w.balance) > 0)
+    .map(w => ({
+      id: w.id,
+      currency: w.currency,
+      balance: Number(w.balance),
+    }));
+
   return (
     <DashboardClient
       user={{ id: user.id, name: user.name }}
@@ -92,6 +101,7 @@ export default async function DashboardPage() {
       copyTrades={serializedCopyTrades}
       activity={serializedActivity}
       chartData={chartData}
+      wallets={serializedWallets}
     />
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -43,9 +42,6 @@ export function AdminHeader() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-xs text-slate-400 hover:text-sky-400 transition-colors whitespace-nowrap">
-          ← User View
-        </Link>
         <form action={logoutUser}>
           <button type="submit" className="text-xs text-red-400 hover:text-red-300 transition-colors">
             Sign Out

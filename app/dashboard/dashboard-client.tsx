@@ -9,8 +9,8 @@ import { addInvestmentFunds, stopCopyTrade } from "@/lib/actions/investment";
 import {
   TrendingUp, DollarSign, Activity, Zap,
   ArrowUpRight, Plus, ShieldAlert, Loader2,
-  Clock, BarChart2, Users, StopCircle,
-  ArrowDownToLine, RefreshCw, Wallet, ChevronDown,
+  Clock, Users, StopCircle,
+  ArrowDownToLine, ArrowUpFromLine, RefreshCw, Wallet,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────────────
@@ -48,6 +48,12 @@ interface ActivityItem {
   createdAt: string;
 }
 
+interface WalletBalance {
+  id: string;
+  currency: string;
+  balance: number;
+}
+
 interface DashboardClientProps {
   user: { name: string | null; id: string };
   usdBalance: number;
@@ -58,6 +64,7 @@ interface DashboardClientProps {
   copyTrades: CopyTrade[];
   activity: ActivityItem[];
   chartData: { date: string; value: number }[];
+  wallets: WalletBalance[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────────────────
@@ -243,6 +250,69 @@ function PortfolioOverview({
       {/* Chart */}
       <div className="h-40 px-2 pb-3">
         <PortfolioChart data={chartData} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Wallet Strip ────────────────────────────────────────────────────────────────────────────────
+
+const CURRENCY_META: Record<string, { color: string; symbol: string }> = {
+  USD:  { color: "#0ea5e9", symbol: "$"  },
+  USDT: { color: "#10b981", symbol: "₮"  },
+  BTC:  { color: "#f59e0b", symbol: "₿"  },
+  ETH:  { color: "#6366f1", symbol: "Ξ"  },
+  BNB:  { color: "#eab308", symbol: "Ƀ"  },
+  SOL:  { color: "#8b5cf6", symbol: "◎"  },
+};
+
+function WalletStrip({ wallets }: { wallets: WalletBalance[] }) {
+  if (wallets.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-sky-500/15 overflow-hidden" style={{ background: "rgba(7,15,30,0.85)" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.05]">
+        <div className="flex items-center gap-2">
+          <Wallet size={14} className="text-sky-400" />
+          <span className="text-sm font-bold text-white">Wallets</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/deposit">
+            <span className="text-xs text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1">
+              <ArrowDownToLine size={11} /> Deposit
+            </span>
+          </Link>
+          <Link href="/dashboard/withdraw">
+            <span className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1">
+              <ArrowUpFromLine size={11} /> Withdraw
+            </span>
+          </Link>
+        </div>
+      </div>
+      {/* Wallet grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/[0.04]">
+        {wallets.map(w => {
+          const meta = CURRENCY_META[w.currency] ?? { color: "#64748b", symbol: "" };
+          const isFiat = w.currency === "USD" || w.currency === "USDT";
+          return (
+            <div key={w.id} className="px-5 py-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
+                  style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}35`, color: meta.color }}
+                >
+                  {meta.symbol || w.currency.slice(0, 1)}
+                </div>
+                <span className="text-xs font-semibold text-slate-400">{w.currency}</span>
+              </div>
+              <div className="text-base font-extrabold text-white">
+                {isFiat
+                  ? fmt(w.balance)
+                  : `${w.balance.toFixed(6)}`}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -585,6 +655,7 @@ export default function DashboardClient({
   copyTrades: initCopyTrades,
   activity: initActivity,
   chartData,
+  wallets,
 }: DashboardClientProps) {
   const [usdBalance, setUsdBalance]     = useState(initBalance);
   const [investment, setInvestment]     = useState<Investment | null>(initInvestment);
@@ -667,6 +738,9 @@ export default function DashboardClient({
             totalEarned={totalEarned}
             chartData={chartData}
           />
+
+          {/* 1b. Wallet Balances (merged from Wallets page) */}
+          <WalletStrip wallets={wallets} />
 
           {/* 2. Active Investment */}
           <ActiveInvestment
