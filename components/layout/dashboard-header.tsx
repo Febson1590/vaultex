@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Bell, Menu, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Logo } from "@/components/logo";
@@ -21,20 +23,31 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close the drawer whenever the route changes (failsafe for any navigation)
+  useEffect(() => {
+    setSheetOpen(false);
+  }, [pathname]);
+
   const initials = user.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U";
 
   return (
     <header className="h-16 bg-[#040f1f]/95 backdrop-blur-sm border-b border-sky-500/10 flex items-center px-4 sm:px-6 flex-shrink-0 sticky top-0 z-30">
-      {/* Mobile menu */}
-      <Sheet>
+      {/* Mobile menu — controlled Sheet so we can close it on nav click */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetTrigger render={<button className="lg:hidden p-2 text-slate-400 hover:text-white mr-2" />}>
           <Menu size={20} />
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0 bg-[#040f1f] border-sky-500/10 overflow-hidden">
-          {/* isMobile=true removes the hidden lg:flex class so it renders properly inside the Sheet */}
-          <DashboardSidebar unreadCount={unreadCount} isMobile={true} />
+          <DashboardSidebar
+            unreadCount={unreadCount}
+            isMobile={true}
+            onNavClick={() => setSheetOpen(false)}
+          />
         </SheetContent>
       </Sheet>
 

@@ -29,9 +29,11 @@ interface DashboardSidebarProps {
   unreadCount?: number;
   /** Pass true when rendered inside the mobile Sheet drawer */
   isMobile?: boolean;
+  /** Called when a nav item is clicked — used to close the mobile drawer */
+  onNavClick?: () => void;
 }
 
-export function DashboardSidebar({ unreadCount = 0, isMobile = false }: DashboardSidebarProps) {
+export function DashboardSidebar({ unreadCount = 0, isMobile = false, onNavClick }: DashboardSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -71,6 +73,7 @@ export function DashboardSidebar({ unreadCount = 0, isMobile = false }: Dashboar
               key={item.href}
               href={item.href}
               title={isCollapsed ? item.label : undefined}
+              onClick={onNavClick}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group",
                 active
@@ -98,6 +101,7 @@ export function DashboardSidebar({ unreadCount = 0, isMobile = false }: Dashboar
       <div className="p-2 border-t border-sky-500/10 space-y-0.5">
         <Link
           href="/dashboard/notifications"
+          onClick={onNavClick}
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors relative",
             isCollapsed && "justify-center px-2"
