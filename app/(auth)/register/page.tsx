@@ -35,6 +35,40 @@ const COUNTRIES = [
   "Zimbabwe",
 ];
 
+/* ── Country → ISO-3166-1 alpha-2 for emoji flags ─────────────────────── */
+const COUNTRY_CODES: Record<string, string> = {
+  "Afghanistan":"AF","Albania":"AL","Algeria":"DZ","Angola":"AO","Argentina":"AR",
+  "Armenia":"AM","Australia":"AU","Austria":"AT","Azerbaijan":"AZ","Bahrain":"BH",
+  "Bangladesh":"BD","Belgium":"BE","Bolivia":"BO","Bosnia":"BA","Brazil":"BR",
+  "Bulgaria":"BG","Cambodia":"KH","Cameroon":"CM","Canada":"CA","Chile":"CL",
+  "China":"CN","Colombia":"CO","Costa Rica":"CR","Croatia":"HR","Cuba":"CU",
+  "Czech Republic":"CZ","Denmark":"DK","Ecuador":"EC","Egypt":"EG",
+  "El Salvador":"SV","Estonia":"EE","Ethiopia":"ET","Finland":"FI","France":"FR",
+  "Georgia":"GE","Germany":"DE","Ghana":"GH","Greece":"GR","Guatemala":"GT",
+  "Honduras":"HN","Hong Kong":"HK","Hungary":"HU","India":"IN","Indonesia":"ID",
+  "Iran":"IR","Iraq":"IQ","Ireland":"IE","Israel":"IL","Italy":"IT",
+  "Jamaica":"JM","Japan":"JP","Jordan":"JO","Kazakhstan":"KZ","Kenya":"KE",
+  "Kuwait":"KW","Lebanon":"LB","Libya":"LY","Lithuania":"LT","Malaysia":"MY",
+  "Mexico":"MX","Moldova":"MD","Morocco":"MA","Mozambique":"MZ","Myanmar":"MM",
+  "Netherlands":"NL","New Zealand":"NZ","Nigeria":"NG","Norway":"NO","Oman":"OM",
+  "Pakistan":"PK","Panama":"PA","Paraguay":"PY","Peru":"PE","Philippines":"PH",
+  "Poland":"PL","Portugal":"PT","Qatar":"QA","Romania":"RO","Russia":"RU",
+  "Saudi Arabia":"SA","Senegal":"SN","Serbia":"RS","Singapore":"SG",
+  "South Africa":"ZA","South Korea":"KR","Spain":"ES","Sri Lanka":"LK",
+  "Sweden":"SE","Switzerland":"CH","Taiwan":"TW","Tanzania":"TZ","Thailand":"TH",
+  "Tunisia":"TN","Turkey":"TR","Uganda":"UG","Ukraine":"UA",
+  "United Arab Emirates":"AE","United Kingdom":"GB","United States":"US",
+  "Uruguay":"UY","Uzbekistan":"UZ","Venezuela":"VE","Vietnam":"VN",
+  "Yemen":"YE","Zimbabwe":"ZW",
+};
+
+/* ── Emoji flag from ISO-3166-1 alpha-2 code ───────────────────────────── */
+function flagEmoji(code: string): string {
+  return [...code.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)
+  ).join("");
+}
+
 /* ── Password strength rules ───────────────────────────────────────────── */
 const PWD_RULES = [
   { label: "At least 8 characters",          test: (p: string) => p.length >= 8 },
@@ -49,13 +83,12 @@ const STEPS = [
   { n: 3, label: "Security",      icon: Shield, heading: "Account Security",          sub: "Secure your trading account"          },
 ];
 
-/* ── Stepper (module-level — stable reference, no focus-loss risk) ─────── */
+/* ── Stepper ─────────────────────────────────────────────────────────── */
 function Stepper({ step }: { step: number }) {
   return (
     <div className="flex items-start justify-between mb-8 select-none">
       {STEPS.map(({ n, label }, i) => (
         <div key={n} className="flex items-center flex-1">
-          {/* Dot + label */}
           <div className="flex flex-col items-center gap-1.5">
             <div className={`
               w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
@@ -64,20 +97,19 @@ function Stepper({ step }: { step: number }) {
                 ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
                 : step === n
                   ? "bg-sky-500 text-white shadow-lg shadow-sky-500/30 ring-4 ring-sky-500/20"
-                  : "bg-white/[0.07] text-slate-500 border border-white/10"}
+                  : "bg-white/[0.07] text-slate-400 border border-white/[0.18]"}
             `}>
               {step > n ? <Check size={14} strokeWidth={3} /> : n}
             </div>
             <span className={`text-[10px] font-medium tracking-wider whitespace-nowrap hidden sm:block
-              ${step === n ? "text-sky-400" : step > n ? "text-emerald-400" : "text-slate-600"}`}>
+              ${step === n ? "text-sky-400" : step > n ? "text-emerald-400" : "text-slate-500"}`}>
               {label}
             </span>
           </div>
 
-          {/* Connector */}
           {i < STEPS.length - 1 && (
             <div className={`flex-1 h-px mx-2 transition-all duration-500
-              ${step > n ? "bg-sky-500/40" : "bg-white/[0.08]"}`} />
+              ${step > n ? "bg-sky-500/40" : "bg-white/[0.14]"}`} />
           )}
         </div>
       ))}
@@ -85,28 +117,26 @@ function Stepper({ step }: { step: number }) {
   );
 }
 
-/* ── StepHeader (module-level — stable reference, no focus-loss risk) ──── */
+/* ── StepHeader ──────────────────────────────────────────────────────── */
 function StepHeader({ step }: { step: number }) {
   const s = STEPS[step - 1];
   const StepIcon = s.icon;
   return (
     <div className="flex items-center gap-3 rounded-xl p-4 mb-6"
-      style={{ background: "rgba(14,165,233,0.07)", border: "1px solid rgba(14,165,233,0.14)" }}>
+      style={{ background: "rgba(14,165,233,0.09)", border: "1px solid rgba(14,165,233,0.22)" }}>
       <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: "rgba(14,165,233,0.12)", border: "1px solid rgba(14,165,233,0.22)" }}>
+        style={{ background: "rgba(14,165,233,0.15)", border: "1px solid rgba(14,165,233,0.30)" }}>
         <StepIcon className="h-5 w-5 text-sky-400" />
       </div>
       <div>
         <div className="text-sm font-semibold text-white">{s.heading}</div>
-        <div className="text-xs text-slate-500">{s.sub}</div>
+        <div className="text-xs text-slate-400">{s.sub}</div>
       </div>
     </div>
   );
 }
 
-/* ── Field (module-level — stable reference, no focus-loss risk) ─────────
-   Receives the specific error string directly instead of the whole errors map.
-   ──────────────────────────────────────────────────────────────────────── */
+/* ── Field ─────────────────────────────────────────────────────────────── */
 function Field({
   label, error, children, required,
 }: {
@@ -117,7 +147,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-slate-400 uppercase tracking-widest">
+      <Label className="text-xs font-medium text-slate-300 uppercase tracking-widest">
         {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </Label>
       {children}
@@ -135,10 +165,8 @@ function Field({
 export default function RegisterPage() {
   const router = useRouter();
 
-  /* step state */
   const [step, setStep] = useState(1);
 
-  /* form values */
   const [formData, setFormData] = useState({
     username:        "",
     fullName:        "",
@@ -149,7 +177,6 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
 
-  /* UI state */
   const [errors,       setErrors]       = useState<Record<string, string>>({});
   const [showPwd,      setShowPwd]      = useState(false);
   const [showConfirm,  setShowConfirm]  = useState(false);
@@ -158,16 +185,13 @@ export default function RegisterPage() {
   const [loading,      setLoading]      = useState(false);
   const [submitError,  setSubmitError]  = useState("");
 
-  /* helpers */
   const set = (k: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [k]: e.target.value }));
     if (errors[k]) setErrors(prev => { const next = { ...prev }; delete next[k]; return next; });
   };
 
-  /* ── Validation per step ─────────────────────────────────────────────── */
   function validateStep(s: number): boolean {
     const errs: Record<string, string> = {};
-
     if (s === 1) {
       if (formData.username.trim().length < 2)
         errs.username = "Username must be at least 2 characters";
@@ -178,12 +202,9 @@ export default function RegisterPage() {
       if (formData.phone && !/^\+?[\d\s\-(). ]{6,20}$/.test(formData.phone))
         errs.phone = "Enter a valid phone number";
     }
-
     if (s === 2) {
-      if (!formData.country)
-        errs.country = "Please select your country";
+      if (!formData.country) errs.country = "Please select your country";
     }
-
     if (s === 3) {
       if (formData.password.length < 8)
         errs.password = "Password must be at least 8 characters";
@@ -198,22 +219,13 @@ export default function RegisterPage() {
       if (!termsOk)
         errs.terms = "You must accept the Terms & Privacy Policy";
     }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
 
-  /* ── Navigation ──────────────────────────────────────────────────────── */
-  function next() {
-    if (validateStep(step)) setStep(s => Math.min(s + 1, 3));
-  }
+  function next() { if (validateStep(step)) setStep(s => Math.min(s + 1, 3)); }
+  function back() { setErrors({}); setStep(s => Math.max(s - 1, 1)); }
 
-  function back() {
-    setErrors({});
-    setStep(s => Math.max(s - 1, 1));
-  }
-
-  /* ── Human verify ────────────────────────────────────────────────────── */
   function handleVerify() {
     if (verifyState !== "idle") return;
     setVerifyState("checking");
@@ -223,7 +235,6 @@ export default function RegisterPage() {
     }, 1200);
   }
 
-  /* ── Submit ──────────────────────────────────────────────────────────── */
   async function handleSubmit() {
     if (!validateStep(3)) return;
     setLoading(true);
@@ -250,9 +261,16 @@ export default function RegisterPage() {
     }
   }
 
-  const inputCls = `pl-10 bg-white/[0.05] border-white/10 text-white placeholder:text-slate-600
-    focus:border-sky-500/50 focus:ring-0 h-11 transition-colors duration-200
-    hover:border-white/20`;
+  /* ── Shared input class — sharper borders, clearer placeholders ─────── */
+  const inputCls = `pl-10 bg-white/[0.06] border-white/[0.18] text-white placeholder:text-slate-500
+    focus:border-sky-500/70 focus:bg-white/[0.08] focus:ring-0 h-11 transition-colors duration-200
+    hover:border-white/30 hover:bg-white/[0.07]`;
+
+  /* ── Shared select class — mirrors inputCls ─────────────────────────── */
+  const selectCls = `w-full h-11 pl-10 pr-9 bg-white/[0.06] border border-white/[0.18] text-white text-sm
+    rounded-md focus:outline-none focus:border-sky-500/70 focus:bg-white/[0.08]
+    hover:border-white/30 hover:bg-white/[0.07] transition-colors duration-200
+    appearance-none cursor-pointer [&>option]:bg-[#0a1628] [&>option]:text-white`;
 
   /* ═══════════════════════════════════════════════════════════════════════
      RENDER
@@ -263,14 +281,17 @@ export default function RegisterPage() {
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-white mb-1">Create Your Account</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-300">
           {step === 1 && "Step 1 of 3 — Your trading profile details"}
           {step === 2 && "Step 2 of 3 — Your location & regional settings"}
           {step === 3 && "Step 3 of 3 — Secure your account"}
         </p>
       </div>
 
-      <Card className="glass-card border-0 rounded-2xl p-7 sm:p-8">
+      {/* Card — subtle depth shadow + ring for premium separation */}
+      <Card className="glass-card border-0 rounded-2xl p-7 sm:p-8
+        shadow-[0_8px_48px_rgba(0,0,0,0.6),0_2px_12px_rgba(0,0,0,0.4)]
+        ring-1 ring-white/[0.07]">
 
         <Stepper step={step} />
 
@@ -292,7 +313,7 @@ export default function RegisterPage() {
 
             <Field label="Trading Username" error={errors.username} required>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   value={formData.username}
                   onChange={set("username")}
@@ -304,7 +325,7 @@ export default function RegisterPage() {
 
             <Field label="Full Name" error={errors.fullName} required>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   value={formData.fullName}
                   onChange={set("fullName")}
@@ -316,7 +337,7 @@ export default function RegisterPage() {
 
             <Field label="Email Address" error={errors.email} required>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   type="email"
                   value={formData.email}
@@ -329,7 +350,7 @@ export default function RegisterPage() {
 
             <Field label="Phone Number" error={errors.phone}>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   type="tel"
                   value={formData.phone}
@@ -351,32 +372,31 @@ export default function RegisterPage() {
 
             <Field label="Country / Region" error={errors.country} required>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none" />
-                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10 pointer-events-none rotate-90" />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10 pointer-events-none" />
+                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10 pointer-events-none rotate-90" />
                 <select
                   value={formData.country}
                   onChange={set("country")}
-                  className="w-full h-11 pl-10 pr-9 bg-white/[0.05] border border-white/10 text-white text-sm
-                    rounded-md focus:outline-none focus:border-sky-500/50 hover:border-white/20
-                    transition-colors duration-200 appearance-none cursor-pointer
-                    [&>option]:bg-[#0a1628] [&>option]:text-white"
+                  className={selectCls}
                 >
                   <option value="" disabled className="text-slate-500">Select your country</option>
-                  {COUNTRIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
+                  {COUNTRIES.map(c => {
+                    const code = COUNTRY_CODES[c];
+                    const flag = code ? flagEmoji(code) + " " : "";
+                    return <option key={c} value={c}>{flag}{c}</option>;
+                  })}
                 </select>
               </div>
             </Field>
 
             {/* Info card */}
             <div className="rounded-xl p-4"
-              style={{ background: "rgba(14,165,233,0.06)", border: "1px solid rgba(14,165,233,0.12)" }}>
+              style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.20)" }}>
               <div className="flex items-start gap-3">
                 <Globe className="h-4 w-4 text-sky-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <div className="text-xs font-semibold text-sky-400 mb-1">Regional Trading Information</div>
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs text-slate-400 leading-relaxed">
                     Your location helps us apply region-specific compliance rules,
                     regulatory requirements, and optimal server routing for faster order execution.
                   </p>
@@ -396,7 +416,7 @@ export default function RegisterPage() {
             {/* Password */}
             <Field label="Password" error={errors.password} required>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   type={showPwd ? "text" : "password"}
                   value={formData.password}
@@ -407,7 +427,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPwd(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
                   tabIndex={-1}
                 >
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -419,8 +439,8 @@ export default function RegisterPage() {
                   {PWD_RULES.map(r => {
                     const ok = r.test(formData.password);
                     return (
-                      <div key={r.label} className={`flex items-center gap-2 text-xs transition-colors duration-200 ${ok ? "text-emerald-400" : "text-slate-600"}`}>
-                        <CheckCircle2 size={11} className={ok ? "text-emerald-400" : "text-slate-700"} />
+                      <div key={r.label} className={`flex items-center gap-2 text-xs transition-colors duration-200 ${ok ? "text-emerald-400" : "text-slate-500"}`}>
+                        <CheckCircle2 size={11} className={ok ? "text-emerald-400" : "text-slate-600"} />
                         {r.label}
                       </div>
                     );
@@ -432,7 +452,7 @@ export default function RegisterPage() {
             {/* Confirm Password */}
             <Field label="Confirm Password" error={errors.confirmPassword} required>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   type={showConfirm ? "text" : "password"}
                   value={formData.confirmPassword}
@@ -443,7 +463,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
                   tabIndex={-1}
                 >
                   {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -453,7 +473,7 @@ export default function RegisterPage() {
 
             {/* Human Verification */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-400 uppercase tracking-widest">
+              <Label className="text-xs font-medium text-slate-300 uppercase tracking-widest">
                 Human Verification<span className="text-red-400 ml-0.5">*</span>
               </Label>
               <button
@@ -464,16 +484,15 @@ export default function RegisterPage() {
                   transition-all duration-300 cursor-pointer disabled:cursor-default"
                 style={{
                   background: verifyState === "verified"
-                    ? "rgba(16,185,129,0.07)"
-                    : "rgba(14,165,233,0.04)",
+                    ? "rgba(16,185,129,0.08)"
+                    : "rgba(14,165,233,0.05)",
                   border: verifyState === "verified"
-                    ? "1px solid rgba(16,185,129,0.22)"
+                    ? "1px solid rgba(16,185,129,0.28)"
                     : errors.verify
-                      ? "1px solid rgba(239,68,68,0.35)"
-                      : "1px solid rgba(14,165,233,0.14)",
+                      ? "1px solid rgba(239,68,68,0.40)"
+                      : "1px solid rgba(14,165,233,0.22)",
                 }}
               >
-                {/* Checkbox */}
                 <div className={`
                   w-5 h-5 rounded flex items-center justify-center flex-shrink-0
                   transition-all duration-300
@@ -481,22 +500,21 @@ export default function RegisterPage() {
                     ? "bg-emerald-500 shadow-lg shadow-emerald-500/30"
                     : verifyState === "checking"
                       ? "bg-sky-500/40 border border-sky-500/40"
-                      : "bg-white/[0.07] border border-white/15"}
+                      : "bg-white/[0.07] border border-white/[0.20]"}
                 `}>
                   {verifyState === "verified"  && <Check   size={12} className="text-white" strokeWidth={3} />}
                   {verifyState === "checking"  && <Loader2 size={11} className="text-sky-400 animate-spin" />}
                 </div>
 
-                {/* Label */}
                 <span className={`text-sm font-medium transition-colors duration-300
-                  ${verifyState === "verified" ? "text-emerald-400" : "text-slate-300"}`}>
+                  ${verifyState === "verified" ? "text-emerald-400" : "text-slate-200"}`}>
                   {verifyState === "idle"     && "I'm not a robot"}
                   {verifyState === "checking" && "Verifying…"}
                   {verifyState === "verified" && "Verified — Human confirmed"}
                 </span>
 
                 {verifyState === "idle" && (
-                  <span className="ml-auto text-[10px] text-slate-600 tracking-wider uppercase">Click to verify</span>
+                  <span className="ml-auto text-[10px] text-slate-500 tracking-wider uppercase">Click to verify</span>
                 )}
               </button>
               {errors.verify && (
@@ -525,11 +543,11 @@ export default function RegisterPage() {
                     ? "bg-sky-500 border border-sky-500"
                     : errors.terms
                       ? "bg-red-500/10 border border-red-500/40"
-                      : "bg-white/[0.07] border border-white/15 group-hover:border-white/30"}
+                      : "bg-white/[0.07] border border-white/[0.20] group-hover:border-white/35"}
                 `}>
                   {termsOk && <Check size={12} className="text-white" strokeWidth={3} />}
                 </div>
-                <span className="text-xs text-slate-400 leading-relaxed mt-0.5">
+                <span className="text-xs text-slate-300 leading-relaxed mt-0.5">
                   I agree to Vaultex Market&apos;s{" "}
                   <Link href="#" className="text-sky-400 hover:text-sky-300 underline underline-offset-2" onClick={e => e.stopPropagation()}>Terms of Service</Link>
                   {" "}and{" "}
@@ -555,8 +573,8 @@ export default function RegisterPage() {
               variant="outline"
               onClick={back}
               disabled={loading}
-              className="flex items-center gap-2 border-white/10 text-slate-300
-                hover:bg-white/5 hover:text-white h-11 px-5 transition-all"
+              className="flex items-center gap-2 border-white/[0.18] text-slate-300
+                hover:bg-white/[0.07] hover:text-white hover:border-white/30 h-11 px-5 transition-all"
             >
               <ChevronLeft size={16} />
               Previous
@@ -568,7 +586,7 @@ export default function RegisterPage() {
               type="button"
               onClick={next}
               className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white
-                font-semibold h-11 px-6 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40
+                font-semibold h-11 px-6 shadow-lg shadow-sky-500/35 hover:shadow-sky-500/55
                 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 ml-auto"
             >
               Continue
@@ -580,7 +598,7 @@ export default function RegisterPage() {
               onClick={handleSubmit}
               disabled={loading}
               className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white
-                font-semibold h-11 px-8 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40
+                font-semibold h-11 px-8 shadow-lg shadow-sky-500/35 hover:shadow-sky-500/55
                 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
               {loading ? (
@@ -593,11 +611,11 @@ export default function RegisterPage() {
         </div>
 
         {/* Step indicator + sign-in link */}
-        <div className="mt-5 pt-5 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-slate-600 order-2 sm:order-1">
+        <div className="mt-5 pt-5 border-t border-white/[0.09] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-slate-500 order-2 sm:order-1">
             Step {step} of {STEPS.length}
           </p>
-          <p className="text-sm text-slate-500 order-1 sm:order-2">
+          <p className="text-sm text-slate-400 order-1 sm:order-2">
             Already have an account?{" "}
             <Link href="/login" className="text-sky-400 hover:text-sky-300 font-medium transition-colors">
               Sign in
@@ -612,7 +630,7 @@ export default function RegisterPage() {
             { icon: Shield, label: "256-bit Encrypted" },
             { icon: Check,  label: "KYC Compliant"     },
           ].map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-1.5 text-slate-700">
+            <div key={label} className="flex items-center gap-1.5 text-slate-500">
               <Icon size={11} />
               <span className="text-[10px] tracking-wide">{label}</span>
             </div>
