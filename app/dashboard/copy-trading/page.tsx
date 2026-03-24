@@ -12,7 +12,11 @@ export default async function CopyTradingPage() {
   const userId = session.user.id;
 
   const [copyTrades, usdWallet] = await Promise.all([
-    db.userCopyTrade.findMany({ where: { userId }, orderBy: { startedAt: "desc" } }),
+    db.userCopyTrade.findMany({
+      where: { userId },
+      orderBy: { startedAt: "desc" },
+      include: { trader: { select: { avatarUrl: true } } },
+    }),
     db.wallet.findFirst({ where: { userId, currency: "USD" } }),
   ]);
 
@@ -21,6 +25,7 @@ export default async function CopyTradingPage() {
       id:             t.id,
       traderName:     t.traderName,
       traderId:       t.traderId,
+      avatarUrl:      t.trader?.avatarUrl ?? null,
       amount:         Number(t.amount),
       totalEarned:    Number(t.totalEarned),
       minProfit:      Number(t.minProfit),

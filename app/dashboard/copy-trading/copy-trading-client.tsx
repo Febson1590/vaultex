@@ -16,7 +16,8 @@ interface Trader {
   minProfit: number; maxProfit: number; profitInterval: number; maxInterval: number;
 }
 interface ActiveTrade {
-  id: string; traderName: string; traderId: string; amount: number; totalEarned: number;
+  id: string; traderName: string; traderId: string; avatarUrl: string | null;
+  amount: number; totalEarned: number;
   minProfit: number; maxProfit: number; profitInterval: number; maxInterval: number; status: string;
 }
 interface Props { activeTrades: ActiveTrade[]; stoppedTrades: ActiveTrade[]; usdBalance: number }
@@ -163,7 +164,7 @@ export default function CopyTradingClient({ activeTrades: initActive, stoppedTra
               const roi = trade.amount > 0 ? (trade.totalEarned / trade.amount) * 100 : 0;
               return (
                 <div key={trade.id} className="flex items-center gap-3 px-5 py-4 hover:bg-white/[0.02] transition-colors">
-                  <Avatar name={trade.traderName} avatarUrl={null} size="md" />
+                  <Avatar name={trade.traderName} avatarUrl={trade.avatarUrl} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-bold text-white truncate">{trade.traderName}</div>
                     <div className="text-xs text-slate-500 mt-0.5">{trade.minProfit}%–{trade.maxProfit}% / {trade.profitInterval}s–{trade.maxInterval}s</div>
@@ -275,7 +276,7 @@ export default function CopyTradingClient({ activeTrades: initActive, stoppedTra
               const roi = trade.amount > 0 ? (trade.totalEarned / trade.amount) * 100 : 0;
               return (
                 <div key={trade.id} className="flex items-center gap-3 px-5 py-4 opacity-60">
-                  <Avatar name={trade.traderName} avatarUrl={null} size="sm" />
+                  <Avatar name={trade.traderName} avatarUrl={trade.avatarUrl} size="sm" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-slate-400 truncate">{trade.traderName}</div>
                     <div className="text-xs text-slate-600">Stopped</div>
