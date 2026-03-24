@@ -74,7 +74,7 @@ export async function updateUserStatus(userId: string, status: "ACTIVE" | "FROZE
   return { success: true };
 }
 
-export async function adminUpdateWallet(userId: string, currency: string, amount: number, operation: "SET" | "ADD" | "SUBTRACT") {
+export async function adminUpdateWallet(userId: string, currency: string, amount: number, operation: "SET" | "ADD" | "SUBTRACT", reason = "") {
   const adminId = await requireAdmin();
 
   const wallet = await db.wallet.findUnique({
@@ -104,11 +104,13 @@ export async function adminUpdateWallet(userId: string, currency: string, amount
       currency,
       amount,
       status: "COMPLETED",
-      description: `Admin balance adjustment: ${operation} ${amount} ${currency}`,
+      description: reason
+        ? `Admin ${operation.toLowerCase()}: ${reason}`
+        : `Admin balance adjustment: ${operation} ${amount} ${currency}`,
     },
   });
 
-  await logAction(adminId, "WALLET_ADJUSTMENT", userId, `${operation} ${amount} ${currency}`);
+  await logAction(adminId, "WALLET_ADJUSTMENT", userId, `${operation} ${amount} ${currency}${reason ? ` — ${reason}` : ""}`);
 
   await db.notification.create({
     data: {

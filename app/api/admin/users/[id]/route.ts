@@ -19,6 +19,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       transactions: { orderBy: { createdAt: "desc" }, take: 10 },
       depositRequests: { orderBy: { createdAt: "desc" }, take: 5 },
       withdrawalRequests: { orderBy: { createdAt: "desc" }, take: 5 },
+      investment: true,
+      copyTrades: {
+        orderBy: { startedAt: "desc" },
+        include: { trader: { select: { avatarUrl: true } } },
+      },
+      targetActions: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        include: { admin: { select: { name: true, email: true } } },
+      },
     },
   });
 
