@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   ArrowLeft, Loader2, ShieldCheck, Wallet, Bell,
   TrendingUp, Users, Receipt, ClipboardList,
-  PlusCircle, MinusCircle, RefreshCw,
+  PlusCircle, MinusCircle, RefreshCw, Trash2, AlertTriangle,
 } from "lucide-react";
 import { adminUpdateWallet, updateUserStatus, adminSendNotification } from "@/lib/actions/admin";
 
@@ -62,8 +62,11 @@ function avatarHue(name: string, email: string) {
 // ── Page ──────────────────────────────────────────────────────
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [user, setUser]       = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteBusy, setDeleteBusy]           = useState(false);
 
   // Status
   const [newStatus, setNewStatus] = useState("");
@@ -122,6 +125,24 @@ export default function AdminUserDetailPage() {
     setNBusy(false);
     if (r?.success) { toast.success("Notification sent"); setNTitle(""); setNMsg(""); }
     else toast.error("Failed to send");
+  }
+
+  async function handleDelete() {
+    setDeleteBusy(true);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        toast.error(data.error ?? "Deletion failed");
+        setDeleteBusy(false);
+      } else {
+        toast.success("User account permanently deleted");
+        router.push("/admin/users");
+      }
+    } catch {
+      toast.error("Network error — deletion failed");
+      setDeleteBusy(false);
+    }
   }
 
   // ── Loading / Not found ───────────────────────────────────
@@ -545,6 +566,84 @@ export default function AdminUserDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ─── DANGER ZONE ─────────────────────────────────── */}
+      <div className="rounded-2xl border border-red-500/20 bg-red-500/[0.03] p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle size={14} className="text-red-400" />
+              <h2 className="text-sm font-bold text-red-400">Danger Zone</h2>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Permanently delete this user account and all associated data including wallets,
+              transactions, investments, copy trading history, and KYC records.
+              This action <span className="text-red-400 font-medium">cannot be undone</span>.
+            </p>
+          </div>
+          <Button
+            onClick={() => setShowDeleteModal(true)}
+            className="flex-shrink-0 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/30 font-bold h-9 px-5 text-sm"
+          >
+            <Trash2 size={13} className="mr-1.5" /> Delete User
+          </Button>
+        </div>
+      </div>
+
+      {/* ─── DELETE CONFIRMATION MODAL ───────────────────── */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={() => !deleteBusy && setShowDeleteModal(false)}
+        >
+          <div
+            className="glass-card border border-red-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Delete User Account</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Permanent — cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="mb-5 p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+              <div className="text-sm font-semibold text-white">{user.name || "Unnamed User"}</div>
+              <div className="text-xs text-slate-400 mt-0.5">{user.email}</div>
+            </div>
+
+            <p className="text-sm text-slate-300 leading-relaxed mb-6">
+              Are you sure you want to permanently delete this user? All wallets, balances,
+              transactions, investments, copy trading data, and KYC records will be removed.{" "}
+              <span className="text-red-400 font-semibold">This cannot be undone.</span>
+            </p>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-white/10 text-slate-300 hover:text-white h-10"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleteBusy}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold h-10"
+                onClick={handleDelete}
+                disabled={deleteBusy}
+              >
+                {deleteBusy
+                  ? <Loader2 size={14} className="animate-spin mr-1.5" />
+                  : <Trash2 size={14} className="mr-1.5" />}
+                Delete Permanently
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
