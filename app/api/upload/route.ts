@@ -1,8 +1,7 @@
-import { UTApi } from "uploadthing/server";
-import { auth } from "@/auth";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
 import { NextResponse } from "next/server";
-
-const utapi = new UTApi();
+import { auth } from "@/auth";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB
@@ -40,11 +39,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const res = await utapi.uploadFiles(file);
-    if (res.error) {
-      return NextResponse.json({ error: res.error.message }, { status: 500 });
-    }
-    return NextResponse.json({ url: res.data.ufsUrl });
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const uploadDir = join(process.cwd(), "public", "uploads");
+    await mkdir(uploadDir, { recursive: true });
+    await writeFile(join(uploadDir, filename), buffer);
+
+    return NextResponse.json({ url: `/uploads/${filename}` });
   } catch (err: any) {
     console.error("[/api/upload]", err);
     return NextResponse.json(

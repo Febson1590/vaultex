@@ -42,4 +42,8 @@ next-env.d.ts
 
 /lib/generated/prisma
 
+# uploaded trader photos (runtime-generated)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
 .vercel
