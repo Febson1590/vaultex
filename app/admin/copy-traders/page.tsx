@@ -44,8 +44,6 @@ function TraderModal({ trader, onClose, onSuccess }: {
     minProfit: String(trader?.minProfit ?? 0.3), maxProfit: String(trader?.maxProfit ?? 1.2),
   });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(trader?.avatarUrl ?? null);
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(trader?.avatarUrl ?? null);
   const [loading, setLoading] = useState(false);
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
@@ -55,29 +53,16 @@ function TraderModal({ trader, onClose, onSuccess }: {
     const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!allowed.includes(file.type)) { toast.error("Only jpg, png, webp allowed"); return; }
     if (file.size > 2 * 1024 * 1024) { toast.error("Max file size is 2MB"); return; }
-    setFileToUpload(file);
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
+    const reader = new FileReader();
+    reader.onload = () => setAvatarUrl(reader.result as string);
+    reader.readAsDataURL(file);
   }
 
   async function submit() {
     if (!form.name.trim()) { toast.error("Name is required"); return; }
     setLoading(true);
-    let finalAvatarUrl = avatarUrl;
-    if (fileToUpload) {
-      const fd = new FormData();
-      fd.append("file", fileToUpload);
-      try {
-        const res = await fetch("/api/upload", { method: "POST", body: fd });
-        const data = await res.json();
-        if (!res.ok || data.error) { toast.error(data.error ?? "Upload failed"); setLoading(false); return; }
-        finalAvatarUrl = data.url;
-      } catch {
-        toast.error("Upload failed"); setLoading(false); return;
-      }
-    }
     const payload = {
-      name: form.name.trim(), avatarUrl: finalAvatarUrl ?? undefined,
+      name: form.name.trim(), avatarUrl: avatarUrl ?? undefined,
       specialty: form.specialty || undefined,
       winRate: parseFloat(form.winRate), totalROI: parseFloat(form.totalROI),
       followers: parseInt(form.followers), minCopyAmount: parseFloat(form.minCopyAmount),
@@ -106,8 +91,8 @@ function TraderModal({ trader, onClose, onSuccess }: {
             <label className={labelCls}>Trader Photo (optional)</label>
             <div className="mt-2 flex items-center gap-4">
               <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 border-2 border-white/10 bg-white/[0.06] flex items-center justify-center">
-                {previewUrl ? (
-                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-xs text-slate-500 text-center leading-tight px-1">No photo</span>
                 )}
@@ -115,12 +100,12 @@ function TraderModal({ trader, onClose, onSuccess }: {
               <div className="flex-1">
                 <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.15] text-xs text-slate-300 hover:bg-white/[0.10] hover:text-white transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  {previewUrl ? "Change photo" : "Upload photo"}
+                  {avatarUrl ? "Change photo" : "Upload photo"}
                   <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={handleFileChange} />
                 </label>
                 <p className="text-[10px] text-slate-500 mt-1.5">JPG, PNG, WEBP · Max 2MB</p>
-                {previewUrl && (
-                  <button type="button" onClick={() => { setPreviewUrl(null); setFileToUpload(null); setAvatarUrl(null); }}
+                {avatarUrl && (
+                  <button type="button" onClick={() => setAvatarUrl(null)}
                     className="text-[10px] text-red-400 hover:text-red-300 mt-1 transition-colors">
                     Remove photo
                   </button>
