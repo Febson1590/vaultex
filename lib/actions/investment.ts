@@ -4,33 +4,150 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-// ─── User actions ────────────────────────────────────────────────────────────
+// ─── User: get available investment plans ────────────────────────────────────
 
-export async function getDashboardData() {
+export async function getAvailablePlans() {
   const session = await auth();
-  if (!session?.user?.id) return null;
+  if (!session?.user?.id) return [];
+  return db.investmentPlan.findMany({
+    where: { isActive: true },
+    orderBy: { minAmount: "asc" },
+  });
+}
+
+// ─── User: get available copy traders ───────────────────────────────────
+
+export async function getAvailableTraders() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  return db.copyTrader.findMany({
+    where: { isActive: true },
+    orderBy: { totalROI: "desc" },
+  });
+}
+
+// ─── User: start an investment plan ─────────────────────────────────────
+
+export async function userStartInvestment(data: {
+  planId: string;
+  amount: number;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
   const userId = session.user.id;
 
-  const [user, wallets, investment, copyTrades, activity] = await Promise.all([
-    db.user.findUnique({
-      where: { id: userId },
-      include: { verifications: { orderBy: { submittedAt: "desc" }, take: 1 } },
+  const plan = await db.investmentPlan.findUnique({ where: { id: data.planId } });
+  if (!plan || !plan.isActive) return { error: "Plan not found or inactive" };
+  if (data.amount < Number(plan.minAmount)) {
+    return { error: `Minimum investment is $${Number(plan.minAmount).toLocaleString()}` };
+  }
+
+  const existing = await db.userInvestment.findUnique({ where: { userId } });
+  if (existing && existing.status === "ACTIVE") {
+    return { error: "You already have an active investment plan" };
+  }
+
+  const usdWallet = await db.wallet.findFirst({ where: { userId, currency: "USD" } });
+  if (!usdWallet || Number(usdWallet.balance) < data.amount) {
+    return { error: "Insufficient USD balance" };
+  }
+
+  const now = new Date();
+  const intervalSecs = Number(plan.profitInterval);
+  const nextProfitAt = new Date(now.getTime() + intervalSecs * 1000);
+
+  const invData = {
+    planId: plan.id,
+    planName: plan.name,
+    amount: data.amount,
+    totalEarned: 0,
+    minProfit: plan.minProfit,
+    maxProfit: plan.maxProfit,
+    profitInterval: plan.profitInterval,
+    maxInterval: plan.maxInterval,
+    status: "ACTIVE" as const,
+    lastProfitAt: now,
+    nextProfitAt,
+  };
+
+  await db.$transaction([
+    db.wallet.update({ where: { id: usdWallet.id }, data: { balance: { decrement: data.amount } } }),
+    ...(existing
+      ? [db.userInvestment.update({ where: { userId }, data: invData })]
+      : [db.userInvestment.create({ data: { userId, ...invData } })]),
+    db.transaction.create({
+      data: { userId, type: "ADJUSTMENT", currency: "USD", amount: data.amount, description: `Investment in ${plan.name}` },
     }),
-    db.wallet.findMany({ where: { userId } }),
-    db.userInvestment.findUnique({ where: { userId } }),
-    db.userCopyTrade.findMany({
-      where: { userId, status: { not: "STOPPED" } },
-      orderBy: { startedAt: "desc" },
+    db.activityLog.create({
+      data: { userId, type: "INVESTMENT_STARTED", title: `Invested $${data.amount.toLocaleString()} in ${plan.name}`, amount: data.amount, currency: "USD" },
     }),
-    db.activityLog.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
+    db.notification.create({
+      data: { userId, title: "Investment Activated", message: `Your ${plan.name} investment of $${data.amount.toLocaleString()} is now active.`, type: "SUCCESS" },
     }),
   ]);
 
-  return { user, wallets, investment, copyTrades, activity };
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/investments");
+  return { success: true };
 }
+// ─── User: start copying a trader ─────────────────────────────────────
+
+export async function userStartCopyTrade(data: {
+  traderId: string;
+  amount: number;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const userId = session.user.id;
+
+  const trader = await db.copyTrader.findUnique({ where: { id: data.traderId } });
+  if (!trader || !trader.isActive) return { error: "Trader not found or inactive" };
+  if (data.amount < Number(trader.minCopyAmount)) {
+    return { error: `Minimum copy amount is $${Number(trader.minCopyAmount).toLocaleString()}` };
+  }
+
+  const existing = await db.userCopyTrade.findFirst({
+    where: { userId, traderId: data.traderId, status: { not: "STOPPED" } },
+  });
+  if (existing) return { error: `You are already copying ${trader.name}` };
+
+  const usdWallet = await db.wallet.findFirst({ where: { userId, currency: "USD" } });
+  if (!usdWallet || Number(usdWallet.balance) < data.amount) {
+    return { error: "Insufficient USD balance" };
+  }
+
+  const now = new Date();
+  const intervalSecs = Number(trader.profitInterval);
+  const nextProfitAt = new Date(now.getTime() + intervalSecs * 1000);
+
+  await db.$transaction([
+    db.wallet.update({ where: { id: usdWallet.id }, data: { balance: { decrement: data.amount } } }),
+    db.userCopyTrade.create({
+      data: {
+        userId, traderId: data.traderId, traderName: trader.name,
+        amount: data.amount, totalEarned: 0,
+        minProfit: trader.minProfit, maxProfit: trader.maxProfit,
+        profitInterval: trader.profitInterval, maxInterval: trader.maxInterval,
+        status: "ACTIVE", lastProfitAt: now, nextProfitAt,
+      },
+    }),
+    db.transaction.create({
+      data: { userId, type: "ADJUSTMENT", currency: "USD", amount: data.amount, description: `Copy trading ${trader.name}` },
+    }),
+    db.activityLog.create({
+      data: { userId, type: "COPY_TRADE_STARTED", title: `Started copying ${trader.name}`, amount: data.amount, currency: "USD" },
+    }),
+    db.notification.create({
+      data: { userId, title: "Copy Trade Started", message: `You are now copying ${trader.name} with $${data.amount.toLocaleString()}.`, type: "SUCCESS" },
+    }),
+  ]);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/copy-trading");
+  return { success: true };
+}
+
+// ─── User: add funds to investment ───────────────────────────────────────
 
 export async function addInvestmentFunds(amount: number) {
   const session = await auth();
@@ -44,181 +161,143 @@ export async function addInvestmentFunds(amount: number) {
   if (!usdWallet || Number(usdWallet.balance) < amount) return { error: "Insufficient USD balance" };
 
   await db.$transaction([
-    db.wallet.update({
-      where: { id: usdWallet.id },
-      data: { balance: { decrement: amount } },
-    }),
-    db.userInvestment.update({
-      where: { userId },
-      data: { amount: { increment: amount } },
-    }),
+    db.wallet.update({ where: { id: usdWallet.id }, data: { balance: { decrement: amount } } }),
+    db.userInvestment.update({ where: { userId }, data: { amount: { increment: amount } } }),
     db.activityLog.create({
-      data: {
-        userId,
-        type: "INVESTMENT_FUNDS_ADDED",
-        title: `Added $${amount.toLocaleString()} to ${investment.planName}`,
-        amount,
-        currency: "USD",
-      },
+      data: { userId, type: "INVESTMENT_FUNDS_ADDED", title: `Added $${amount.toLocaleString()} to ${investment.planName}`, amount, currency: "USD" },
     }),
   ]);
 
   revalidatePath("/dashboard");
   return { success: true };
 }
+
+// ─── User: stop copying a trader ──────────────────────────────────────
 
 export async function stopCopyTrade(copyTradeId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const userId = session.user.id;
 
-  const trade = await db.userCopyTrade.findFirst({
-    where: { id: copyTradeId, userId },
-  });
+  const trade = await db.userCopyTrade.findFirst({ where: { id: copyTradeId, userId } });
   if (!trade) return { error: "Trade not found" };
 
   await db.$transaction([
-    db.userCopyTrade.update({
-      where: { id: copyTradeId },
-      data: { status: "STOPPED" },
-    }),
+    db.userCopyTrade.update({ where: { id: copyTradeId }, data: { status: "STOPPED" } }),
     db.activityLog.create({
-      data: {
-        userId,
-        type: "COPY_TRADE_STOPPED",
-        title: `Stopped copying ${trade.traderName}`,
-        amount: Number(trade.amount),
-        currency: "USD",
-      },
+      data: { userId, type: "COPY_TRADE_STOPPED", title: `Stopped copying ${trade.traderName}`, amount: Number(trade.amount), currency: "USD" },
     }),
   ]);
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/copy-trading");
   return { success: true };
 }
 
-// ─── Admin: edit existing investment ─────────────────────────────────────────
+// ─── Admin: investment plan CRUD ─────────────────────────────────────────
 
-export async function adminEditInvestment(userId: string, data: {
-  planName: string;
-  amount: number;
+export async function adminGetInvestmentPlans() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return [];
+  return db.investmentPlan.findMany({
+    orderBy: { createdAt: "asc" },
+    include: { _count: { select: { userInvestments: true } } },
+  });
+}
+
+export async function adminCreatePlan(data: {
+  name: string;
+  description?: string;
+  minAmount: number;
   minProfit: number;
   maxProfit: number;
   profitInterval: number;
+  maxInterval: number;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
-  const now = new Date();
-  const nextProfitAt = new Date(now.getTime() + data.profitInterval * 1000);
-
-  await db.userInvestment.update({
-    where: { userId },
-    data: {
-      planName: data.planName,
-      amount: data.amount,
-      minProfit: data.minProfit,
-      maxProfit: data.maxProfit,
-      profitInterval: data.profitInterval,
-      nextProfitAt,
-    },
-  });
-
+  await db.investmentPlan.create({ data });
   revalidatePath("/admin/investments");
   return { success: true };
 }
 
-// ─── Admin: add funds to user investment (no wallet deduction) ────────────────
+export async function adminUpdatePlan(planId: string, data: Partial<{
+  name: string; description: string; minAmount: number;
+  minProfit: number; maxProfit: number; profitInterval: number;
+  maxInterval: number; isActive: boolean;
+}>) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+  await db.investmentPlan.update({ where: { id: planId }, data });
+  revalidatePath("/admin/investments");
+  return { success: true };
+}
+
+// ─── Admin: user investment management ───────────────────────────────────────
+
+export async function adminEditInvestment(userId: string, data: {
+  planName: string; amount: number; minProfit: number;
+  maxProfit: number; profitInterval: number; maxInterval: number;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+  const now = new Date();
+  const nextProfitAt = new Date(now.getTime() + data.profitInterval * 1000);
+  await db.userInvestment.update({ where: { userId }, data: { ...data, nextProfitAt } });
+  revalidatePath("/admin/investments");
+  return { success: true };
+}
 
 export async function adminAddFundsToInvestment(userId: string, amount: number) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
   const inv = await db.userInvestment.findUnique({ where: { userId } });
   if (!inv) return { error: "Investment not found" };
-
   await db.$transaction([
-    db.userInvestment.update({
-      where: { userId },
-      data: { amount: { increment: amount } },
-    }),
+    db.userInvestment.update({ where: { userId }, data: { amount: { increment: amount } } }),
     db.activityLog.create({
-      data: {
-        userId,
-        type: "INVESTMENT_FUNDS_ADDED",
-        title: `Admin added $${amount.toLocaleString()} to ${inv.planName}`,
-        amount,
-        currency: "USD",
-      },
+      data: { userId, type: "INVESTMENT_FUNDS_ADDED", title: `Admin added $${amount.toLocaleString()} to ${inv.planName}`, amount, currency: "USD" },
     }),
   ]);
-
   revalidatePath("/admin/investments");
   return { success: true };
 }
 
-// ─── Admin actions ───────────────────────────────────────────────────────────
-
 export async function adminAssignInvestment(data: {
-  userId: string;
-  planName: string;
-  amount: number;
-  minProfit: number;
-  maxProfit: number;
-  profitInterval: number;
-  planId?: string;
+  userId: string; planName: string; amount: number;
+  minProfit: number; maxProfit: number; profitInterval: number;
+  maxInterval: number; planId?: string;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
   const now = new Date();
   const nextProfitAt = new Date(now.getTime() + data.profitInterval * 1000);
-
-  // Upsert investment (one per user)
+  const invPayload = {
+    planId: data.planId || null, planName: data.planName, amount: data.amount,
+    minProfit: data.minProfit, maxProfit: data.maxProfit,
+    profitInterval: data.profitInterval, maxInterval: data.maxInterval,
+    status: "ACTIVE" as const, lastProfitAt: now, nextProfitAt,
+  };
   await db.userInvestment.upsert({
     where: { userId: data.userId },
-    create: {
-      userId: data.userId,
-      planId: data.planId || null,
-      planName: data.planName,
-      amount: data.amount,
-      totalEarned: 0,
-      minProfit: data.minProfit,
-      maxProfit: data.maxProfit,
-      profitInterval: data.profitInterval,
-      status: "ACTIVE",
-      lastProfitAt: now,
-      nextProfitAt,
-    },
-    update: {
-      planId: data.planId || null,
-      planName: data.planName,
-      amount: data.amount,
-      minProfit: data.minProfit,
-      maxProfit: data.maxProfit,
-      profitInterval: data.profitInterval,
-      status: "ACTIVE",
-      lastProfitAt: now,
-      nextProfitAt,
-    },
+    create: { userId: data.userId, totalEarned: 0, ...invPayload },
+    update: invPayload,
   });
-
   await db.activityLog.create({
-    data: {
-      userId: data.userId,
-      type: "INVESTMENT_STARTED",
-      title: `Investment started — ${data.planName}`,
-      amount: data.amount,
-      currency: "USD",
-    },
+    data: { userId: data.userId, type: "INVESTMENT_STARTED", title: `Investment started — ${data.planName}`, amount: data.amount, currency: "USD" },
   });
-
   revalidatePath("/admin/investments");
   revalidatePath(`/admin/users/${data.userId}`);
   return { success: true };
@@ -229,12 +308,7 @@ export async function adminToggleInvestment(userId: string, status: "ACTIVE" | "
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
-  await db.userInvestment.update({
-    where: { userId },
-    data: { status },
-  });
-
+  await db.userInvestment.update({ where: { userId }, data: { status } });
   revalidatePath("/admin/investments");
   return { success: true };
 }
@@ -244,116 +318,69 @@ export async function adminCancelInvestment(userId: string) {
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
-  await db.userInvestment.update({
-    where: { userId },
-    data: { status: "CANCELLED" },
-  });
-
+  await db.userInvestment.update({ where: { userId }, data: { status: "CANCELLED" } });
   await db.activityLog.create({
-    data: {
-      userId,
-      type: "INVESTMENT_CANCELLED",
-      title: "Investment cancelled by admin",
-      currency: "USD",
-    },
+    data: { userId, type: "INVESTMENT_CANCELLED", title: "Investment cancelled by admin", currency: "USD" },
   });
-
   revalidatePath("/admin/investments");
   return { success: true };
 }
 
-// ─── Admin: copy traders ─────────────────────────────────────────────────────
+// ─── Admin: copy traders ───────────────────────────────────────────────────
 
 export async function adminCreateCopyTrader(data: {
-  name: string;
-  avatarUrl?: string;
-  specialty?: string;
-  winRate: number;
-  totalROI: number;
-  followers: number;
-  minCopyAmount: number;
-  description?: string;
-  profitInterval: number;
-  minProfit: number;
-  maxProfit: number;
+  name: string; avatarUrl?: string; specialty?: string;
+  winRate: number; totalROI: number; followers: number;
+  minCopyAmount: number; description?: string;
+  profitInterval: number; maxInterval: number;
+  minProfit: number; maxProfit: number;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
   const trader = await db.copyTrader.create({ data });
   revalidatePath("/admin/copy-traders");
   return { success: true, traderId: trader.id };
 }
 
 export async function adminUpdateCopyTrader(traderId: string, data: Partial<{
-  name: string;
-  avatarUrl: string;
-  specialty: string;
-  winRate: number;
-  totalROI: number;
-  followers: number;
-  minCopyAmount: number;
-  description: string;
-  profitInterval: number;
-  minProfit: number;
-  maxProfit: number;
-  isActive: boolean;
+  name: string; avatarUrl: string; specialty: string;
+  winRate: number; totalROI: number; followers: number;
+  minCopyAmount: number; description: string;
+  profitInterval: number; maxInterval: number;
+  minProfit: number; maxProfit: number; isActive: boolean;
 }>) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
   await db.copyTrader.update({ where: { id: traderId }, data });
   revalidatePath("/admin/copy-traders");
   return { success: true };
 }
 
-export async function adminAssignCopyTrade(data: {
-  userId: string;
-  traderId: string;
-  amount: number;
-}) {
+export async function adminAssignCopyTrade(data: { userId: string; traderId: string; amount: number }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
   const trader = await db.copyTrader.findUnique({ where: { id: data.traderId } });
   if (!trader) return { error: "Trader not found" };
-
   const now = new Date();
   const nextProfitAt = new Date(now.getTime() + trader.profitInterval * 1000);
-
   await db.userCopyTrade.create({
     data: {
-      userId: data.userId,
-      traderId: data.traderId,
-      traderName: trader.name,
-      amount: data.amount,
-      totalEarned: 0,
-      minProfit: trader.minProfit,
-      maxProfit: trader.maxProfit,
-      profitInterval: trader.profitInterval,
-      status: "ACTIVE",
-      lastProfitAt: now,
-      nextProfitAt,
+      userId: data.userId, traderId: data.traderId, traderName: trader.name,
+      amount: data.amount, totalEarned: 0,
+      minProfit: trader.minProfit, maxProfit: trader.maxProfit,
+      profitInterval: trader.profitInterval, maxInterval: trader.maxInterval,
+      status: "ACTIVE", lastProfitAt: now, nextProfitAt,
     },
   });
-
   await db.activityLog.create({
-    data: {
-      userId: data.userId,
-      type: "COPY_TRADE_STARTED",
-      title: `Started copying ${trader.name}`,
-      amount: data.amount,
-      currency: "USD",
-    },
+    data: { userId: data.userId, type: "COPY_TRADE_STARTED", title: `Started copying ${trader.name}`, amount: data.amount, currency: "USD" },
   });
-
   revalidatePath("/admin/copy-traders");
   return { success: true };
 }
@@ -363,60 +390,25 @@ export async function adminStopCopyTrade(copyTradeId: string) {
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
   const trade = await db.userCopyTrade.findUnique({ where: { id: copyTradeId } });
   if (!trade) return { error: "Trade not found" };
-
   await db.$transaction([
     db.userCopyTrade.update({ where: { id: copyTradeId }, data: { status: "STOPPED" } }),
     db.activityLog.create({
-      data: {
-        userId: trade.userId,
-        type: "COPY_TRADE_STOPPED",
-        title: `Copy trade stopped — ${trade.traderName}`,
-        currency: "USD",
-      },
+      data: { userId: trade.userId, type: "COPY_TRADE_STOPPED", title: `Copy trade stopped — ${trade.traderName}`, currency: "USD" },
     }),
   ]);
-
   revalidatePath("/admin/copy-traders");
   return { success: true };
 }
 
-// ─── Admin: Investment Plans ──────────────────────────────────────────────────
-
-export async function adminGetInvestmentPlans() {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-  return db.investmentPlan.findMany({ orderBy: { createdAt: "asc" } });
-}
-
-export async function adminCreatePlan(data: {
-  name: string;
-  description?: string;
-  minAmount: number;
-  minProfit: number;
-  maxProfit: number;
-  profitInterval: number;
-}) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Unauthorized" };
-  const admin = await db.user.findUnique({ where: { id: session.user.id } });
-  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-
-  await db.investmentPlan.create({ data });
-  revalidatePath("/admin/investments");
-  return { success: true };
-}
-
-// ─── List helpers for admin pages ────────────────────────────────────────────
+// ─── List helpers ──────────────────────────────────────────────────────────
 
 export async function adminGetAllInvestments() {
   const session = await auth();
   if (!session?.user?.id) return [];
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return [];
-
   return db.userInvestment.findMany({
     include: { user: { select: { id: true, name: true, email: true } } },
     orderBy: { startedAt: "desc" },
@@ -428,12 +420,8 @@ export async function adminGetAllCopyTrades() {
   if (!session?.user?.id) return [];
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return [];
-
   return db.userCopyTrade.findMany({
-    include: {
-      user: { select: { id: true, name: true, email: true } },
-      trader: true,
-    },
+    include: { user: { select: { id: true, name: true, email: true } }, trader: true },
     orderBy: { startedAt: "desc" },
   });
 }
@@ -443,7 +431,6 @@ export async function adminGetAllCopyTraders() {
   if (!session?.user?.id) return [];
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return [];
-
   return db.copyTrader.findMany({
     include: { userCopyTrades: { where: { status: "ACTIVE" } } },
     orderBy: { createdAt: "desc" },
@@ -455,7 +442,6 @@ export async function adminGetAllUsers() {
   if (!session?.user?.id) return [];
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return [];
-
   return db.user.findMany({
     where: { role: "USER" },
     select: { id: true, name: true, email: true },

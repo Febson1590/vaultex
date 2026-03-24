@@ -6,8 +6,7 @@ import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine,
-  ShieldCheck, TrendingUp, History, HeadphonesIcon, Bell,
-  BarChart3, Activity, Copy,
+  ShieldCheck, TrendingUp, History, HeadphonesIcon, Bell, Copy,
 } from "lucide-react";
 
 const navItems = [
@@ -18,11 +17,9 @@ const navItems = [
   { href: "/admin/deposits",      label: "Deposits",           icon: ArrowDownToLine },
   { href: "/admin/withdrawals",   label: "Withdrawals",        icon: ArrowUpFromLine },
   { href: "/admin/verification",  label: "KYC / Verification", icon: ShieldCheck },
-  { href: "/admin/trades",        label: "Trades",             icon: Activity },
   { href: "/admin/transactions",  label: "Transactions",       icon: History },
   { href: "/admin/support",       label: "Support",            icon: HeadphonesIcon },
   { href: "/admin/notifications", label: "Notifications",      icon: Bell },
-  { href: "/admin/markets",       label: "Market Data",        icon: BarChart3 },
 ];
 
 interface AdminNavProps {
