@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getKycStatusForUser } from "@/lib/kyc";
 import type { Metadata } from "next";
 import CopyTradingClient from "./copy-trading-client";
 
@@ -10,6 +11,12 @@ export default async function CopyTradingPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
+
+  // KYC gate — non-approved users are sent to the verification page
+  const kycStatus = await getKycStatusForUser(userId);
+  if (kycStatus !== "approved") {
+    redirect(`/dashboard/verification?status=${kycStatus}`);
+  }
 
   const [copyTrades, usdWallet] = await Promise.all([
     db.userCopyTrade.findMany({

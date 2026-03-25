@@ -49,7 +49,7 @@ function CopyModal({ trader, usdBalance, onClose, onSuccess }: {
     if (val > usdBalance) { toast.error("Insufficient USD balance"); return; }
     start(async () => {
       const r = await userStartCopyTrade({ traderId: trader.id, amount: val });
-      if (r.error) { toast.error(r.error); return; }
+      if ('error' in r) { toast.error(r.error); return; }
       toast.success(`Now copying ${trader.name}!`); onSuccess();
     });
   }

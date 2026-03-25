@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireApprovedKyc } from "@/lib/kyc";
 
 // ─── User: get available investment plans ────────────────────────────────────
 
@@ -35,6 +36,9 @@ export async function userStartInvestment(data: {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const userId = session.user.id;
+
+  const kycError = await requireApprovedKyc(userId);
+  if (kycError) return kycError;
 
   const plan = await db.investmentPlan.findUnique({ where: { id: data.planId } });
   if (!plan || !plan.isActive) return { error: "Plan not found or inactive" };
@@ -100,6 +104,9 @@ export async function userStartCopyTrade(data: {
   if (!session?.user?.id) return { error: "Unauthorized" };
   const userId = session.user.id;
 
+  const kycError = await requireApprovedKyc(userId);
+  if (kycError) return kycError;
+
   const trader = await db.copyTrader.findUnique({ where: { id: data.traderId } });
   if (!trader || !trader.isActive) return { error: "Trader not found or inactive" };
   if (data.amount < Number(trader.minCopyAmount)) {
@@ -153,6 +160,9 @@ export async function addInvestmentFunds(amount: number) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const userId = session.user.id;
+
+  const kycError = await requireApprovedKyc(userId);
+  if (kycError) return kycError;
 
   const investment = await db.userInvestment.findUnique({ where: { userId } });
   if (!investment) return { error: "No active investment found" };

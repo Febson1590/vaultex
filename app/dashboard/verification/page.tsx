@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,10 +9,36 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShieldCheck, Clock, Upload, Loader2, AlertCircle,
-  FileImage, X,
+  FileImage, X, ShieldAlert, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useUploadThing } from "@/lib/uploadthing";
+
+// ── Redirect-reason config ────────────────────────────────────────────────────
+// Shown when a user lands here after being blocked from a protected page/action.
+const REDIRECT_REASON: Record<string, {
+  icon: React.ElementType; color: string; bg: string; border: string;
+  title: string; message: string;
+}> = {
+  not_submitted: {
+    icon: ShieldAlert, color: "text-yellow-400",
+    bg: "bg-yellow-500/[0.07]", border: "border-yellow-500/25",
+    title: "Verification Required",
+    message: "Complete identity verification to begin trading and investing.",
+  },
+  pending: {
+    icon: Clock, color: "text-sky-400",
+    bg: "bg-sky-500/[0.07]", border: "border-sky-500/25",
+    title: "Verification Pending",
+    message: "Your verification is pending approval. You'll be notified once it's reviewed.",
+  },
+  rejected: {
+    icon: XCircle, color: "text-red-400",
+    bg: "bg-red-500/[0.07]", border: "border-red-500/25",
+    title: "Verification Rejected",
+    message: "Your submission was rejected. Please resubmit with valid documents to continue.",
+  },
+};
 
 /* ── Status display config ──────────────────────────────────────────── */
 const STATUS_CONFIG: Record<string, {
@@ -46,6 +73,11 @@ const STATUS_CONFIG: Record<string, {
 
 /* ───────────────────────────────────────────────────────────────────────────── */
 export default function VerificationPage() {
+  const searchParams = useSearchParams();
+  // ?status= is set by server-side redirects from KYC-gated pages/actions
+  const redirectStatus = searchParams.get("status") ?? null;
+  const redirectReason = redirectStatus ? REDIRECT_REASON[redirectStatus] ?? null : null;
+
   const [status,      setStatus]      = useState<string | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [docType,     setDocType]     = useState("Passport");
@@ -168,6 +200,19 @@ export default function VerificationPage() {
         <h1 className="text-2xl font-bold text-white">Identity Verification</h1>
         <p className="text-sm text-slate-400 mt-0.5">Complete KYC to unlock full platform access</p>
       </div>
+
+      {/* ── Redirect-reason banner (shown when user was blocked by KYC gate) ── */}
+      {redirectReason && !currentStatus && (
+        <div className={`rounded-xl p-4 flex items-center gap-4 border ${redirectReason.bg} ${redirectReason.border}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${redirectReason.bg}`}>
+            <redirectReason.icon className={`h-5 w-5 ${redirectReason.color}`} />
+          </div>
+          <div>
+            <p className={`text-sm font-bold ${redirectReason.color}`}>{redirectReason.title}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{redirectReason.message}</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Status banner ────────────────────────────────────────────────────── */}
       {currentStatus && (

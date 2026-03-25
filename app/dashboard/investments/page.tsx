@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getAvailablePlans } from "@/lib/actions/investment";
+import { getKycStatusForUser } from "@/lib/kyc";
 import type { Metadata } from "next";
 import InvestmentsClient from "./investments-client";
 
@@ -11,6 +12,12 @@ export default async function InvestmentsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
+
+  // KYC gate — non-approved users are sent to the verification page
+  const kycStatus = await getKycStatusForUser(userId);
+  if (kycStatus !== "approved") {
+    redirect(`/dashboard/verification?status=${kycStatus}`);
+  }
 
   const [plansRaw, investment, usdWallet] = await Promise.all([
     getAvailablePlans(),

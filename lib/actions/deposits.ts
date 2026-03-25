@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireApprovedKyc } from "@/lib/kyc";
 
 export async function requestDeposit(data: {
   currency: string;
@@ -12,6 +13,9 @@ export async function requestDeposit(data: {
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
+
+  const kycError = await requireApprovedKyc(session.user.id);
+  if (kycError) return kycError;
 
   const request = await db.depositRequest.create({
     data: {
@@ -46,6 +50,9 @@ export async function requestWithdrawal(data: {
   if (!session?.user?.id) return { error: "Unauthorized" };
 
   const userId = session.user.id;
+
+  const kycError = await requireApprovedKyc(userId);
+  if (kycError) return kycError;
 
   const wallet = await db.wallet.findUnique({
     where: { userId_currency: { userId, currency: data.currency } },

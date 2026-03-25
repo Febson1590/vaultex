@@ -78,7 +78,7 @@ function InvestModal({ plan, usdBalance, onClose, onSuccess }: {
     if (!canAfford) { toast.error("Insufficient USD balance"); return; }
     start(async () => {
       const r = await userStartInvestment({ planId: plan.id, amount: val });
-      if (r.error) { toast.error(r.error); return; }
+      if ('error' in r) { toast.error(r.error); return; }
       toast.success("Investment activated!"); onSuccess();
     });
   }
@@ -132,7 +132,7 @@ function AddFundsModal({ investment, usdBalance, onClose, onSuccess }: {
     if (val > usdBalance) { toast.error("Insufficient USD balance"); return; }
     start(async () => {
       const r = await addInvestmentFunds(val);
-      if (r.error) { toast.error(r.error); return; }
+      if ('error' in r) { toast.error(r.error); return; }
       toast.success("Funds added!"); onSuccess();
     });
   }

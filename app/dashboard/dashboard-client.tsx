@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
@@ -156,7 +157,7 @@ function AddFundsModal({ usdBalance, onClose, onSuccess }: {
     setLoading(true);
     const r = await addInvestmentFunds(n);
     setLoading(false);
-    if (r.error) { toast.error(r.error); return; }
+    if ('error' in r) { toast.error(r.error); return; }
     toast.success(`$${n.toLocaleString()} added to your investment`);
     onSuccess();
     onClose();
@@ -212,12 +213,14 @@ function PortfolioOverview({
   totalEarned,
   initialChartData,
   refreshKey,
+  kycStatus,
 }: {
   usdBalance: number;
   totalPortfolio: number;
   totalEarned: number;
   initialChartData: { date: string; value: number }[];
   refreshKey: number;
+  kycStatus: string;
 }) {
   const [chartData,    setChartData]    = useState(initialChartData);
   const [chartRange,   setChartRange]   = useState<Range>("30d");
@@ -268,6 +271,9 @@ function PortfolioOverview({
       : 0;
 
   const rangeLabel = RANGE_LABELS[chartRange] ?? chartRange;
+  // Route blocked actions to the verification page with a status hint
+  const isKycApproved = kycStatus === "approved";
+  const kycHref = `/dashboard/verification?status=${kycStatus}`;
 
   return (
     <div
@@ -285,7 +291,7 @@ function PortfolioOverview({
             {fmt(usdBalance)}
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <Link href="/dashboard/deposit">
+            <Link href={isKycApproved ? "/dashboard/deposit" : kycHref}>
               <Button
                 size="sm"
                 className="h-8 px-4 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/30"
@@ -405,8 +411,10 @@ const CURRENCY_META: Record<string, { color: string; symbol: string }> = {
   SOL:  { color: "#8b5cf6", symbol: "◎"  },
 };
 
-function WalletStrip({ wallets }: { wallets: WalletBalance[] }) {
+function WalletStrip({ wallets, kycStatus }: { wallets: WalletBalance[]; kycStatus: string }) {
   if (wallets.length === 0) return null;
+  const isKycApproved = kycStatus === "approved";
+  const kycHref = `/dashboard/verification?status=${kycStatus}`;
   return (
     <div className="rounded-2xl border border-sky-500/15 overflow-hidden" style={{ background: "rgba(7,15,30,0.85)" }}>
       {/* Header */}
@@ -416,12 +424,12 @@ function WalletStrip({ wallets }: { wallets: WalletBalance[] }) {
           <span className="text-sm font-bold text-white">Wallets</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/deposit">
+          <Link href={isKycApproved ? "/dashboard/deposit" : kycHref}>
             <span className="text-xs text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1">
               <ArrowDownToLine size={11} /> Deposit
             </span>
           </Link>
-          <Link href="/dashboard/withdraw">
+          <Link href={isKycApproved ? "/dashboard/withdraw" : kycHref}>
             <span className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1">
               <ArrowUpFromLine size={11} /> Withdraw
             </span>
@@ -463,12 +471,17 @@ function ActiveInvestment({
   investment,
   usdBalance,
   onRefresh,
+  kycStatus,
 }: {
   investment: Investment | null;
   usdBalance: number;
   onRefresh: () => void;
+  kycStatus: string;
 }) {
+  const router = useRouter();
   const [showAddFunds, setShowAddFunds] = useState(false);
+  const isKycApproved = kycStatus === "approved";
+  const kycHref = `/dashboard/verification?status=${kycStatus}`;
   const roiPct = investment && investment.amount > 0
     ? (investment.totalEarned / investment.amount) * 100
     : 0;
@@ -541,7 +554,10 @@ function ActiveInvestment({
               <Button
                 size="sm"
                 className="flex-1 h-10 bg-sky-500/[0.12] hover:bg-sky-500/[0.22] text-sky-300 border border-sky-500/30 font-bold text-xs"
-                onClick={() => setShowAddFunds(true)}
+                onClick={() => {
+                  if (!isKycApproved) { router.push(kycHref); return; }
+                  setShowAddFunds(true);
+                }}
               >
                 <Plus size={13} className="mr-1.5" /> Add Funds
               </Button>
@@ -573,7 +589,7 @@ function ActiveInvestment({
           <p className="text-xs text-slate-500 mb-5 max-w-xs">
             Deposit funds and our team will activate an investment plan for you.
           </p>
-          <Link href="/dashboard/deposit">
+          <Link href={isKycApproved ? "/dashboard/deposit" : kycHref}>
             <Button size="sm" className="bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs h-9">
               <ArrowDownToLine size={12} className="mr-1.5" /> Make a Deposit
             </Button>
@@ -925,10 +941,11 @@ export default function DashboardClient({
             totalEarned={totalEarned}
             initialChartData={chartData}
             refreshKey={chartRefreshKey}
+            kycStatus={kycStatus}
           />
 
           {/* 1b. Wallet Balances (merged from Wallets page) */}
-          <WalletStrip wallets={wallets} />
+          <WalletStrip wallets={wallets} kycStatus={kycStatus} />
 
           {/* 2. Active Investment */}
           <ActiveInvestment
@@ -936,6 +953,7 @@ export default function DashboardClient({
             investment={investment}
             usdBalance={usdBalance}
             onRefresh={refresh}
+            kycStatus={kycStatus}
           />
 
           {/* 3. Copy Trading — on mobile shows here in left col */}
