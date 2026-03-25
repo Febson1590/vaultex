@@ -39,7 +39,13 @@ export default async function DashboardPage() {
   const holdingsValue = holdings.reduce((sum, h) => sum + Number(h.quantity) * Number(h.asset.currentPrice), 0);
   const totalPortfolio = usdBalance + holdingsValue;
 
-  const isVerified = user.verifications[0]?.status === "APPROVED";
+  // Compute 4-state KYC status so the client can render the correct banner
+  const latestVerification = user.verifications[0];
+  const kycStatus: "not_submitted" | "pending" | "approved" | "rejected" =
+    !latestVerification                                  ? "not_submitted"
+    : latestVerification.status === "APPROVED"           ? "approved"
+    : latestVerification.status === "REJECTED"           ? "rejected"
+    : "pending"; // PENDING or UNDER_REVIEW
 
   const totalEarned =
     (investment ? Number(investment.totalEarned) : 0) +
@@ -96,7 +102,7 @@ export default async function DashboardPage() {
       usdBalance={usdBalance}
       totalPortfolio={totalPortfolio}
       totalEarned={totalEarned}
-      isVerified={isVerified}
+      kycStatus={kycStatus}
       investment={serializedInvestment}
       copyTrades={serializedCopyTrades}
       activity={serializedActivity}

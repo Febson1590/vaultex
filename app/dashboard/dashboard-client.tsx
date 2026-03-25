@@ -18,7 +18,7 @@ const RANGE_LABELS: Record<string, string> = {
 import {
   TrendingUp, DollarSign, Activity, Zap,
   ArrowUpRight, Plus, ShieldAlert, Loader2,
-  Clock, Users, StopCircle,
+  Clock, Users, StopCircle, XCircle,
   ArrowDownToLine, ArrowUpFromLine, RefreshCw, Wallet,
 } from "lucide-react";
 
@@ -68,7 +68,8 @@ interface DashboardClientProps {
   usdBalance: number;
   totalPortfolio: number;
   totalEarned: number;
-  isVerified: boolean;
+  /** Real KYC status — drives the verification banner */
+  kycStatus: "not_submitted" | "pending" | "approved" | "rejected";
   investment: Investment | null;
   copyTrades: CopyTrade[];
   activity: ActivityItem[];
@@ -788,7 +789,7 @@ export default function DashboardClient({
   usdBalance: initBalance,
   totalPortfolio,
   totalEarned: initEarned,
-  isVerified,
+  kycStatus,
   investment: initInvestment,
   copyTrades: initCopyTrades,
   activity: initActivity,
@@ -847,8 +848,8 @@ export default function DashboardClient({
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      {/* KYC banner */}
-      {!isVerified && (
+      {/* ── KYC banner — 4 states ────────────────────────────────────────────── */}
+      {kycStatus === "not_submitted" && (
         <div
           className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-yellow-500/20"
           style={{ background: "rgba(234,179,8,0.06)" }}
@@ -867,6 +868,48 @@ export default function DashboardClient({
           </Link>
         </div>
       )}
+
+      {kycStatus === "pending" && (
+        <div
+          className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-sky-500/20"
+          style={{ background: "rgba(14,165,233,0.06)" }}
+        >
+          <div className="flex items-center gap-3">
+            <Clock className="h-5 w-5 text-sky-400 flex-shrink-0 animate-pulse" />
+            <div>
+              <p className="text-sm font-bold text-sky-300">Verification Under Review</p>
+              <p className="text-xs text-slate-400 mt-0.5">Your documents are being reviewed. We'll notify you once complete.</p>
+            </div>
+          </div>
+          <Link href="/dashboard/verification" className="flex-shrink-0">
+            <Button size="sm" variant="outline" className="border-sky-500/30 text-sky-300 hover:bg-sky-500/10 font-bold text-xs h-8 px-3">
+              View Status
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {kycStatus === "rejected" && (
+        <div
+          className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-red-500/25"
+          style={{ background: "rgba(239,68,68,0.06)" }}
+        >
+          <div className="flex items-center gap-3">
+            <XCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-red-300">Verification Rejected</p>
+              <p className="text-xs text-slate-400 mt-0.5">Your submission was not accepted. Please resubmit with valid documents.</p>
+            </div>
+          </div>
+          <Link href="/dashboard/verification" className="flex-shrink-0">
+            <Button size="sm" className="bg-red-500 hover:bg-red-400 text-white font-bold text-xs h-8 px-3">
+              Resubmit
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* kycStatus === "approved" → no banner */}
 
       {/* ── LAYOUT ──────────────────────────────────────────────────────────────── */}
       {/* Mobile/Tablet: single column | Desktop: 2-col */}
