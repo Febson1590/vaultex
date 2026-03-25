@@ -339,9 +339,15 @@ export async function adminCreateCopyTrader(data: {
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-  const trader = await db.copyTrader.create({ data });
-  revalidatePath("/admin/copy-traders");
-  return { success: true, traderId: trader.id };
+  try {
+    const trader = await db.copyTrader.create({ data });
+    revalidatePath("/admin/copy-traders");
+    revalidatePath("/dashboard/copy-trading");
+    return { success: true, traderId: trader.id };
+  } catch (e: any) {
+    console.error("[adminCreateCopyTrader]", e);
+    return { error: e?.message ?? "Failed to create trader" };
+  }
 }
 
 export async function adminUpdateCopyTrader(traderId: string, data: Partial<{
@@ -355,9 +361,33 @@ export async function adminUpdateCopyTrader(traderId: string, data: Partial<{
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
-  await db.copyTrader.update({ where: { id: traderId }, data });
-  revalidatePath("/admin/copy-traders");
-  return { success: true };
+  try {
+    await db.copyTrader.update({ where: { id: traderId }, data });
+    revalidatePath("/admin/copy-traders");
+    revalidatePath("/dashboard/copy-trading");
+    return { success: true };
+  } catch (e: any) {
+    console.error("[adminUpdateCopyTrader]", e);
+    return { error: e?.message ?? "Failed to update trader" };
+  }
+}
+
+export async function adminDeleteCopyTrader(traderId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+  try {
+    // UserCopyTrade has no onDelete cascade — must delete child records first
+    await db.userCopyTrade.deleteMany({ where: { traderId } });
+    await db.copyTrader.delete({ where: { id: traderId } });
+    revalidatePath("/admin/copy-traders");
+    revalidatePath("/dashboard/copy-trading");
+    return { success: true };
+  } catch (e: any) {
+    console.error("[adminDeleteCopyTrader]", e);
+    return { error: e?.message ?? "Failed to delete trader" };
+  }
 }
 
 export async function adminAssignCopyTrade(data: { userId: string; traderId: string; amount: number }) {
