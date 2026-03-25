@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { buildBalanceChart } from "@/lib/chart";
 
 export async function getCurrentUser() {
   const session = await auth();
@@ -97,30 +98,11 @@ export async function getTransactions(userId: string, limit = 20) {
   });
 }
 
+/**
+ * Returns real 30-day USD balance history for the dashboard chart.
+ * Delegates to buildBalanceChart which uses backward reconstruction
+ * from the live wallet balance to guarantee accuracy.
+ */
 export async function getPortfolioPerformance(userId: string) {
-  const tradeOrders = await db.tradeOrder.findMany({
-    where: { userId },
-    include: { asset: true },
-    orderBy: { executedAt: "asc" },
-  });
-
-  // Build cumulative portfolio value over time (last 30 days)
-  const now = new Date();
-  const days = 30;
-  const data = [];
-
-  for (let i = days; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-    // Calculated portfolio value with slight market-based variation
-    const base = 15000 + Math.sin(i * 0.3) * 3000 + (days - i) * 80;
-    data.push({
-      date: dateStr,
-      value: Math.round(base + Math.random() * 500),
-    });
-  }
-
-  return data;
+  return buildBalanceChart(userId, 30);
 }

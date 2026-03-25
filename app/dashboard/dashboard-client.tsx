@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
 import { addInvestmentFunds, stopCopyTrade } from "@/lib/actions/investment";
+import { RANGE_LABELS } from "@/lib/chart";
 import {
   TrendingUp, DollarSign, Activity, Zap,
   ArrowUpRight, Plus, ShieldAlert, Loader2,
@@ -190,66 +191,151 @@ function AddFundsModal({ usdBalance, onClose, onSuccess }: {
 }
 
 // ─── Portfolio Overview ────────────────────────────────────────────────────────────────────────
+// Manages its own chart range state and re-fetches from /api/dashboard/chart
+// whenever the range changes or a profit is credited (refreshKey increments).
+
+const RANGES = ["7d", "30d", "90d", "1y"] as const;
+type Range = typeof RANGES[number];
 
 function PortfolioOverview({
   usdBalance,
   totalPortfolio,
   totalEarned,
-  chartData,
+  initialChartData,
+  refreshKey,
 }: {
   usdBalance: number;
   totalPortfolio: number;
   totalEarned: number;
-  chartData: { date: string; value: number }[];
+  initialChartData: { date: string; value: number }[];
+  refreshKey: number;
 }) {
-  // Compute chart gain (last vs first value)
+  const [chartData,    setChartData]    = useState(initialChartData);
+  const [chartRange,   setChartRange]   = useState<Range>("30d");
+  const [chartLoading, setChartLoading] = useState(false);
+  const isFirstMount = useRef(true);
+  const prevRefreshKey = useRef(0);
+
+  // Fetch chart data from the API for the given range
+  const fetchChartData = useCallback(async (range: Range) => {
+    setChartLoading(true);
+    try {
+      const res = await fetch(`/api/dashboard/chart?range=${range}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      setChartData(json.data ?? []);
+    } catch {
+      // silent — keep existing data
+    } finally {
+      setChartLoading(false);
+    }
+  }, []);
+
+  // Re-fetch whenever range changes (skip initial render — use SSR data)
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    fetchChartData(chartRange);
+  }, [chartRange, fetchChartData]);
+
+  // Re-fetch whenever a profit is credited (refreshKey increments)
+  useEffect(() => {
+    if (refreshKey > 0 && refreshKey !== prevRefreshKey.current) {
+      prevRefreshKey.current = refreshKey;
+      fetchChartData(chartRange);
+    }
+  }, [refreshKey, chartRange, fetchChartData]);
+
+  // Gain = last point − first point in current chart data
   const chartGain =
     chartData.length >= 2
       ? chartData[chartData.length - 1].value - chartData[0].value
       : 0;
+
+  const rangeLabel = RANGE_LABELS[chartRange] ?? chartRange;
 
   return (
     <div
       className="rounded-2xl border border-sky-500/15 overflow-hidden"
       style={{ background: "rgba(7,15,30,0.85)" }}
     >
-      {/* Header row */}
+      {/* ── Header row ────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between px-5 pt-5 pb-2">
+        {/* Left: balance + deposit */}
         <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Total Balance</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
+            Total Balance
+          </p>
           <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             {fmt(usdBalance)}
           </div>
           <div className="flex items-center gap-2 mt-2">
             <Link href="/dashboard/deposit">
-              <Button size="sm" className="h-8 px-4 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/30">
+              <Button
+                size="sm"
+                className="h-8 px-4 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/30"
+              >
                 <ArrowDownToLine size={12} className="mr-1.5" />
                 Deposit
               </Button>
             </Link>
             {totalPortfolio > usdBalance && (
               <span className="text-xs text-slate-500">
-                Portfolio: <span className="text-slate-300 font-semibold">{fmt(totalPortfolio)}</span>
+                Portfolio:{" "}
+                <span className="text-slate-300 font-semibold">{fmt(totalPortfolio)}</span>
               </span>
             )}
           </div>
         </div>
 
-        {/* Gain summary */}
+        {/* Right: gain + earned */}
         <div className="text-right flex-shrink-0">
-          <div className={`text-lg font-extrabold ${chartGain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {chartGain >= 0 ? "+" : ""}{fmt(chartGain)}
+          <div
+            className={`text-lg font-extrabold ${
+              chartGain >= 0 ? "text-emerald-400" : "text-red-400"
+            }`}
+          >
+            {chartGain >= 0 ? "+" : ""}
+            {fmt(chartGain)}
           </div>
-          <div className="text-xs text-slate-500 mt-0.5">30-day growth</div>
+          <div className="text-xs text-slate-500 mt-0.5">{rangeLabel} change</div>
           {totalEarned > 0 && (
-            <div className="text-xs font-semibold text-sky-400 mt-1">{fmt(totalEarned)} earned</div>
+            <div className="text-xs font-semibold text-sky-400 mt-1">
+              {fmt(totalEarned)} earned
+            </div>
           )}
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="h-40 px-2 pb-3">
-        <PortfolioChart data={chartData} />
+      {/* ── Range selector ────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-5 pb-1 pt-1">
+        <span className="text-[10px] text-slate-600 font-medium tracking-wider uppercase">
+          Balance History
+        </span>
+        <div className="flex gap-1">
+          {RANGES.map(r => (
+            <button
+              key={r}
+              onClick={() => setChartRange(r)}
+              className={`
+                text-[10px] font-bold px-2.5 py-1 rounded-md transition-all duration-150
+                ${chartRange === r
+                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/30"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]"
+                }
+              `}
+            >
+              {r.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Chart ─────────────────────────────────────────────────────────── */}
+      <div className="h-44 px-2 pb-3">
+        <PortfolioChart data={chartData} isLoading={chartLoading} />
       </div>
     </div>
   );
@@ -657,11 +743,14 @@ export default function DashboardClient({
   chartData,
   wallets,
 }: DashboardClientProps) {
-  const [usdBalance, setUsdBalance]     = useState(initBalance);
-  const [investment, setInvestment]     = useState<Investment | null>(initInvestment);
-  const [copyTrades, setCopyTrades]     = useState<CopyTrade[]>(initCopyTrades);
-  const [activity, setActivity]         = useState<ActivityItem[]>(initActivity);
-  const [tick, setTick]                 = useState(0);
+  const [usdBalance, setUsdBalance]       = useState(initBalance);
+  const [investment, setInvestment]       = useState<Investment | null>(initInvestment);
+  const [copyTrades, setCopyTrades]       = useState<CopyTrade[]>(initCopyTrades);
+  const [activity, setActivity]           = useState<ActivityItem[]>(initActivity);
+  const [tick, setTick]                   = useState(0);
+  // Incremented whenever a profit is credited or manual refresh happens
+  // → causes PortfolioOverview to re-fetch chart data
+  const [chartRefreshKey, setChartRefreshKey] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalEarned =
@@ -679,6 +768,8 @@ export default function DashboardClient({
         data.credited.forEach((c: { label: string; amount: number }) => {
           toast.success(`+${fmt(c.amount)} — ${c.label}`, { duration: 5000 });
         });
+        // New profit credited → refresh chart to show the new balance point
+        setChartRefreshKey(k => k + 1);
       }
       if (data.investment !== undefined) setInvestment(data.investment ? ser(data.investment) : null);
       if (data.copyTrades)  setCopyTrades(data.copyTrades.map(serCopy));
@@ -696,6 +787,7 @@ export default function DashboardClient({
 
   function refresh() {
     setTick(t => t + 1);
+    setChartRefreshKey(k => k + 1);
     pollProfit();
   }
 
@@ -731,12 +823,13 @@ export default function DashboardClient({
         {/* ── Left column ─────────────────────────────────────────────────────────────── */}
         <div className="space-y-4 sm:space-y-5">
 
-          {/* 1. Portfolio Overview */}
+          {/* 1. Portfolio Overview — real chart, range selector, auto-refresh */}
           <PortfolioOverview
             usdBalance={usdBalance}
             totalPortfolio={totalPortfolio}
             totalEarned={totalEarned}
-            chartData={chartData}
+            initialChartData={chartData}
+            refreshKey={chartRefreshKey}
           />
 
           {/* 1b. Wallet Balances (merged from Wallets page) */}
