@@ -32,7 +32,27 @@ function buildVerificationEmail(opts: {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>${title}</title>
+  <style>
+    :root { color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) {
+      body                { background-color: #0b1e2d !important; }
+      .em-wrap            { background-color: #0b1e2d !important; }
+      .em-wrap-td         { background-color: #0b1e2d !important; }
+      .em-header-td       { background-color: #0b1e2d !important; }
+      .em-card-td         { background-color: #0d1b2e !important; border-color: #1e4a6e !important; }
+      .em-content-td      { background-color: #0d1b2e !important; }
+      .em-badge-td        { background-color: #0f2a3d !important; border-color: #1e4a6e !important; }
+      .em-divider-td      { background-color: #1a3550 !important; }
+      .em-otp-td          { background-color: #0f2a3d !important; border-color: #2a5f8f !important; }
+      .em-security-td     { background-color: #261e00 !important; border-color: #7a6200 !important; }
+      .em-footer-td       { background-color: #0b1e2d !important; }
+      .em-accent-td       { background-color: #0ea5e9 !important; }
+      .em-bottom-line-td  { background-color: #1a3550 !important; }
+    }
+  </style>
   <!--[if mso]>
   <noscript>
     <xml>
@@ -43,19 +63,19 @@ function buildVerificationEmail(opts: {
   </noscript>
   <![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#060e1e;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<body style="margin:0;padding:0;background-color:#0b1e2d !important;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
   <!-- Email wrapper -->
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#060e1e;min-height:100vh;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" class="em-wrap" style="background-color:#0b1e2d !important;min-height:100vh;">
     <tr>
-      <td align="center" style="padding:40px 16px;">
+      <td align="center" class="em-wrap-td" style="padding:40px 16px;background-color:#0b1e2d !important;">
 
         <!-- Container card — max 580px -->
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;">
 
           <!-- ─── HEADER ──────────────────────────────────────────────── -->
           <tr>
-            <td align="center" style="padding-bottom:32px;">
+            <td align="center" class="em-header-td" style="padding-bottom:32px;background-color:#0b1e2d !important;">
               <img
                 src="${LOGO_URL}"
                 alt="Vaultex Market"
@@ -68,38 +88,38 @@ function buildVerificationEmail(opts: {
 
           <!-- ─── CARD ───────────────────────────────────────────────── -->
           <tr>
-            <td style="
-              background-color:#0d1b2e;
+            <td class="em-card-td" style="
+              background-color:#0d1b2e !important;
               border-radius:16px;
-              border:1px solid rgba(14,165,233,0.18);
+              border:1px solid #1e4a6e !important;
               overflow:hidden;
             ">
 
               <!-- Card top accent bar -->
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="height:3px;background:linear-gradient(90deg,#0ea5e9 0%,#38bdf8 50%,#0ea5e9 100%);border-radius:16px 16px 0 0;"></td>
+                  <td class="em-accent-td" style="height:3px;background-color:#0ea5e9 !important;border-radius:16px 16px 0 0;"></td>
                 </tr>
               </table>
 
               <!-- Card content -->
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="padding:40px 40px 36px 40px;">
+                  <td class="em-content-td" style="padding:40px 40px 36px 40px;background-color:#0d1b2e !important;">
 
                     <!-- Icon badge -->
                     <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px auto;">
                       <tr>
-                        <td align="center" style="
+                        <td class="em-badge-td" align="center" style="
                           width:56px;height:56px;
-                          background-color:rgba(14,165,233,0.1);
-                          border:1px solid rgba(14,165,233,0.25);
+                          background-color:#0f2a3d !important;
+                          border:1px solid #1e4a6e !important;
                           border-radius:14px;
                           padding:14px;
                         ">
                           <!-- Shield icon (SVG inline) -->
                           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" fill="rgba(14,165,233,0.2)" stroke="#0ea5e9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" fill="#0f2a3d" stroke="#0ea5e9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M9 12l2 2 4-4" stroke="#38bdf8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
                           </svg>
                         </td>
@@ -111,7 +131,7 @@ function buildVerificationEmail(opts: {
                       margin:0 0 8px 0;
                       font-size:22px;
                       font-weight:700;
-                      color:#ffffff;
+                      color:#ffffff !important;
                       text-align:center;
                       letter-spacing:-0.3px;
                     ">${heading}</h1>
@@ -120,7 +140,7 @@ function buildVerificationEmail(opts: {
                     <p style="
                       margin:0 0 16px 0;
                       font-size:15px;
-                      color:#94a3b8;
+                      color:#cbd5e1 !important;
                       text-align:center;
                     ">Hi ${name},</p>
 
@@ -129,14 +149,14 @@ function buildVerificationEmail(opts: {
                       margin:0 0 32px 0;
                       font-size:14px;
                       line-height:1.7;
-                      color:#94a3b8;
+                      color:#cbd5e1 !important;
                       text-align:center;
                     ">${message}</p>
 
                     <!-- Divider -->
                     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
                       <tr>
-                        <td style="height:1px;background-color:rgba(255,255,255,0.06);"></td>
+                        <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
                       </tr>
                     </table>
 
@@ -145,7 +165,7 @@ function buildVerificationEmail(opts: {
                       margin:0 0 16px 0;
                       font-size:11px;
                       font-weight:600;
-                      color:#0ea5e9;
+                      color:#38bdf8 !important;
                       text-align:center;
                       letter-spacing:0.2em;
                       text-transform:uppercase;
@@ -157,16 +177,16 @@ function buildVerificationEmail(opts: {
                         <td align="center">
                           <table cellpadding="0" cellspacing="0" border="0">
                             <tr>
-                              <td style="
-                                background:linear-gradient(135deg,rgba(14,165,233,0.12) 0%,rgba(56,189,248,0.06) 100%);
-                                border:1.5px solid rgba(14,165,233,0.35);
+                              <td class="em-otp-td" style="
+                                background-color:#0f2a3d !important;
+                                border:2px solid #2a5f8f !important;
                                 border-radius:12px;
                                 padding:20px 40px;
                               ">
                                 <span style="
                                   font-size:40px;
                                   font-weight:800;
-                                  color:#ffffff;
+                                  color:#ffffff !important;
                                   letter-spacing:0.22em;
                                   font-variant-numeric:tabular-nums;
                                   display:block;
@@ -184,25 +204,25 @@ function buildVerificationEmail(opts: {
                     <p style="
                       margin:0 0 28px 0;
                       font-size:13px;
-                      color:#64748b;
+                      color:#94a3b8 !important;
                       text-align:center;
                     ">
-                      &#9679;&nbsp; This code expires in <strong style="color:#94a3b8;">10 minutes</strong>. Do not share it with anyone.
+                      &#9679;&nbsp; This code expires in <strong style="color:#e2e8f0 !important;">10 minutes</strong>. Do not share it with anyone.
                     </p>
 
                     <!-- Divider -->
                     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
                       <tr>
-                        <td style="height:1px;background-color:rgba(255,255,255,0.06);"></td>
+                        <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
                       </tr>
                     </table>
 
                     <!-- Security note -->
                     <table cellpadding="0" cellspacing="0" border="0" width="100%">
                       <tr>
-                        <td style="
-                          background-color:rgba(251,191,36,0.06);
-                          border:1px solid rgba(251,191,36,0.18);
+                        <td class="em-security-td" style="
+                          background-color:#261e00 !important;
+                          border:1px solid #7a6200 !important;
                           border-radius:10px;
                           padding:14px 18px;
                         ">
@@ -210,10 +230,10 @@ function buildVerificationEmail(opts: {
                             margin:0;
                             font-size:12px;
                             line-height:1.6;
-                            color:#a0aec0;
+                            color:#cbd5e1 !important;
                             text-align:center;
                           ">
-                            <span style="color:#fbbf24;font-weight:600;">&#9888;&nbsp; Security Notice:</span>
+                            <span style="color:#fbbf24 !important;font-weight:600;">&#9888;&nbsp; Security Notice:</span>
                             &nbsp;If you did not request this code, please ignore this email. Your account remains secure.
                           </p>
                         </td>
@@ -224,10 +244,10 @@ function buildVerificationEmail(opts: {
                 </tr>
               </table>
 
-              <!-- Card bottom glow line -->
+              <!-- Card bottom line -->
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="height:1px;background:linear-gradient(90deg,transparent 0%,rgba(14,165,233,0.2) 50%,transparent 100%);"></td>
+                  <td class="em-bottom-line-td" style="height:1px;background-color:#1a3550 !important;"></td>
                 </tr>
               </table>
 
@@ -236,19 +256,19 @@ function buildVerificationEmail(opts: {
 
           <!-- ─── FOOTER ──────────────────────────────────────────────── -->
           <tr>
-            <td style="padding:28px 0 8px 0;" align="center">
+            <td class="em-footer-td" style="padding:28px 0 8px 0;background-color:#0b1e2d !important;" align="center">
 
               <!-- Footer divider -->
               <table width="80%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
                 <tr>
-                  <td style="height:1px;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.08) 50%,transparent 100%);"></td>
+                  <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
                 </tr>
               </table>
 
               <p style="
                 margin:0 0 8px 0;
                 font-size:12px;
-                color:#475569;
+                color:#94a3b8 !important;
                 text-align:center;
                 line-height:1.6;
               ">
@@ -258,7 +278,7 @@ function buildVerificationEmail(opts: {
               <p style="
                 margin:0;
                 font-size:11px;
-                color:#334155;
+                color:#64748b !important;
                 text-align:center;
               ">
                 &copy; ${new Date().getFullYear()} Vaultex Market. All rights reserved.
