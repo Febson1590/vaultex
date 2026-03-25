@@ -38,19 +38,17 @@ function buildVerificationEmail(opts: {
   <style>
     :root { color-scheme: light dark; }
     @media (prefers-color-scheme: dark) {
-      body                { background-color: #0b1e2d !important; }
-      .em-wrap            { background-color: #0b1e2d !important; }
-      .em-wrap-td         { background-color: #0b1e2d !important; }
-      .em-header-td       { background-color: #0b1e2d !important; }
-      .em-card-td         { background-color: #0d1b2e !important; border-color: #1e4a6e !important; }
-      .em-content-td      { background-color: #0d1b2e !important; }
-      .em-badge-td        { background-color: #0f2a3d !important; border-color: #1e4a6e !important; }
-      .em-divider-td      { background-color: #1a3550 !important; }
-      .em-otp-td          { background-color: #0f2a3d !important; border-color: #2a5f8f !important; }
-      .em-security-td     { background-color: #261e00 !important; border-color: #7a6200 !important; }
-      .em-footer-td       { background-color: #0b1e2d !important; }
-      .em-accent-td       { background-color: #0ea5e9 !important; }
-      .em-bottom-line-td  { background-color: #1a3550 !important; }
+      body, table, td {
+        background-color: #0b1e2d !important;
+        color: #ffffff !important;
+      }
+      .em-card-td       { background-color: #0d1b2e !important; border-color: #1e4a6e !important; }
+      .em-content-td    { background-color: #0d1b2e !important; }
+      .em-badge-td      { background-color: #0f2a3d !important; border-color: #1e4a6e !important; }
+      .em-divider-td    { background-color: #1a3550 !important; }
+      .em-otp-td        { background-color: #0f2a3d !important; border-color: #2a5f8f !important; }
+      .em-security-td   { background-color: #261e00 !important; border-color: #7a6200 !important; }
+      .em-accent-td     { background-color: #0ea5e9 !important; }
     }
   </style>
   <!--[if mso]>
@@ -63,19 +61,19 @@ function buildVerificationEmail(opts: {
   </noscript>
   <![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#0b1e2d !important;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<body style="margin:0;padding:0;background-color:#0b1e2d !important;color:#ffffff !important;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
   <!-- Email wrapper -->
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" class="em-wrap" style="background-color:#0b1e2d !important;min-height:100vh;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0b1e2d !important;min-height:100vh;">
     <tr>
-      <td align="center" class="em-wrap-td" style="padding:40px 16px;background-color:#0b1e2d !important;">
+      <td align="center" style="padding:40px 16px;background-color:#0b1e2d !important;">
 
         <!-- Container card — max 580px -->
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;">
 
           <!-- ─── HEADER ──────────────────────────────────────────────── -->
           <tr>
-            <td align="center" class="em-header-td" style="padding-bottom:32px;background-color:#0b1e2d !important;">
+            <td align="center" style="padding-bottom:32px;background-color:#0b1e2d !important;">
               <img
                 src="${LOGO_URL}"
                 alt="Vaultex Market"
@@ -140,7 +138,7 @@ function buildVerificationEmail(opts: {
                     <p style="
                       margin:0 0 16px 0;
                       font-size:15px;
-                      color:#cbd5e1 !important;
+                      color:#e2e8f0 !important;
                       text-align:center;
                     ">Hi ${name},</p>
 
@@ -174,7 +172,7 @@ function buildVerificationEmail(opts: {
                     <!-- OTP code block -->
                     <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:20px;">
                       <tr>
-                        <td align="center">
+                        <td align="center" style="background-color:#0d1b2e !important;">
                           <table cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td class="em-otp-td" style="
@@ -204,10 +202,10 @@ function buildVerificationEmail(opts: {
                     <p style="
                       margin:0 0 28px 0;
                       font-size:13px;
-                      color:#94a3b8 !important;
+                      color:#cbd5e1 !important;
                       text-align:center;
                     ">
-                      &#9679;&nbsp; This code expires in <strong style="color:#e2e8f0 !important;">10 minutes</strong>. Do not share it with anyone.
+                      &#9679;&nbsp; This code expires in <strong style="color:#ffffff !important;">10 minutes</strong>. Do not share it with anyone.
                     </p>
 
                     <!-- Divider -->
@@ -230,7 +228,7 @@ function buildVerificationEmail(opts: {
                             margin:0;
                             font-size:12px;
                             line-height:1.6;
-                            color:#cbd5e1 !important;
+                            color:#e2e8f0 !important;
                             text-align:center;
                           ">
                             <span style="color:#fbbf24 !important;font-weight:600;">&#9888;&nbsp; Security Notice:</span>
@@ -247,7 +245,7 @@ function buildVerificationEmail(opts: {
               <!-- Card bottom line -->
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td class="em-bottom-line-td" style="height:1px;background-color:#1a3550 !important;"></td>
+                  <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
                 </tr>
               </table>
 
@@ -256,7 +254,7 @@ function buildVerificationEmail(opts: {
 
           <!-- ─── FOOTER ──────────────────────────────────────────────── -->
           <tr>
-            <td class="em-footer-td" style="padding:28px 0 8px 0;background-color:#0b1e2d !important;" align="center">
+            <td style="padding:28px 0 8px 0;background-color:#0b1e2d !important;" align="center">
 
               <!-- Footer divider -->
               <table width="80%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
@@ -268,7 +266,7 @@ function buildVerificationEmail(opts: {
               <p style="
                 margin:0 0 8px 0;
                 font-size:12px;
-                color:#94a3b8 !important;
+                color:#cbd5e1 !important;
                 text-align:center;
                 line-height:1.6;
               ">
@@ -278,7 +276,7 @@ function buildVerificationEmail(opts: {
               <p style="
                 margin:0;
                 font-size:11px;
-                color:#64748b !important;
+                color:#94a3b8 !important;
                 text-align:center;
               ">
                 &copy; ${new Date().getFullYear()} Vaultex Market. All rights reserved.
