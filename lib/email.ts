@@ -1,16 +1,8 @@
 import "server-only";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-// ─── Transporter ──────────────────────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  host:   process.env.SMTP_HOST   || "smtp.gmail.com",
-  port:   parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_PORT === "465",
-  auth: {
-    user: process.env.SMTP_USER || "",
-    pass: process.env.SMTP_PASS || "",
-  },
-});
+// ─── Resend client ────────────────────────────────────────────────────────────
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Hosted assets ────────────────────────────────────────────────────────────
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultex-six.vercel.app";
@@ -321,7 +313,7 @@ export async function sendVerificationEmail(opts: {
     "— Vaultex Market",
   ].join("\n");
 
-  await transporter.sendMail({
+  await resend.emails.send({
     from:    process.env.EMAIL_FROM || "Vaultex Market <no-reply@vaultexmarket.com>",
     to,
     subject,
