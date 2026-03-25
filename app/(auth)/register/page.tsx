@@ -251,8 +251,8 @@ export default function RegisterPage() {
       if (result?.error) {
         setSubmitError(result.error);
       } else {
-        toast.success("Account created! Please sign in.");
-        router.push("/login");
+        toast.success("Account created! Please verify your email.");
+        router.push(`/verify?email=${encodeURIComponent(formData.email)}&type=register`);
       }
     } catch {
       setSubmitError("Registration failed. Please try again.");

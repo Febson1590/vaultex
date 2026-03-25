@@ -442,6 +442,20 @@ model UserCopyTrade {
   @@map("user_copy_trades")
 }
 
+// ─── Email OTP ────────────────────────────────────────────
+model OtpCode {
+  id         String   @id @default(cuid())
+  identifier String   // email address
+  code       String   // 6-digit code
+  type       OtpType
+  expires    DateTime
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, type])
+  @@map("otp_codes")
+}
+
 // ─── Activity Log ─────────────────────────────────────────
 model ActivityLog {
   id        String       @id @default(cuid())
@@ -561,6 +575,11 @@ enum CopyTradeStatus {
   ACTIVE
   PAUSED
   STOPPED
+}
+
+enum OtpType {
+  REGISTER
+  LOGIN
 }
 
 enum ActivityType {

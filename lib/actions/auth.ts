@@ -5,6 +5,8 @@ import { signIn, signOut } from "@/auth";
 import bcrypt from "bcryptjs";
 import { generateWalletAddress } from "@/lib/utils";
 import { z } from "zod";
+import { sendOtp, verifyOtp } from "@/lib/actions/otp";
+import { OtpType } from "@prisma/client";
 
 const registerSchema = z.object({
   name:     z.string().min(2),
@@ -15,11 +17,12 @@ const registerSchema = z.object({
   country:  z.string().optional(),
 });
 
+// ─── Register ─────────────────────────────────────────────────────────────────
 export async function registerUser(data: {
-  name:      string;           // trading username / display name
+  name:      string;
   email:     string;
   password:  string;
-  fullName?: string;           // full legal name → profile
+  fullName?: string;
   phone?:    string;
   country?:  string;
 }) {
@@ -50,9 +53,9 @@ export async function registerUser(data: {
         },
         wallets: {
           create: [
-            { currency: "USD", balance: 0, address: generateWalletAddress("USD") },
-            { currency: "BTC", balance: 0, address: generateWalletAddress("BTC") },
-            { currency: "ETH", balance: 0, address: generateWalletAddress("ETH") },
+            { currency: "USD",  balance: 0, address: generateWalletAddress("USD")  },
+            { currency: "BTC",  balance: 0, address: generateWalletAddress("BTC")  },
+            { currency: "ETH",  balance: 0, address: generateWalletAddress("ETH")  },
             { currency: "USDT", balance: 0, address: generateWalletAddress("USDT") },
           ],
         },
@@ -63,40 +66,90 @@ export async function registerUser(data: {
     await db.notification.create({
       data: {
         userId: user.id,
-        title: "Welcome to Vaultex Market",
-        message: "Your account has been created. Complete verification to unlock full trading features.",
-        type: "INFO",
+        title:   "Welcome to Vaultex Market",
+        message: "Your account has been created. Verify your email to unlock full trading features.",
+        type:    "INFO",
       },
     });
 
-    return { success: true };
+    // Send email verification OTP
+    await sendOtp(user.email, OtpType.REGISTER, user.name ?? undefined);
+
+    return { success: true, pendingVerification: true };
   } catch (error) {
     console.error("Register error:", error);
     return { error: "Registration failed. Please try again." };
   }
 }
 
-export async function loginUser(data: { email: string; password: string }) {
+// ─── Initiate Login (step 1 — validate creds + send OTP) ─────────────────────
+export async function initiateLogin(
+  data: { email: string; password: string },
+): Promise<{ error: string } | { pending: true }> {
   try {
-    // Look up the user's role so admins land on /admin after login.
-    // This is done before signIn — if credentials are wrong, signIn will
-    // throw and we return an error, so the redirectTo is never used.
+    const user = await db.user.findUnique({
+      where:  { email: data.email },
+      select: { id: true, email: true, name: true, password: true, status: true, role: true },
+    });
+
+    if (!user || !user.password) {
+      return { error: "Invalid email or password" };
+    }
+
+    const isValid = await bcrypt.compare(data.password, user.password);
+    if (!isValid) {
+      return { error: "Invalid email or password" };
+    }
+
+    if (user.status === "FROZEN" || user.status === "SUSPENDED") {
+      return { error: "Account suspended. Contact support." };
+    }
+
+    // Send login OTP
+    const otpResult = await sendOtp(user.email, OtpType.LOGIN, user.name ?? undefined);
+    if ('error' in otpResult) return { error: otpResult.error };
+
+    return { pending: true as const };
+  } catch (err) {
+    console.error("[initiateLogin]", err);
+    return { error: "Sign-in failed. Please try again." };
+  }
+}
+
+// ─── Complete Login (step 2 — verify OTP + sign in) ──────────────────────────
+export async function completeLogin(data: {
+  email:    string;
+  password: string;
+  otp:      string;
+}) {
+  try {
+    // Verify the OTP first
+    const otpResult = await verifyOtp(data.email, data.otp, OtpType.LOGIN);
+    if ('error' in otpResult) return { error: otpResult.error };
+
+    // Determine redirect target based on role
     const userRecord = await db.user.findUnique({
       where:  { email: data.email },
       select: { role: true },
     });
     const redirectTo = userRecord?.role === "ADMIN" ? "/admin" : "/dashboard";
 
-    await signIn("credentials", { ...data, redirectTo });
+    // Sign in via NextAuth (re-validates credentials internally)
+    await signIn("credentials", {
+      email:    data.email,
+      password: data.password,
+      redirectTo,
+    });
   } catch (error: any) {
     if (error?.message?.includes("AccountSuspended")) {
       return { error: "Account suspended. Contact support." };
     }
     if (error?.message === "NEXT_REDIRECT") throw error;
-    return { error: "Invalid email or password" };
+    return { error: "Sign-in failed. Please try again." };
   }
 }
 
+// ─── Logout ───────────────────────────────────────────────────────────────────
 export async function logoutUser() {
   await signOut({ redirectTo: "/" });
 }

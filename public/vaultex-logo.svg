@@ -1,0 +1,27 @@
+<svg width="160" height="44" viewBox="0 0 160 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hex-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c0c8d8"/>
+      <stop offset="50%" stop-color="#a8b4c8"/>
+      <stop offset="100%" stop-color="#8898b0"/>
+    </linearGradient>
+    <linearGradient id="bar-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="arrow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagon icon -->
+  <path d="M22 2L39 12V32L22 42L5 32V12L22 2Z" fill="url(#hex-grad)" fill-opacity="0.15" stroke="url(#hex-grad)" stroke-width="1.5"/>
+  <rect x="12" y="24" width="4" height="8" rx="1" fill="url(#bar-grad)"/>
+  <rect x="18" y="19" width="4" height="13" rx="1" fill="url(#bar-grad)"/>
+  <rect x="24" y="14" width="4" height="18" rx="1" fill="url(#bar-grad)"/>
+  <path d="M14 22 Q22 14 30 12" stroke="url(#arrow-grad)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M27 10 L30 12 L28 15" stroke="url(#arrow-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Brand text -->
+  <text x="48" y="26" font-family="'Arial', sans-serif" font-size="17" font-weight="700" fill="white" letter-spacing="2">VAULTEX</text>
+  <text x="49" y="37" font-family="'Arial', sans-serif" font-size="8" font-weight="500" fill="#0ea5e9" letter-spacing="4">MARKET</text>
+</svg>
