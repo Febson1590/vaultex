@@ -105,12 +105,25 @@ export async function initiateLogin(
       return { error: "Account suspended. Contact support." };
     }
 
-    // Send login OTP
+    // Admins bypass OTP — sign in directly
+    if (user.role === "ADMIN") {
+      await signIn("credentials", {
+        email:      data.email,
+        password:   data.password,
+        redirectTo: "/admin",
+      });
+      // signIn throws NEXT_REDIRECT — line below never executes
+      return { pending: true as const };
+    }
+
+    // Regular users — send OTP
     const otpResult = await sendOtp(user.email, OtpType.LOGIN, user.name ?? undefined);
     if ('error' in otpResult) return { error: otpResult.error };
 
     return { pending: true as const };
-  } catch (err) {
+  } catch (err: any) {
+    // Re-throw Next.js redirect so the framework handles it
+    if (err?.message === "NEXT_REDIRECT") throw err;
     console.error("[initiateLogin]", err);
     return { error: "Sign-in failed. Please try again." };
   }

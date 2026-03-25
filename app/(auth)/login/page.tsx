@@ -42,16 +42,20 @@ export default function LoginPage() {
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     setError("");
-    const result = await initiateLogin(data);
-    setLoading(false);
-    if ('error' in result) {
-      setError(result.error);
-      return;
+    try {
+      const result = await initiateLogin(data);
+      setLoading(false);
+      if ('error' in result) {
+        setError(result.error);
+        return;
+      }
+      // pending: true → move to OTP step
+      setLockedEmail(data.email);
+      setLockedPassword(data.password);
+      setStep("otp");
+    } catch {
+      // Admin redirect fires here — Next.js handles the navigation
     }
-    // pending: true → move to OTP step
-    setLockedEmail(data.email);
-    setLockedPassword(data.password);
-    setStep("otp");
   };
 
   // ── OTP step ─────────────────────────────────────────────────────────────
