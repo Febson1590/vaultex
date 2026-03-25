@@ -88,11 +88,18 @@
   * {
     @apply border-border outline-ring/50;
     box-sizing: border-box;
-    /* Prevent the browser's default text I-beam from appearing on every
-       div/span/p that contains text. cursor:auto lets the browser decide,
-       which always resolves to text cursor on hoverable text content.
-       cursor:default forces the normal arrow on all elements; interactive
-       elements below re-add pointer/text where appropriate. */
+    /* Force cursor inheritance so every element chains up to html's
+       cursor:default. This beats the browser UA "cursor:auto" that
+       makes the I-beam appear when hovering over text in divs/spans.
+       Explicit overrides for inputs/buttons/links follow below. */
+    cursor: inherit;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+    /* Root anchor — all elements inherit cursor:default from here
+       unless explicitly overridden by a more specific rule below
+       or by a Tailwind cursor-* utility class. */
     cursor: default;
   }
   body {
@@ -101,20 +108,17 @@
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
   }
-  html {
-    @apply font-sans;
-    scroll-behavior: smooth;
-  }
 
-  /* ── Text cursor: only real editable fields ─── */
-  input:not([type="submit"]):not([type="button"]):not([type="reset"])
-    :not([type="image"]):not([type="checkbox"]):not([type="radio"]),
+  /* ── Text cursor: only real editable fields ─────────────────── */
+  /* NOTE: all :not() calls must be on ONE line — any whitespace
+     between them creates an unintended descendant combinator.    */
+  input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="checkbox"]):not([type="radio"]),
   textarea,
   [contenteditable="true"] {
     cursor: text;
   }
 
-  /* ── Pointer cursor: interactive elements ─────── */
+  /* ── Pointer cursor: interactive elements ─────────────────────── */
   a,
   button,
   select,
@@ -133,7 +137,7 @@
     cursor: pointer;
   }
 
-  /* ── Disabled: not-allowed ──────────────────── */
+  /* ── Disabled: not-allowed ──────────────────────────────────── */
   [disabled],
   [aria-disabled="true"] {
     cursor: not-allowed;
