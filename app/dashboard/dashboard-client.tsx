@@ -248,9 +248,13 @@ function PortfolioOverview({
     }
   }, [refreshKey, chartRange, fetchChartData]);
 
-  // Gain = last point − first point in current chart data
+  // True only when at least one chart point has a non-zero balance.
+  // Used to gate the gain section, range tabs, and chart vs. empty-state.
+  const hasActivity = chartData.some(d => d.value > 0);
+
+  // Gain = last point − first point (only meaningful when there IS activity)
   const chartGain =
-    chartData.length >= 2
+    hasActivity && chartData.length >= 2
       ? chartData[chartData.length - 1].value - chartData[0].value
       : 0;
 
@@ -290,53 +294,93 @@ function PortfolioOverview({
           </div>
         </div>
 
-        {/* Right: gain + earned */}
-        <div className="text-right flex-shrink-0">
-          <div
-            className={`text-lg font-extrabold ${
-              chartGain >= 0 ? "text-emerald-400" : "text-red-400"
-            }`}
-          >
-            {chartGain >= 0 ? "+" : ""}
-            {fmt(chartGain)}
-          </div>
-          <div className="text-xs text-slate-500 mt-0.5">{rangeLabel} change</div>
-          {totalEarned > 0 && (
-            <div className="text-xs font-semibold text-sky-400 mt-1">
-              {fmt(totalEarned)} earned
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Range selector ────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-5 pb-1 pt-1">
-        <span className="text-[10px] text-slate-600 font-medium tracking-wider uppercase">
-          Balance History
-        </span>
-        <div className="flex gap-1">
-          {RANGES.map(r => (
-            <button
-              key={r}
-              onClick={() => setChartRange(r)}
-              className={`
-                text-[10px] font-bold px-2.5 py-1 rounded-md transition-all duration-150
-                ${chartRange === r
-                  ? "bg-sky-500 text-white shadow-md shadow-sky-500/30"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]"
-                }
-              `}
+        {/* Right: gain + earned — hidden on accounts with no real history */}
+        {hasActivity && (
+          <div className="text-right flex-shrink-0">
+            <div
+              className={`text-lg font-extrabold ${
+                chartGain >= 0 ? "text-emerald-400" : "text-red-400"
+              }`}
             >
-              {r.toUpperCase()}
-            </button>
-          ))}
-        </div>
+              {chartGain >= 0 ? "+" : ""}
+              {fmt(chartGain)}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">{rangeLabel} change</div>
+            {totalEarned > 0 && (
+              <div className="text-xs font-semibold text-sky-400 mt-1">
+                {fmt(totalEarned)} earned
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Chart ─────────────────────────────────────────────────────────── */}
-      <div className="h-44 px-2 pb-3">
-        <PortfolioChart data={chartData} isLoading={chartLoading} />
-      </div>
+      {/* ── Range selector — only shown when real balance history exists ── */}
+      {hasActivity && (
+        <div className="flex items-center justify-between px-5 pb-1 pt-1">
+          <span className="text-[10px] text-slate-600 font-medium tracking-wider uppercase">
+            Balance History
+          </span>
+          <div className="flex gap-1">
+            {RANGES.map(r => (
+              <button
+                key={r}
+                onClick={() => setChartRange(r)}
+                className={`
+                  text-[10px] font-bold px-2.5 py-1 rounded-md transition-all duration-150
+                  ${chartRange === r
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/30"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]"
+                  }
+                `}
+              >
+                {r.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Chart / loading / empty state ─────────────────────────────────── */}
+      {chartLoading ? (
+        /* Fetching data for a range change — show inline spinner */
+        <div className="h-44 flex items-center justify-center">
+          <Loader2 size={18} className="text-sky-400 animate-spin" />
+        </div>
+      ) : hasActivity ? (
+        /* Real balance history exists — render the chart */
+        <div className="h-44 px-2 pb-3">
+          <PortfolioChart data={chartData} isLoading={false} />
+        </div>
+      ) : (
+        /* No real balance-affecting events at all — polished empty state */
+        <div className="flex flex-col items-center justify-center gap-3 px-5 py-8 border-t border-white/[0.04]">
+          <div
+            className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: "rgba(14,165,233,0.07)",
+              border: "1px solid rgba(14,165,233,0.12)",
+            }}
+          >
+            <TrendingUp size={20} className="text-sky-700" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-bold text-white mb-1">No balance activity yet</p>
+            <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+              Your balance history chart will appear here as soon as your first
+              deposit is confirmed.
+            </p>
+          </div>
+          <Link href="/dashboard/deposit" className="mt-1">
+            <Button
+              size="sm"
+              className="h-8 px-5 bg-sky-500/[0.15] hover:bg-sky-500/[0.25] text-sky-300 border border-sky-500/30 font-bold text-xs"
+            >
+              <ArrowDownToLine size={11} className="mr-1.5" /> Make a Deposit
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
