@@ -26,22 +26,34 @@ export async function registerUser(data: {
   phone?:    string;
   country?:  string;
 }) {
+  const tag   = "[registerUser]";
+  const email = (data.email ?? "").trim().toLowerCase();
+
+  console.log(`${tag} ── START ──────────────────────────────────────`);
+  console.log(`${tag} raw email   : "${data.email}"`);
+  console.log(`${tag} clean email : "${email}"`);
+  console.log(`${tag} name        : "${data.name}"`);
+
   try {
-    const parsed = registerSchema.safeParse(data);
+    const parsed = registerSchema.safeParse({ ...data, email });
     if (!parsed.success) {
+      console.error(`${tag} ❌ Schema validation failed:`, parsed.error.flatten());
       return { error: "Invalid input data" };
     }
 
-    const existing = await db.user.findUnique({ where: { email: data.email } });
-    if (existing) return { error: "Email already registered" };
+    const existing = await db.user.findUnique({ where: { email } });
+    if (existing) {
+      console.warn(`${tag} ⚠️  Email already registered: ${email}`);
+      return { error: "Email already registered" };
+    }
 
     const hashed = await bcrypt.hash(data.password, 12);
     const legal  = data.fullName?.trim() || data.name;
 
     const user = await db.user.create({
       data: {
-        name: data.name,
-        email: data.email,
+        name:  data.name,
+        email,
         password: hashed,
         profile: {
           create: {
@@ -62,22 +74,32 @@ export async function registerUser(data: {
       },
     });
 
-    // Welcome notification
+    console.log(`${tag} ✅ User created: id=${user.id} email=${user.email}`);
+
     await db.notification.create({
       data: {
-        userId: user.id,
+        userId:  user.id,
         title:   "Welcome to Vaultex Market",
         message: "Your account has been created. Verify your email to unlock full trading features.",
         type:    "INFO",
       },
     });
 
-    // Send email verification OTP
-    await sendOtp(user.email, OtpType.REGISTER, user.name ?? undefined);
+    console.log(`${tag} Sending registration OTP to: ${user.email}`);
+    const otpResult = await sendOtp(user.email, OtpType.REGISTER, user.name ?? undefined);
 
+    if ("error" in otpResult) {
+      console.error(`${tag} ❌ OTP send failed after registration: ${otpResult.error}`);
+      // Account is created — still let the user proceed so they can resend later
+    } else {
+      console.log(`${tag} ✅ Registration OTP sent to ${user.email}`);
+    }
+
+    console.log(`${tag} ── END (success) ──────────────────────────────`);
     return { success: true, pendingVerification: true };
+
   } catch (error) {
-    console.error("Register error:", error);
+    console.error(`${tag} ❌ Unexpected error:`, error);
     return { error: "Registration failed. Please try again." };
   }
 }
@@ -86,29 +108,44 @@ export async function registerUser(data: {
 export async function initiateLogin(
   data: { email: string; password: string },
 ): Promise<{ error: string } | { pending: true }> {
+  const tag = "[initiateLogin]";
+
+  // ── Sanitise input ────────────────────────────────────────────────────────
+  const email = (data.email ?? "").trim().toLowerCase();
+
+  console.log(`${tag} ── START ──────────────────────────────────────`);
+  console.log(`${tag} raw email   : "${data.email}"`);
+  console.log(`${tag} clean email : "${email}"`);
+
   try {
+    // ── Look up user ────────────────────────────────────────────────────────
     const user = await db.user.findUnique({
-      where:  { email: data.email },
+      where:  { email },
       select: { id: true, email: true, name: true, password: true, status: true, role: true },
     });
 
     if (!user || !user.password) {
+      console.warn(`${tag} ❌ User not found or has no password for email="${email}"`);
       return { error: "Invalid email or password" };
     }
 
+    console.log(`${tag} User found  : id=${user.id} role=${user.role} status=${user.status}`);
+    console.log(`${tag} DB email    : "${user.email}"`);
+
+    // ── Validate password ───────────────────────────────────────────────────
     const isValid = await bcrypt.compare(data.password, user.password);
     if (!isValid) {
+      console.warn(`${tag} ❌ Password mismatch for email="${email}"`);
       return { error: "Invalid email or password" };
     }
 
-    if (user.status === "FROZEN" || user.status === "SUSPENDED") {
-      return { error: "Account suspended. Contact support." };
-    }
+    console.log(`${tag} Password valid ✅`);
 
-    // Admins bypass OTP — sign in directly
+    // ── Admins bypass OTP — sign in directly ────────────────────────────────
     if (user.role === "ADMIN") {
+      console.log(`${tag} Role=ADMIN — bypassing OTP, signing in directly.`);
       await signIn("credentials", {
-        email:      data.email,
+        email:      user.email,
         password:   data.password,
         redirectTo: "/admin",
       });
@@ -116,15 +153,33 @@ export async function initiateLogin(
       return { pending: true as const };
     }
 
-    // Regular users — send OTP
+    // ── Send OTP BEFORE status check (req #3) ────────────────────────────────
+    // Email is dispatched unconditionally at this point.
+    // Status is logged and checked AFTER so nothing silently blocks delivery.
+    console.log(`${tag} Sending LOGIN OTP to: "${user.email}"`);
     const otpResult = await sendOtp(user.email, OtpType.LOGIN, user.name ?? undefined);
-    if ('error' in otpResult) return { error: otpResult.error };
 
+    if ("error" in otpResult) {
+      console.error(`${tag} ❌ OTP send failed: ${otpResult.error}`);
+      return { error: otpResult.error };
+    }
+
+    console.log(`${tag} ✅ OTP dispatched to "${user.email}"`);
+
+    // ── Status check (logged explicitly) ────────────────────────────────────
+    console.log(`${tag} Checking account status: ${user.status}`);
+    if (user.status === "FROZEN" || user.status === "SUSPENDED") {
+      console.warn(`${tag} ⚠️  Account is ${user.status} — blocking login despite OTP being sent.`);
+      return { error: "Account suspended. Contact support." };
+    }
+
+    console.log(`${tag} ── END (pending OTP) ──────────────────────────`);
     return { pending: true as const };
+
   } catch (err: any) {
-    // Re-throw Next.js redirect so the framework handles it
+    // Re-throw Next.js redirect so the framework handles navigation
     if (err?.message === "NEXT_REDIRECT") throw err;
-    console.error("[initiateLogin]", err);
+    console.error(`${tag} ❌ Unexpected error:`, err);
     return { error: "Sign-in failed. Please try again." };
   }
 }
@@ -135,29 +190,44 @@ export async function completeLogin(data: {
   password: string;
   otp:      string;
 }) {
-  try {
-    // Verify the OTP first
-    const otpResult = await verifyOtp(data.email, data.otp, OtpType.LOGIN);
-    if ('error' in otpResult) return { error: otpResult.error };
+  const tag   = "[completeLogin]";
+  const email = (data.email ?? "").trim().toLowerCase();
 
-    // Determine redirect target based on role
+  console.log(`${tag} ── START ──────────────────────────────────────`);
+  console.log(`${tag} email : "${email}"`);
+  console.log(`${tag} otp   : "${data.otp}"`);
+
+  try {
+    // ── Verify the OTP ──────────────────────────────────────────────────────
+    console.log(`${tag} Verifying OTP …`);
+    const otpResult = await verifyOtp(email, data.otp, OtpType.LOGIN);
+
+    if ("error" in otpResult) {
+      console.warn(`${tag} ❌ OTP verification failed: ${otpResult.error}`);
+      return { error: otpResult.error };
+    }
+
+    console.log(`${tag} ✅ OTP verified`);
+
+    // ── Determine redirect target ───────────────────────────────────────────
     const userRecord = await db.user.findUnique({
-      where:  { email: data.email },
+      where:  { email },
       select: { role: true },
     });
     const redirectTo = userRecord?.role === "ADMIN" ? "/admin" : "/dashboard";
+    console.log(`${tag} role=${userRecord?.role} → redirectTo=${redirectTo}`);
 
-    // Sign in via NextAuth (re-validates credentials internally)
-    await signIn("credentials", {
-      email:    data.email,
-      password: data.password,
-      redirectTo,
-    });
+    // ── Sign in via NextAuth ────────────────────────────────────────────────
+    console.log(`${tag} Calling signIn() …`);
+    await signIn("credentials", { email, password: data.password, redirectTo });
+
   } catch (error: any) {
     if (error?.message?.includes("AccountSuspended")) {
+      console.warn(`${tag} ⚠️  AccountSuspended thrown by NextAuth`);
       return { error: "Account suspended. Contact support." };
     }
     if (error?.message === "NEXT_REDIRECT") throw error;
+    console.error(`${tag} ❌ Unexpected error:`, error);
     return { error: "Sign-in failed. Please try again." };
   }
 }

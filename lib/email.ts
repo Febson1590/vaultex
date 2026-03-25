@@ -299,22 +299,31 @@ function buildVerificationEmail(opts: {
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+// Returns the Resend message ID on success, throws with a detailed message on failure.
 export async function sendVerificationEmail(opts: {
   to:   string;
   name: string;
   code: string;
   type: "REGISTER" | "LOGIN";
-}): Promise<void> {
+}): Promise<string> {
+  const tag = "[sendVerificationEmail]";
   const { to, name, code, type } = opts;
 
-  const subject =
-    type === "REGISTER"
-      ? "Verify your Vaultex account"
-      : "Your Vaultex login code";
+  const from    = process.env.EMAIL_FROM || "Vaultex Market <no-reply@vaultexmarket.com>";
+  const subject = type === "REGISTER"
+    ? "Verify your Vaultex account"
+    : "Your Vaultex login code";
+
+  console.log(`${tag} ── START ──────────────────────────────────────`);
+  console.log(`${tag} to      : ${to}`);
+  console.log(`${tag} from    : ${from}`);
+  console.log(`${tag} subject : ${subject}`);
+  console.log(`${tag} type    : ${type}`);
+  console.log(`${tag} name    : ${name}`);
+  console.log(`${tag} code    : ${code}`);
 
   const html = buildVerificationEmail({ name, code, type });
 
-  // Plain-text fallback
   const text = [
     `Hi ${name},`,
     "",
@@ -331,11 +340,29 @@ export async function sendVerificationEmail(opts: {
     "— Vaultex Market",
   ].join("\n");
 
-  await resend.emails.send({
-    from:    process.env.EMAIL_FROM || "Vaultex Market <no-reply@vaultexmarket.com>",
-    to,
-    subject,
-    text,
-    html,
-  });
+  console.log(`${tag} Calling resend.emails.send() …`);
+
+  // The Resend SDK never throws — it returns { data, error }.
+  // Not checking this return value is the silent-failure bug.
+  const result = await resend.emails.send({ from, to, subject, text, html });
+
+  console.log(`${tag} Raw Resend response:`, JSON.stringify(result));
+
+  if (result.error) {
+    // Log the full provider error so it appears in Vercel Function logs.
+    console.error(`${tag} ❌ RESEND ERROR ──────────────────────────────`);
+    console.error(`${tag} name    : ${result.error.name}`);
+    console.error(`${tag} message : ${result.error.message}`);
+    console.error(`${tag} full    :`, JSON.stringify(result.error));
+    throw new Error(
+      `Email provider rejected the send request. ` +
+      `name="${result.error.name}" message="${result.error.message}"`
+    );
+  }
+
+  const messageId = result.data?.id ?? "(no id returned)";
+  console.log(`${tag} ✅ Email queued/delivered. Resend message id: ${messageId}`);
+  console.log(`${tag} ── END ────────────────────────────────────────`);
+
+  return messageId;
 }
