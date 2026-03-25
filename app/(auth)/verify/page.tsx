@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function VerifyPage() {
+function VerifyContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
 
@@ -247,5 +247,13 @@ export default function VerifyPage() {
 
       </Card>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-md" />}>
+      <VerifyContent />
+    </Suspense>
   );
 }
