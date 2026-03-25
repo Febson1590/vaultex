@@ -6,7 +6,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
 import { addInvestmentFunds, stopCopyTrade } from "@/lib/actions/investment";
-import { RANGE_LABELS } from "@/lib/chart";
+
+// Range label map — defined locally to keep lib/chart.ts out of the browser bundle
+// (lib/chart.ts imports Prisma/pg which are Node.js-only)
+const RANGE_LABELS: Record<string, string> = {
+  "7d":  "7-day",
+  "30d": "30-day",
+  "90d": "90-day",
+  "1y":  "1-year",
+};
 import {
   TrendingUp, DollarSign, Activity, Zap,
   ArrowUpRight, Plus, ShieldAlert, Loader2,

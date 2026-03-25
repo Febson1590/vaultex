@@ -1,9 +1,13 @@
 /**
  * lib/chart.ts
- * Shared server-side utility for building the USD balance history chart.
+ * SERVER-ONLY utility for building the USD balance history chart.
  * Uses backward reconstruction from the current wallet balance so the final
  * chart point always exactly matches the user's live balance.
+ *
+ * IMPORTANT: This module must never be imported by client components.
+ * The "server-only" guard below causes an immediate build error if it is.
  */
+import "server-only";
 
 import { db } from "@/lib/db";
 import { ActivityType, TransactionType, TxStatus } from "@prisma/client";
