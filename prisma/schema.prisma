@@ -226,8 +226,6 @@ model DepositRequest {
   method        String        @default("Bank Transfer")
   status        RequestStatus @default(PENDING)
   proofUrl      String?
-  txHash        String?       // user-provided transaction hash
-  walletId      String?       // reference to the DepositWallet used
   notes         String?
   adminNotes    String?
   processedAt   DateTime?
@@ -444,20 +442,6 @@ model UserCopyTrade {
   @@map("user_copy_trades")
 }
 
-// ─── Admin-controlled deposit wallets ─────────────────────
-model DepositWallet {
-  id        String   @id @default(cuid())
-  asset     String   // e.g. "BTC", "ETH", "USDT"
-  network   String?  // e.g. "TRC20", "ERC20", "BEP20"
-  address   String
-  label     String   // e.g. "Bitcoin Mainnet", "USDT TRC20"
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("deposit_wallets")
-}
-
 // ─── Email OTP ────────────────────────────────────────────
 model OtpCode {
   id         String   @id @default(cuid())
@@ -578,7 +562,6 @@ enum NotificationType {
   WITHDRAWAL
   VERIFICATION
   SUPPORT
-  SECURITY
 }
 
 enum InvestmentStatus {

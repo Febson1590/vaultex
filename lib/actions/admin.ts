@@ -455,30 +455,5 @@ export async function adminGenerateTransaction(userId: string, data: {
 }
 
 // ─── Deposit Wallet Management ───────────────────────────────────────────────
-
-export async function getDepositWallets() {
-  await requireAdmin();
-  return db.depositWallet.findMany({ orderBy: { createdAt: "desc" } });
-}
-
-export async function upsertDepositWallet(data: {
-  id?: string;
-  asset: string;
-  network?: string;
-  address: string;
-  label: string;
-  isActive?: boolean;
-}) {
-  await requireAdmin();
-  if (data.id) {
-    return db.depositWallet.update({ where: { id: data.id }, data });
-  }
-  return db.depositWallet.create({ data: { ...data, isActive: data.isActive ?? true } });
-}
-
-export async function toggleDepositWallet(id: string, isActive: boolean) {
-  await requireAdmin();
-  await db.depositWallet.update({ where: { id }, data: { isActive } });
-  revalidatePath("/admin/deposits");
-  return { success: true };
-}
+// TODO: Re-enable after running `prisma db push` to create the deposit_wallets
+// table and add txHash/walletId columns to deposit_requests in production.
