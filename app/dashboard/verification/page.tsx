@@ -153,16 +153,27 @@ export default function VerificationPage() {
     setLoading(true);
 
     try {
-      // 1. Upload document to UploadThing — get a permanent URL
+      // 1. Upload document to UploadThing — get a permanent URL.
+      //    This MUST succeed before we create the verification record;
+      //    otherwise admin sees "No documents uploaded".
       let frontUrl: string | null = null;
       try {
         const uploaded = await startUpload([docFile]);
         frontUrl = uploaded?.[0]?.url ?? null;
-      } catch {
-        // Upload failed — proceed without URL; admin still sees the record
+      } catch (uploadErr) {
+        console.error("[KYC] UploadThing upload failed:", uploadErr);
+        toast.error("Document upload failed. Please try again or use a different file format.");
+        setLoading(false);
+        return;                                       // ← STOP here, don't create a record
       }
 
-      // 2. Save the verification record to the database
+      if (!frontUrl) {
+        toast.error("Document upload did not return a file URL. Please try again.");
+        setLoading(false);
+        return;                                       // ← STOP here, don't create a record
+      }
+
+      // 2. Save the verification record to the database (with the file URL)
       const res = await fetch("/api/user/verification", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },

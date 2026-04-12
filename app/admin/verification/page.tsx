@@ -8,8 +8,15 @@ import { formatDateTime, getStatusBg } from "@/lib/utils";
 import { CheckCircle2, XCircle, Loader2, ShieldCheck, FileText } from "lucide-react";
 import { toast } from "sonner";
 
+/** Detect if a URL is likely an image. Handles both extension-based URLs
+ *  and UploadThing URLs that may not have extensions. PDFs are excluded. */
 function isImageUrl(url: string): boolean {
-  return /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(url);
+  if (/\.pdf(\?.*)?$/i.test(url)) return false;
+  if (/\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?.*)?$/i.test(url)) return true;
+  // UploadThing URLs (ufs.io, utfs.io, uploadthing) are usually images
+  // when they come from a route that accepts image types.
+  if (/ufs\.io|utfs\.io|uploadthing/i.test(url)) return true;
+  return false;
 }
 
 export default function AdminVerificationPage() {

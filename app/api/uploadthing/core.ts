@@ -4,7 +4,10 @@ import { auth } from "@/auth";
 const f = createUploadthing();
 
 export const ourFileRouter = {
-  kycDocument: f({ image: { maxFileSize: "8MB", maxFileCount: 3 } })
+  kycDocument: f({
+    image: { maxFileSize: "8MB", maxFileCount: 3 },
+    pdf:   { maxFileSize: "8MB", maxFileCount: 1 },
+  })
     .middleware(async () => {
       const session = await auth();
       if (!session?.user?.id) throw new Error("Unauthorized");
