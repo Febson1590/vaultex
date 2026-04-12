@@ -14,7 +14,6 @@ import {
 import { toast } from "sonner";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
 import type { KycStatus } from "@/lib/kyc";
-import { useUploadThing } from "@/lib/uploadthing";
 
 const CURRENCIES = ["USD", "USDT", "BTC", "ETH"] as const;
 const METHODS    = ["Bank Transfer", "Wire Transfer", "SEPA Transfer", "Crypto Transfer"] as const;
@@ -56,8 +55,17 @@ export default function DepositForm({
   const [error, setError]         = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { startUpload } = useUploadThing("kycDocument");
   const selectedWallet = wallets.find((w) => w.id === walletId);
+
+  /** Upload file via the server-side /api/upload endpoint. */
+  async function uploadFile(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `Upload failed (${res.status})`);
+    return data.url;
+  }
 
   function copyAddress() {
     if (!selectedWallet) return;
@@ -92,13 +100,8 @@ export default function DepositForm({
       let proofUrl: string | undefined;
       if (proofFile) {
         try {
-          const uploaded = await startUpload([proofFile]);
-          if (uploaded && uploaded.length > 0) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const first = uploaded[0] as any;
-            proofUrl = first?.url ?? first?.ufsUrl ?? first?.appUrl ?? first?.serverData?.url ?? undefined;
-          }
-        } catch { /* Continue without proof */ }
+          proofUrl = await uploadFile(proofFile);
+        } catch { /* Continue without proof — deposit can still be reviewed manually */ }
       }
 
       const result = await requestDeposit({

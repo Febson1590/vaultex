@@ -12,7 +12,6 @@ import {
   FileImage, X, ShieldAlert, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useUploadThing } from "@/lib/uploadthing";
 
 // ── Redirect-reason config ────────────────────────────────────────────────────
 // Shown when a user lands here after being blocked from a protected page/action.
@@ -89,13 +88,16 @@ export default function VerificationPage() {
   const [dateOfBirth,   setDateOfBirth]   = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const { startUpload } = useUploadThing("kycDocument", {
-    onUploadError: (err) => {
-      console.error("[KYC] UploadThing onUploadError:", err);
-      setUploadError(err.message);
-    },
-  });
+  /** Upload file via the simple /api/upload endpoint (server-side UT SDK). */
+  async function uploadFile(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `Upload failed (${res.status})`);
+    if (!data.url) throw new Error("Upload succeeded but no URL returned");
+    return data.url;
+  }
 
   /* Load existing verification status + prefill user profile data */
   useEffect(() => {
@@ -159,45 +161,15 @@ export default function VerificationPage() {
     setLoading(true);
 
     try {
-      // 1. Upload document to UploadThing — get a permanent URL.
-      //    This MUST succeed before we create the verification record;
-      //    otherwise admin sees "No documents uploaded".
-      let frontUrl: string | null = null;
-      setUploadError(null);
+      // 1. Upload document via our server-side API endpoint (uses the
+      //    UploadThing server SDK directly — bypasses the unreliable
+      //    UT client SDK that returned undefined on Vercel).
+      let frontUrl: string;
       try {
-        const uploaded = await startUpload([docFile]);
-        console.log("[KYC] UploadThing raw response:", JSON.stringify(uploaded));
-
-        if (!uploaded || uploaded.length === 0) {
-          const errDetail = uploadError || "No result returned from upload service";
-          toast.error(`Upload failed: ${errDetail}`);
-          setLoading(false);
-          return;
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const first = uploaded[0] as any;
-        // UploadThing v7 may return the URL under different keys depending
-        // on the SDK version. Try all known locations.
-        frontUrl =
-          first?.url ??
-          first?.ufsUrl ??
-          first?.appUrl ??
-          first?.serverData?.url ??
-          null;
-
-        console.log("[KYC] Resolved frontUrl:", frontUrl);
+        frontUrl = await uploadFile(docFile);
       } catch (uploadErr) {
-        console.error("[KYC] UploadThing upload failed:", uploadErr);
         const errMsg = uploadErr instanceof Error ? uploadErr.message : "Unknown error";
         toast.error(`Document upload failed: ${errMsg}`);
-        setLoading(false);
-        return;
-      }
-
-      if (!frontUrl) {
-        toast.error(`Upload completed but no file URL returned. ${uploadError || "Please try again."}`);
-
         setLoading(false);
         return;
       }
