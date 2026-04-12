@@ -15,16 +15,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Vaultex Market | Trade Digital Assets with Institutional Confidence",
+    default: "Vaultex Market — Premium Crypto Brokerage",
     template: "%s | Vaultex Market",
   },
   description:
-    "Vaultex Market — institutional-grade crypto brokerage platform. Trade BTC, ETH, USDT and 50+ digital assets with real-time execution, advanced charting, and enterprise security.",
-  keywords: ["crypto", "trading", "bitcoin", "ethereum", "broker", "digital assets", "portfolio", "brokerage", "institutional"],
+    "Vaultex Market — a premium crypto brokerage platform. Trade BTC, ETH, USDT and 50+ digital assets with clean execution, professional charts, and strong account security.",
+  keywords: ["crypto", "trading", "bitcoin", "ethereum", "broker", "digital assets", "portfolio", "brokerage"],
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   openGraph: {
     title: "Vaultex Market | Premium Crypto Broker Platform",
-    description: "Trade Digital Assets with Institutional Confidence",
+    description: "One terminal. Every major market.",
     siteName: "Vaultex Market",
     type: "website",
   },

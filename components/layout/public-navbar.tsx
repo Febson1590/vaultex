@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 import { Menu, X, ChevronRight } from "lucide-react";
 
 const navLinks = [
-  { href: "/markets",  label: "Markets"  },
-  { href: "/pricing",  label: "Fees"     },
-  { href: "/security", label: "Security" },
-  { href: "/help",     label: "Support"  },
-  { href: "/about",    label: "About"    },
+  { href: "/markets",         label: "Markets"  },
+  { href: "/#trade-terminal", label: "Trade"    },
+  { href: "/pricing",         label: "Pricing"  },
+  { href: "/security",        label: "Security" },
+  { href: "/help",            label: "Support"  },
 ];
 
 export function PublicNavbar() {

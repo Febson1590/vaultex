@@ -2,21 +2,22 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { Shield, Twitter, Linkedin, Github, Lock, FileCheck2, Eye } from "lucide-react";
 
-const footerLinks: Record<string, { href: string; label: string }[]> = {
+const footerLinks: Record<string, { href: string; label: string; external?: boolean }[]> = {
   Platform: [
-    { href: "/markets",  label: "Markets"        },
-    { href: "/pricing",  label: "Fees & Pricing" },
-    { href: "/security", label: "Security"       },
-    { href: "/register", label: "Open Account"   },
+    { href: "/markets",          label: "Markets"         },
+    { href: "/#trade-terminal",  label: "Trade Terminal"  },
+    { href: "/pricing",          label: "Fees & Pricing"  },
+    { href: "/register",         label: "Open Account"    },
   ],
   Company: [
     { href: "/about",   label: "About Us" },
     { href: "/contact", label: "Contact"  },
   ],
   Support: [
-    { href: "/help",     label: "Help Center"     },
-    { href: "/contact",  label: "Contact Support" },
-    { href: "/security", label: "Report an Issue" },
+    { href: "/help",                              label: "Help Center"    },
+    { href: "mailto:support@vaultexmarket.com",   label: "Email Support",  external: true },
+    { href: "mailto:security@vaultexmarket.com",  label: "Report an Issue", external: true },
+    { href: "/security",                          label: "Security Center" },
   ],
   Legal: [
     { href: "/terms",   label: "Terms of Service" },
@@ -88,12 +89,21 @@ export function PublicFooter() {
               <ul className="space-y-2.5">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-[13px] text-slate-500 hover:text-sky-400 transition-colors duration-200"
-                    >
-                      {link.label}
-                    </Link>
+                    {link.external ? (
+                      <a
+                        href={link.href}
+                        className="text-[13px] text-slate-500 hover:text-sky-400 transition-colors duration-200"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        className="text-[13px] text-slate-500 hover:text-sky-400 transition-colors duration-200"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
