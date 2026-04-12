@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { UTApi } from "uploadthing/server";
 
-const utapi = new UTApi();
+// Explicitly pass the token so UTApi doesn't accidentally read the
+// legacy UPLOADTHING_SECRET env var (raw API key — wrong format for v7).
+const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
 
 /**
  * Simple file upload endpoint that bypasses the UploadThing client SDK.
