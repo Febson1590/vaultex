@@ -10,6 +10,8 @@ export async function requestDeposit(data: {
   amount: number;
   method: string;
   proofUrl?: string;
+  txHash?: string;
+  walletId?: string;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -24,6 +26,8 @@ export async function requestDeposit(data: {
       amount: data.amount,
       method: data.method,
       proofUrl: data.proofUrl,
+      txHash: data.txHash,
+      walletId: data.walletId,
     },
   });
 
@@ -38,6 +42,14 @@ export async function requestDeposit(data: {
 
   revalidatePath("/dashboard/deposit");
   return { success: true, requestId: request.id };
+}
+
+/** Return active deposit wallets for the user deposit page. */
+export async function getActiveDepositWallets() {
+  return db.depositWallet.findMany({
+    where: { isActive: true },
+    orderBy: { asset: "asc" },
+  });
 }
 
 export async function requestWithdrawal(data: {

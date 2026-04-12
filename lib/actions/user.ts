@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { buildBalanceChart } from "@/lib/chart";
+import bcrypt from "bcryptjs";
+import { notifyUser } from "@/lib/notifications";
 
 export async function getCurrentUser() {
   const session = await auth();
@@ -105,4 +107,56 @@ export async function getTransactions(userId: string, limit = 20) {
  */
 export async function getPortfolioPerformance(userId: string) {
   return buildBalanceChart(userId, 30);
+}
+
+// ─── Change password ─────────────────────────────────────────────────────────
+
+export async function changePassword(data: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { password: true, email: true, name: true },
+  });
+  if (!user?.password) return { error: "No password set on this account" };
+
+  const isValid = await bcrypt.compare(data.currentPassword, user.password);
+  if (!isValid) return { error: "Current password is incorrect" };
+
+  if (data.newPassword.length < 8)
+    return { error: "New password must be at least 8 characters" };
+  if (!/[A-Z]/.test(data.newPassword))
+    return { error: "New password must contain an uppercase letter" };
+  if (!/[0-9]/.test(data.newPassword))
+    return { error: "New password must contain a number" };
+
+  const hashed = await bcrypt.hash(data.newPassword, 12);
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { password: hashed },
+  });
+
+  // Send notification
+  await notifyUser({
+    userId: session.user.id,
+    title: "Password Changed",
+    message: "Your account password has been changed successfully.",
+    type: "SECURITY",
+    email: {
+      to: user.email,
+      name: user.name || "Trader",
+      subject: "Your Vaultex password has been changed",
+      heading: "Password Changed",
+      body: [
+        "Your account password was changed successfully.",
+        "If you did not make this change, please contact our support team immediately.",
+      ],
+    },
+  });
+
+  return { success: true };
 }

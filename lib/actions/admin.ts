@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { generateWalletAddress } from "@/lib/utils";
+import { notifyUser, APP_URL } from "@/lib/notifications";
 
 async function requireAdmin() {
   const session = await auth();
@@ -143,6 +144,10 @@ export async function adminUpdateHolding(userId: string, assetId: string, quanti
 export async function processDepositRequest(id: string, action: "APPROVE" | "REJECT", notes?: string) {
   const adminId = await requireAdmin();
 
+  if (action === "REJECT" && (!notes || notes.trim().length === 0)) {
+    return { error: "Rejection reason is required" };
+  }
+
   const deposit = await db.depositRequest.findUnique({ where: { id } });
   if (!deposit) return { error: "Deposit not found" };
 
@@ -173,15 +178,45 @@ export async function processDepositRequest(id: string, action: "APPROVE" | "REJ
     });
   }
 
-  await db.notification.create({
-    data: {
-      userId: deposit.userId,
-      title: `Deposit ${action === "APPROVE" ? "Approved" : "Rejected"}`,
-      message: action === "APPROVE"
-        ? `Your deposit of ${deposit.amount} ${deposit.currency} has been approved and credited to your wallet.`
-        : `Your deposit request has been rejected. ${notes || "Contact support for details."}`,
-      type: action === "APPROVE" ? "SUCCESS" : "ERROR",
-    },
+  // Look up user for email
+  const user = await db.user.findUnique({
+    where: { id: deposit.userId },
+    select: { email: true, name: true },
+  });
+
+  const notifTitle = `Deposit ${action === "APPROVE" ? "Approved" : "Rejected"}`;
+  const notifMessage = action === "APPROVE"
+    ? `Your deposit of ${deposit.amount} ${deposit.currency} has been approved and credited to your wallet.`
+    : `Your deposit request has been rejected. ${notes || "Contact support for details."}`;
+
+  await notifyUser({
+    userId: deposit.userId,
+    title: notifTitle,
+    message: notifMessage,
+    type: action === "APPROVE" ? "DEPOSIT" : "ERROR",
+    email: user?.email
+      ? {
+          to: user.email,
+          name: user.name || "Trader",
+          subject: action === "APPROVE"
+            ? "Your Vaultex deposit has been approved"
+            : "Update on your Vaultex deposit request",
+          heading: action === "APPROVE" ? "Deposit Approved" : "Deposit Update",
+          body: action === "APPROVE"
+            ? [
+                `Your deposit of ${deposit.amount} ${deposit.currency} has been approved and credited to your wallet.`,
+                "You can now use these funds to trade or invest.",
+              ]
+            : [
+                `Your deposit request for ${deposit.amount} ${deposit.currency} was not approved.`,
+                `Reason: ${notes}`,
+                "If you believe this is an error, please contact our support team.",
+              ],
+          ...(action === "APPROVE"
+            ? { cta: { label: "Go to Dashboard", url: `${APP_URL}/dashboard` } }
+            : {}),
+        }
+      : undefined,
   });
 
   await logAction(adminId, `${action}_DEPOSIT`, deposit.userId, `Deposit ${id} ${action.toLowerCase()}d`);
@@ -191,6 +226,10 @@ export async function processDepositRequest(id: string, action: "APPROVE" | "REJ
 
 export async function processWithdrawalRequest(id: string, action: "APPROVE" | "REJECT", notes?: string) {
   const adminId = await requireAdmin();
+
+  if (action === "REJECT" && (!notes || notes.trim().length === 0)) {
+    return { error: "Rejection reason is required" };
+  }
 
   const withdrawal = await db.withdrawalRequest.findUnique({ where: { id } });
   if (!withdrawal) return { error: "Withdrawal not found" };
@@ -222,15 +261,45 @@ export async function processWithdrawalRequest(id: string, action: "APPROVE" | "
     });
   }
 
-  await db.notification.create({
-    data: {
-      userId: withdrawal.userId,
-      title: `Withdrawal ${action === "APPROVE" ? "Approved" : "Rejected"}`,
-      message: action === "APPROVE"
-        ? `Your withdrawal of ${withdrawal.amount} ${withdrawal.currency} has been approved.`
-        : `Your withdrawal request has been rejected. ${notes || "Contact support for details."}`,
-      type: action === "APPROVE" ? "SUCCESS" : "ERROR",
-    },
+  // Look up user for email
+  const user = await db.user.findUnique({
+    where: { id: withdrawal.userId },
+    select: { email: true, name: true },
+  });
+
+  const notifTitle = `Withdrawal ${action === "APPROVE" ? "Approved" : "Rejected"}`;
+  const notifMessage = action === "APPROVE"
+    ? `Your withdrawal of ${withdrawal.amount} ${withdrawal.currency} has been approved.`
+    : `Your withdrawal request has been rejected. ${notes || "Contact support for details."}`;
+
+  await notifyUser({
+    userId: withdrawal.userId,
+    title: notifTitle,
+    message: notifMessage,
+    type: action === "APPROVE" ? "WITHDRAWAL" : "ERROR",
+    email: user?.email
+      ? {
+          to: user.email,
+          name: user.name || "Trader",
+          subject: action === "APPROVE"
+            ? "Your Vaultex withdrawal has been approved"
+            : "Update on your Vaultex withdrawal request",
+          heading: action === "APPROVE" ? "Withdrawal Approved" : "Withdrawal Update",
+          body: action === "APPROVE"
+            ? [
+                `Your withdrawal of ${withdrawal.amount} ${withdrawal.currency} has been approved and is being processed.`,
+                `The funds will be sent to your ${withdrawal.method} destination.`,
+              ]
+            : [
+                `Your withdrawal request for ${withdrawal.amount} ${withdrawal.currency} was not approved.`,
+                `Reason: ${notes}`,
+                "If you believe this is an error, please contact our support team.",
+              ],
+          ...(action === "APPROVE"
+            ? { cta: { label: "View Transactions", url: `${APP_URL}/dashboard` } }
+            : {}),
+        }
+      : undefined,
   });
 
   await logAction(adminId, `${action}_WITHDRAWAL`, withdrawal.userId, `Withdrawal ${id} ${action.toLowerCase()}d`);
@@ -240,6 +309,10 @@ export async function processWithdrawalRequest(id: string, action: "APPROVE" | "
 
 export async function processVerification(id: string, action: "APPROVE" | "REJECT", notes?: string) {
   const adminId = await requireAdmin();
+
+  if (action === "REJECT" && (!notes || notes.trim().length === 0)) {
+    return { error: "Rejection reason is required" };
+  }
 
   const verification = await db.verification.findUnique({ where: { id } });
   if (!verification) return { error: "Verification not found" };
@@ -254,15 +327,45 @@ export async function processVerification(id: string, action: "APPROVE" | "REJEC
     },
   });
 
-  await db.notification.create({
-    data: {
-      userId: verification.userId,
-      title: `Verification ${action === "APPROVE" ? "Approved" : "Rejected"}`,
-      message: action === "APPROVE"
-        ? "Your identity verification has been approved. You now have full access to all trading features."
-        : `Your verification was rejected. ${notes || "Please resubmit with correct documents."}`,
-      type: action === "APPROVE" ? "SUCCESS" : "ERROR",
-    },
+  // Look up user for email
+  const user = await db.user.findUnique({
+    where: { id: verification.userId },
+    select: { email: true, name: true },
+  });
+
+  const notifTitle = `Verification ${action === "APPROVE" ? "Approved" : "Rejected"}`;
+  const notifMessage = action === "APPROVE"
+    ? "Your identity verification has been approved. You now have full access to all trading features."
+    : `Your verification was rejected. ${notes || "Please resubmit with correct documents."}`;
+
+  await notifyUser({
+    userId: verification.userId,
+    title: notifTitle,
+    message: notifMessage,
+    type: action === "APPROVE" ? "VERIFICATION" : "ERROR",
+    email: user?.email
+      ? {
+          to: user.email,
+          name: user.name || "Trader",
+          subject: action === "APPROVE"
+            ? "Your Vaultex identity has been verified"
+            : "Update on your Vaultex verification",
+          heading: action === "APPROVE" ? "Identity Verified" : "Verification Update",
+          body: action === "APPROVE"
+            ? [
+                "Your identity has been verified successfully.",
+                "You now have full access to all trading and investment features on Vaultex.",
+              ]
+            : [
+                "Your verification was not approved.",
+                `Reason: ${notes}`,
+                "Please resubmit your documents with the correct information to proceed.",
+              ],
+          ...(action === "APPROVE"
+            ? { cta: { label: "Go to Dashboard", url: `${APP_URL}/dashboard` } }
+            : {}),
+        }
+      : undefined,
   });
 
   await logAction(adminId, `${action}_VERIFICATION`, verification.userId);
@@ -348,5 +451,34 @@ export async function adminGenerateTransaction(userId: string, data: {
 
   await logAction(adminId, "GENERATE_TRANSACTION", userId, `${data.type} ${data.amount} ${data.currency}`);
   revalidatePath("/admin/transactions");
+  return { success: true };
+}
+
+// ─── Deposit Wallet Management ───────────────────────────────────────────────
+
+export async function getDepositWallets() {
+  await requireAdmin();
+  return db.depositWallet.findMany({ orderBy: { createdAt: "desc" } });
+}
+
+export async function upsertDepositWallet(data: {
+  id?: string;
+  asset: string;
+  network?: string;
+  address: string;
+  label: string;
+  isActive?: boolean;
+}) {
+  await requireAdmin();
+  if (data.id) {
+    return db.depositWallet.update({ where: { id: data.id }, data });
+  }
+  return db.depositWallet.create({ data: { ...data, isActive: data.isActive ?? true } });
+}
+
+export async function toggleDepositWallet(id: string, isActive: boolean) {
+  await requireAdmin();
+  await db.depositWallet.update({ where: { id }, data: { isActive } });
+  revalidatePath("/admin/deposits");
   return { success: true };
 }

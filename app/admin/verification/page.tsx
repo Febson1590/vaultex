@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { processVerification } from "@/lib/actions/admin";
 import { formatDateTime, getStatusBg } from "@/lib/utils";
-import { CheckCircle2, XCircle, Clock, Loader2, ShieldCheck, FileText } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, ShieldCheck, FileText } from "lucide-react";
 import { toast } from "sonner";
+
+function isImageUrl(url: string): boolean {
+  return /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(url);
+}
 
 export default function AdminVerificationPage() {
   const [verifications, setVerifications] = useState<any[]>([]);
@@ -26,6 +30,10 @@ export default function AdminVerificationPage() {
   useEffect(() => { fetchData(); }, []);
 
   const handle = async (id: string, action: "APPROVE" | "REJECT") => {
+    if (action === "REJECT" && (!notes[id] || notes[id].trim().length === 0)) {
+      toast.error("Please enter a rejection reason");
+      return;
+    }
     setProcessing(id);
     const result = await processVerification(id, action, notes[id]);
     if (result?.success) { toast.success(`Verification ${action.toLowerCase()}d`); fetchData(); setExpanded(null); }
@@ -87,28 +95,45 @@ export default function AdminVerificationPage() {
                 {/* Expanded review panel */}
                 {expanded === v.id && (
                   <div className="mt-4 pl-14 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {[
-                        { label: "Document Front", url: v.frontUrl },
-                        { label: "Document Back", url: v.backUrl },
-                        { label: "Selfie", url: v.selfieUrl },
-                      ].map((doc) => (
-                        <div key={doc.label} className="glass-card rounded-lg p-3 border border-white/5">
-                          <div className="text-xs text-slate-500 mb-2">{doc.label}</div>
-                          {doc.url ? (
-                            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block">
-                              <div className="h-24 bg-white/5 rounded flex items-center justify-center text-xs text-sky-400 hover:bg-white/8 transition-colors">
-                                View Document →
-                              </div>
-                            </a>
-                          ) : (
-                            <div className="h-24 bg-white/3 rounded flex items-center justify-center text-xs text-slate-600">
-                              Not submitted
+                    {/* Only show documents that were actually uploaded */}
+                    {(() => {
+                      const docs = [
+                        v.frontUrl && { label: "Document Front", url: v.frontUrl },
+                        v.backUrl && { label: "Document Back", url: v.backUrl },
+                        v.selfieUrl && { label: "Selfie", url: v.selfieUrl },
+                      ].filter(Boolean) as { label: string; url: string }[];
+
+                      if (docs.length === 0) {
+                        return (
+                          <div className="text-xs text-slate-600">No documents uploaded</div>
+                        );
+                      }
+
+                      return (
+                        <div className={`grid grid-cols-1 ${docs.length >= 2 ? "md:grid-cols-2" : ""} ${docs.length >= 3 ? "lg:grid-cols-3" : ""} gap-3`}>
+                          {docs.map((doc) => (
+                            <div key={doc.label} className="glass-card rounded-lg p-3 border border-white/5">
+                              <div className="text-xs text-slate-500 mb-2">{doc.label}</div>
+                              {isImageUrl(doc.url) ? (
+                                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block">
+                                  <img
+                                    src={doc.url}
+                                    alt={doc.label}
+                                    className="w-full h-32 object-cover rounded border border-white/10 hover:border-sky-500/40 transition-colors"
+                                  />
+                                </a>
+                              ) : (
+                                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block">
+                                  <div className="h-24 bg-white/5 rounded flex items-center justify-center text-xs text-sky-400 hover:bg-white/10 transition-colors">
+                                    View Document &rarr;
+                                  </div>
+                                </a>
+                              )}
                             </div>
-                          )}
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })()}
 
                     <div className="space-y-2">
                       <div className="text-xs text-slate-400">Review Notes (optional — required for rejection)</div>

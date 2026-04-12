@@ -1,58 +1,124 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { requestDeposit } from "@/lib/actions/deposits";
-import { Loader2, CheckCircle2, ArrowDownToLine, Info, Clock } from "lucide-react";
+import {
+  Loader2, CheckCircle2, ArrowDownToLine, Clock,
+  Copy, Check, AlertTriangle, Upload, FileImage, X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
 import type { KycStatus } from "@/lib/kyc";
+import { useUploadThing } from "@/lib/uploadthing";
 
-const schema = z.object({
-  currency: z.string().min(1, "Select a currency"),
-  amount: z.number().positive("Must be positive").min(10, "Minimum $10"),
-  method: z.string().min(1, "Select a method"),
-});
+interface DepositWallet {
+  id: string;
+  asset: string;
+  network: string | null;
+  address: string;
+  label: string;
+}
 
-type FormData = z.infer<typeof schema>;
+interface DepositFormProps {
+  kycStatus?: KycStatus;
+  wallets?: DepositWallet[];
+  minDeposit?: number;
+  maxDeposit?: number | null;
+}
 
-const methods = ["Bank Transfer", "Wire Transfer", "SEPA Transfer", "Crypto Transfer"];
-
-export default function DepositForm({ kycStatus = "approved" }: { kycStatus?: KycStatus }) {
+export default function DepositForm({
+  kycStatus = "approved",
+  wallets = [],
+  minDeposit = 10,
+  maxDeposit,
+}: DepositFormProps) {
   const isRestricted = kycStatus !== "approved";
-  const [loading, setLoading] = useState(false);
+
+  const [loading, setLoading]     = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [currency, setCurrency] = useState("USD");
+  const [copied, setCopied]       = useState(false);
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { currency: "USD", method: "Bank Transfer" },
-  });
+  /* Form state */
+  const [walletId, setWalletId]   = useState("");
+  const [amount, setAmount]       = useState("");
+  const [txHash, setTxHash]       = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [error, setError]         = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const onSubmit = async (data: FormData) => {
+  const { startUpload } = useUploadThing("kycDocument");
+
+  const selectedWallet = wallets.find((w) => w.id === walletId);
+
+  /* Copy wallet address */
+  function copyAddress() {
+    if (!selectedWallet) return;
+    navigator.clipboard.writeText(selectedWallet.address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  /* File handling */
+  function handleFile(file: File | null) {
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (!allowed.includes(file.type)) { toast.error("Upload JPG, PNG, WEBP, or PDF only."); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("File must be under 8 MB."); return; }
+    setProofFile(file);
+  }
+
+  /* Submit */
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    if (!selectedWallet) { setError("Please select an asset / network"); return; }
+
+    const amtNum = parseFloat(amount);
+    if (!amtNum || amtNum <= 0) { setError("Enter a valid amount"); return; }
+    if (amtNum < minDeposit) { setError(`Minimum deposit is $${minDeposit}`); return; }
+    if (maxDeposit && amtNum > maxDeposit) { setError(`Maximum deposit is $${maxDeposit}`); return; }
+
     setLoading(true);
     try {
-      const result = await requestDeposit(data);
-      if ('error' in result) toast.error(result.error);
-      else {
+      /* Upload proof if provided */
+      let proofUrl: string | undefined;
+      if (proofFile) {
+        try {
+          const uploaded = await startUpload([proofFile]);
+          proofUrl = uploaded?.[0]?.url;
+        } catch { /* Continue without proof */ }
+      }
+
+      const result = await requestDeposit({
+        currency: selectedWallet.asset,
+        amount: amtNum,
+        method: selectedWallet.label,
+        proofUrl: proofUrl ?? undefined,
+        txHash: txHash.trim() || undefined,
+        walletId: selectedWallet.id,
+      });
+
+      if ("error" in result && result.error) {
+        setError(result.error);
+      } else if ("success" in result) {
         setSubmitted(true);
-        toast.success("Deposit request submitted successfully!");
-        reset();
+        toast.success("Deposit request submitted!");
       }
     } catch {
-      toast.error("Failed to submit request.");
+      setError("Failed to submit. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
+  /* ── Success state ─────────────────────────────────────── */
   if (submitted) {
     return (
       <div className="max-w-lg mx-auto">
@@ -61,82 +127,174 @@ export default function DepositForm({ kycStatus = "approved" }: { kycStatus?: Ky
             <CheckCircle2 className="h-8 w-8 text-emerald-400" />
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Request Submitted</h2>
-          <p className="text-slate-400 text-sm mb-6">Your deposit request has been submitted and is pending review by our team. You'll be notified when it's processed.</p>
-          <Button onClick={() => setSubmitted(false)} className="bg-sky-500 hover:bg-sky-400 text-white">Submit Another</Button>
+          <p className="text-slate-400 text-sm mb-6">
+            Your deposit request has been submitted and is pending review.
+            You&apos;ll be notified once it&apos;s processed.
+          </p>
+          <Button onClick={() => { setSubmitted(false); setAmount(""); setTxHash(""); setProofFile(null); setWalletId(""); }}
+            className="bg-sky-500 hover:bg-sky-400 text-white">
+            Submit Another
+          </Button>
         </div>
       </div>
     );
   }
 
+  /* ── Form ───────────────────────────────────────────────── */
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      {isRestricted && <KycBanner kycStatus={kycStatus} className="mb-4" />}
+    <div className="max-w-xl mx-auto space-y-5">
+      {isRestricted && <KycBanner kycStatus={kycStatus} />}
+
       <div>
         <h1 className="text-2xl font-bold text-white">Deposit Funds</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Submit a deposit request to fund your account</p>
+        <p className="text-sm text-slate-500 mt-0.5">Send funds to one of our deposit wallets and submit proof</p>
       </div>
 
-      <div className="glass-card rounded-xl p-4 border border-sky-500/20 bg-sky-500/5 flex items-start gap-3">
-        <Info className="h-4 w-4 text-sky-400 flex-shrink-0 mt-0.5" />
+      {/* Warning banner */}
+      <div className="glass-card rounded-xl p-4 border border-yellow-500/20 bg-yellow-500/5 flex items-start gap-3">
+        <AlertTriangle className="h-4 w-4 text-yellow-400 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-slate-400 leading-relaxed">
-          <strong className="text-sky-400">Deposit Notice:</strong> All deposit requests are reviewed by our finance team within 1 business day.
-          Once approved, funds will be credited directly to your account wallet and available for trading.
+          <strong className="text-yellow-400">Important:</strong> Send only the selected asset and network.
+          Deposits are reviewed by our team before funds are credited. Double-check the wallet address before sending.
         </div>
       </div>
 
       <Card className="glass-card border-0 rounded-xl p-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-slate-400 uppercase tracking-widest">Currency</Label>
-            <Select defaultValue="USD" onValueChange={(v) => { if (v !== null) { setCurrency(v); setValue("currency", v); } }}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white h-11">
-                <SelectValue placeholder="Select currency" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0d1e3a] border-sky-500/20 text-white">
-                {["USD", "USDT", "BTC", "ETH"].map((c) => (
-                  <SelectItem key={c} value={c} className="hover:bg-sky-500/10 focus:bg-sky-500/10">{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.currency && <p className="text-xs text-red-400">{errors.currency.message}</p>}
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
 
-          <div className="space-y-1.5">
-            <Label className="text-xs text-slate-400 uppercase tracking-widest">Amount</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">{currency === "USD" || currency === "USDT" ? "$" : ""}</span>
-              <Input
-                {...register("amount", { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                placeholder="1,000.00"
-                className={`bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-11 ${currency === "USD" || currency === "USDT" ? "pl-7" : ""}`}
-              />
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5">
+              <AlertTriangle size={13} className="flex-shrink-0" /> {error}
             </div>
-            {errors.amount && <p className="text-xs text-red-400">{errors.amount.message}</p>}
-          </div>
+          )}
 
+          {/* Wallet selector */}
           <div className="space-y-1.5">
-            <Label className="text-xs text-slate-400 uppercase tracking-widest">Deposit Method</Label>
-            <Select defaultValue="Bank Transfer" onValueChange={(v) => v !== null && setValue("method", v)}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0d1e3a] border-sky-500/20 text-white">
-                {methods.map((m) => (
-                  <SelectItem key={m} value={m} className="hover:bg-sky-500/10 focus:bg-sky-500/10">{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs text-slate-400 uppercase tracking-widest">
+              Select Asset / Network <span className="text-red-400">*</span>
+            </Label>
+            {wallets.length === 0 ? (
+              <div className="p-4 bg-white/3 rounded-lg text-xs text-slate-500 text-center">
+                No deposit wallets are currently available. Please contact support.
+              </div>
+            ) : (
+              <Select value={walletId} onValueChange={(v) => v && setWalletId(v)}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-11">
+                  <SelectValue placeholder="Choose an asset to deposit" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#0d1e3a] border-sky-500/20 text-white">
+                  {wallets.map((w) => (
+                    <SelectItem key={w.id} value={w.id} className="hover:bg-sky-500/10 focus:bg-sky-500/10">
+                      {w.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
+          {/* Wallet address display */}
+          {selectedWallet && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-400 uppercase tracking-widest">Deposit Address</Label>
+              <div className="flex items-center gap-2 p-3 bg-white/3 rounded-lg border border-white/5">
+                <code className="flex-1 text-xs text-sky-300 font-mono break-all select-all">
+                  {selectedWallet.address}
+                </code>
+                <button type="button" onClick={copyAddress}
+                  className="flex-shrink-0 h-8 w-8 rounded-md bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 hover:bg-sky-500/20 transition-colors">
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-600">
+                Send only <strong className="text-slate-400">{selectedWallet.asset}</strong>
+                {selectedWallet.network && <> on <strong className="text-slate-400">{selectedWallet.network}</strong></>} to this address.
+              </p>
+            </div>
+          )}
+
+          {/* Amount */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-slate-400 uppercase tracking-widest">
+              Amount <span className="text-red-400">*</span>
+            </Label>
+            <Input
+              type="number"
+              step="0.01"
+              min={minDeposit}
+              max={maxDeposit ?? undefined}
+              placeholder={`Min ${minDeposit}`}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-11"
+              required
+            />
+            <div className="text-[10px] text-slate-600 flex items-center gap-3">
+              <span>Min: ${minDeposit}</span>
+              {maxDeposit && <span>Max: ${maxDeposit}</span>}
+            </div>
+          </div>
+
+          {/* Transaction hash */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-slate-400 uppercase tracking-widest">Transaction Hash / Reference</Label>
+            <Input
+              placeholder="Optional — paste your tx hash or transfer reference"
+              value={txHash}
+              onChange={(e) => setTxHash(e.target.value)}
+              className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-11 font-mono text-xs"
+            />
+          </div>
+
+          {/* Proof upload */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-slate-400 uppercase tracking-widest">
+              Proof of Transfer
+            </Label>
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+            />
+
+            {proofFile ? (
+              <div className="flex items-center gap-3 rounded-lg px-4 py-3 bg-sky-500/[0.07] border border-sky-500/30">
+                <FileImage className="h-5 w-5 text-sky-400 flex-shrink-0" />
+                <span className="text-sm text-white flex-1 truncate font-medium">{proofFile.name}</span>
+                <span className="text-xs text-slate-500 flex-shrink-0">{(proofFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                <button type="button" onClick={() => { setProofFile(null); if (fileRef.current) fileRef.current.value = ""; }}
+                  className="text-slate-400 hover:text-white transition-colors flex-shrink-0">
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="w-full rounded-lg px-4 py-6 text-center border border-dashed border-white/[0.18] hover:border-sky-500/50 hover:bg-white/[0.02] transition-all">
+                <Upload className="h-5 w-5 text-slate-400 mx-auto mb-2" />
+                <div className="text-xs text-white font-medium">Click to upload screenshot or receipt</div>
+                <div className="text-[10px] text-slate-500 mt-1">JPG, PNG, WEBP or PDF · Max 8 MB</div>
+              </button>
+            )}
+          </div>
+
+          {/* Info footer */}
           <div className="p-3 bg-white/3 rounded-lg space-y-2 text-xs text-slate-400">
             <div className="flex items-center gap-2"><Clock size={12} className="text-sky-400" /><span>Processing time: 1–24 hours</span></div>
             <div className="flex items-center gap-2"><CheckCircle2 size={12} className="text-emerald-400" /><span>No deposit fees</span></div>
           </div>
 
-          <Button type="submit" disabled={loading || isRestricted} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold h-11">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : isRestricted ? "Verification Required" : <><ArrowDownToLine className="mr-2 h-4 w-4" /> Submit Deposit Request</>}
+          <Button type="submit" disabled={loading || isRestricted || wallets.length === 0}
+            className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold h-11">
+            {loading ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
+            ) : isRestricted ? (
+              "Verification Required"
+            ) : (
+              <><ArrowDownToLine className="mr-2 h-4 w-4" /> Submit Deposit Request</>
+            )}
           </Button>
         </form>
       </Card>

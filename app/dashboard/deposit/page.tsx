@@ -1,21 +1,37 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getKycStatusForUser } from "@/lib/kyc";
+import { getActiveDepositWallets } from "@/lib/actions/deposits";
+import { getFinancialLimits } from "@/lib/limits";
 import DepositForm from "./_deposit-form";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Deposit — VaultEx" };
 
-/**
- * Deposit page — always renders for authenticated users.
- * The KYC status is passed to the form so it can disable submission
- * and show a contextual banner instead of a full-page redirect.
- */
 export default async function DepositPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const kycStatus = await getKycStatusForUser(session.user.id);
+  const [kycStatus, walletsRaw, limits] = await Promise.all([
+    getKycStatusForUser(session.user.id),
+    getActiveDepositWallets(),
+    getFinancialLimits(),
+  ]);
 
-  return <DepositForm kycStatus={kycStatus} />;
+  const wallets = walletsRaw.map((w) => ({
+    id: w.id,
+    asset: w.asset,
+    network: w.network,
+    address: w.address,
+    label: w.label,
+  }));
+
+  return (
+    <DepositForm
+      kycStatus={kycStatus}
+      wallets={wallets}
+      minDeposit={limits.minDeposit}
+      maxDeposit={limits.maxDeposit}
+    />
+  );
 }

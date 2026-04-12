@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireApprovedKyc } from "@/lib/kyc";
+import { sendNotificationEmail, APP_URL } from "@/lib/notifications";
 
 // ─── User: get available investment plans ────────────────────────────────────
 
@@ -90,6 +91,24 @@ export async function userStartInvestment(data: {
     }),
   ]);
 
+  // Fire-and-forget email notification
+  try {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+    if (user?.email) {
+      sendNotificationEmail({
+        to: user.email,
+        name: user.name || "Trader",
+        subject: `Investment Activated — ${plan.name}`,
+        heading: "Investment Activated",
+        body: [
+          `Your investment of $${data.amount.toLocaleString()} in the ${plan.name} plan is now active.`,
+          "Your funds are now working for you. You can track your earnings in real time from your dashboard.",
+        ],
+        cta: { label: "View Investments", url: `${APP_URL}/dashboard/investments` },
+      }).catch((err) => console.error("[userStartInvestment] email failed:", err));
+    }
+  } catch (_) { /* non-blocking */ }
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/investments");
   return { success: true };
@@ -149,6 +168,24 @@ export async function userStartCopyTrade(data: {
     }),
   ]);
 
+  // Fire-and-forget email notification
+  try {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+    if (user?.email) {
+      sendNotificationEmail({
+        to: user.email,
+        name: user.name || "Trader",
+        subject: `Copy Trade Started — ${trader.name}`,
+        heading: "Copy Trade Started",
+        body: [
+          `You are now copying ${trader.name} with $${data.amount.toLocaleString()}.`,
+          "All trades made by this expert will be mirrored in your account automatically.",
+        ],
+        cta: { label: "View Copy Trades", url: `${APP_URL}/dashboard/copy-trading` },
+      }).catch((err) => console.error("[userStartCopyTrade] email failed:", err));
+    }
+  } catch (_) { /* non-blocking */ }
+
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/copy-trading");
   return { success: true };
@@ -178,6 +215,24 @@ export async function addInvestmentFunds(amount: number) {
     }),
   ]);
 
+  // Fire-and-forget email notification
+  try {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+    if (user?.email) {
+      sendNotificationEmail({
+        to: user.email,
+        name: user.name || "Trader",
+        subject: `Funds Added to ${investment.planName}`,
+        heading: "Investment Funds Added",
+        body: [
+          `You have successfully added $${amount.toLocaleString()} to your ${investment.planName} investment.`,
+          "Your updated investment is now generating returns on the increased amount.",
+        ],
+        cta: { label: "View Investments", url: `${APP_URL}/dashboard/investments` },
+      }).catch((err) => console.error("[addInvestmentFunds] email failed:", err));
+    }
+  } catch (_) { /* non-blocking */ }
+
   revalidatePath("/dashboard");
   return { success: true };
 }
@@ -198,6 +253,24 @@ export async function stopCopyTrade(copyTradeId: string) {
       data: { userId, type: "COPY_TRADE_STOPPED", title: `Stopped copying ${trade.traderName}`, amount: Number(trade.amount), currency: "USD" },
     }),
   ]);
+
+  // Fire-and-forget email notification
+  try {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+    if (user?.email) {
+      sendNotificationEmail({
+        to: user.email,
+        name: user.name || "Trader",
+        subject: `Copy Trade Stopped — ${trade.traderName}`,
+        heading: "Copy Trade Stopped",
+        body: [
+          `You have stopped copying ${trade.traderName}.`,
+          `Your total invested amount was $${Number(trade.amount).toLocaleString()} with $${Number(trade.totalEarned).toLocaleString()} earned.`,
+        ],
+        cta: { label: "View Dashboard", url: `${APP_URL}/dashboard` },
+      }).catch((err) => console.error("[stopCopyTrade] email failed:", err));
+    }
+  } catch (_) { /* non-blocking */ }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/copy-trading");
