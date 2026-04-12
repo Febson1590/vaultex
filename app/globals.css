@@ -343,3 +343,243 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Vaultex Exchange Design System
+   A unified set of primitives used by the public-facing UI so every
+   surface (hero, market panel, trade terminal, feature grids, footer)
+   reads from the same visual vocabulary.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Panel — the core surface for exchange-grade modules ───────────── */
+.vx-panel {
+  position: relative;
+  background: linear-gradient(180deg, rgba(8, 16, 32, 0.92) 0%, rgba(5, 12, 26, 0.95) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 0 0 1px rgba(14, 165, 233, 0.02),
+    0 24px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.vx-panel-hover {
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+.vx-panel-hover:hover {
+  border-color: rgba(14, 165, 233, 0.25);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 0 0 1px rgba(14, 165, 233, 0.08),
+    0 28px 70px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(14, 165, 233, 0.06);
+}
+
+/* Panel header — a consistent 44px strip used by every exchange module */
+.vx-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  height: 44px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  background: linear-gradient(180deg, rgba(10, 20, 38, 0.65) 0%, rgba(6, 14, 30, 0.2) 100%);
+}
+.vx-panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.vx-panel-title-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22d3ee;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.8);
+}
+
+/* ── Data row — "exchange table row" primitive ──────────────────────── */
+.vx-row {
+  display: grid;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+  transition: background-color 140ms ease;
+}
+.vx-row:last-child { border-bottom: 0; }
+.vx-row:hover      { background: rgba(14, 165, 233, 0.035); }
+
+/* ── Segmented tabs ──────────────────────────────────────────────────── */
+.vx-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(6, 14, 28, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+}
+.vx-tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease;
+}
+.vx-tab:hover { color: #e2e8f0; }
+.vx-tab[data-active="true"] {
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.22), rgba(14, 165, 233, 0.08));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(14, 165, 233, 0.28);
+}
+
+/* ── Stat chip ──────────────────────────────────────────────────────── */
+.vx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: rgba(6, 14, 30, 0.7);
+  color: #cbd5e1;
+}
+.vx-chip-up   { color: #34d399; border-color: rgba(52, 211, 153, 0.22); background: rgba(16, 185, 129, 0.08); }
+.vx-chip-down { color: #f87171; border-color: rgba(248, 113, 113, 0.22); background: rgba(239, 68, 68, 0.08); }
+
+/* ── Buy / Sell / primary / ghost buttons ───────────────────────────── */
+.vx-btn-buy {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  color: #02160f;
+  font-weight: 800;
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 10px 30px rgba(16, 185, 129, 0.22);
+  transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+.vx-btn-buy:hover   { filter: brightness(1.06); box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 14px 40px rgba(16,185,129,0.32); }
+.vx-btn-buy:active  { transform: translateY(1px); }
+
+.vx-btn-sell {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  color: #1a0606;
+  font-weight: 800;
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 10px 30px rgba(239, 68, 68, 0.22);
+  transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+.vx-btn-sell:hover  { filter: brightness(1.06); box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 14px 40px rgba(239,68,68,0.32); }
+.vx-btn-sell:active { transform: translateY(1px); }
+
+.vx-btn-primary {
+  background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);
+  color: #01131f;
+  font-weight: 700;
+  border: 1px solid rgba(14, 165, 233, 0.55);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 10px 30px rgba(14, 165, 233, 0.28);
+  transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+.vx-btn-primary:hover  { filter: brightness(1.06); box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 14px 40px rgba(14,165,233,0.38); }
+.vx-btn-primary:active { transform: translateY(1px); }
+
+.vx-btn-ghost {
+  background: rgba(148, 163, 184, 0.05);
+  color: #e2e8f0;
+  font-weight: 600;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+.vx-btn-ghost:hover {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.35);
+  color: #ffffff;
+}
+
+/* ── Soft divider ───────────────────────────────────────────────────── */
+.vx-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.14), transparent);
+}
+
+/* ── Micro-label (section eyebrow) ──────────────────────────────────── */
+.vx-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #38bdf8;
+}
+.vx-eyebrow::before {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.6), transparent);
+}
+
+/* ── Kbd (keyboard hint) ────────────────────────────────────────────── */
+.vx-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+}
+
+/* ── Terminal grid backdrop ─────────────────────────────────────────── */
+.vx-grid-bg {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Live pulse (only where data is truly live) ─────────────────────── */
+@keyframes vx-live-pulse {
+  0%, 100% { opacity: 1;    transform: scale(1);    }
+  50%      { opacity: 0.55; transform: scale(1.35); }
+}
+.vx-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22d3ee;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.8);
+  animation: vx-live-pulse 2.2s ease-in-out infinite;
+}

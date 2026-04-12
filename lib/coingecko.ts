@@ -37,7 +37,7 @@ const IDS = Object.keys(COIN_MAP).join(",");
 const API_URL =
   `https://api.coingecko.com/api/v3/coins/markets` +
   `?vs_currency=usd&ids=${IDS}` +
-  `&order=market_cap_desc&per_page=50&page=1&sparkline=false` +
+  `&order=market_cap_desc&per_page=50&page=1&sparkline=true` +
   `&price_change_percentage=24h`;
 
 /* ── Exported type ─────────────────────────────────────────────────────── */
@@ -51,13 +51,17 @@ export interface MarketAsset {
   volume24h:    number;
   supply:       number;
   rank:         number;
+  /** Last-7d hourly closes, downsampled to ~32 points for sparkline rendering. */
+  sparkline:    number[];
 }
 
 /** Legacy alias — keeps existing imports working */
 export type TickerItem = MarketAsset;
 
 /* ── Static fallback — used when CoinGecko is unreachable or partial ──── */
-const STATIC_FALLBACK: Record<string, Omit<MarketAsset, "id" | "symbol" | "name" | "rank">> = {
+type FallbackEntry = Omit<MarketAsset, "id" | "symbol" | "name" | "rank" | "sparkline">;
+
+const STATIC_FALLBACK: Record<string, FallbackEntry> = {
   BTC:  { price: 84231.50, change:  2.34, marketCap: 1_660_000_000_000, volume24h: 28_400_000_000, supply:    19_700_000 },
   ETH:  { price:  3921.80, change:  1.87, marketCap:   471_000_000_000, volume24h: 14_900_000_000, supply:   120_300_000 },
   USDT: { price:     1.00, change:  0.01, marketCap:   120_000_000_000, volume24h: 45_000_000_000, supply:   120_000_000_000 },
@@ -75,14 +79,37 @@ const STATIC_FALLBACK: Record<string, Omit<MarketAsset, "id" | "symbol" | "name"
   ATOM: { price:     9.82, change:  1.16, marketCap:     3_900_000_000, volume24h:    110_000_000, supply:       395_000_000 },
 };
 
+/**
+ * Build a synthetic 32-point sparkline when the upstream API doesn't return one.
+ * Produces a smooth curve that trends in the direction of the 24h change, so
+ * the visual indicator is always honest about whether the asset is up or down.
+ */
+function synthSparkline(price: number, change: number): number[] {
+  const N      = 32;
+  const endY   = price;
+  const startY = price / (1 + (change / 100));
+  const seed   = Math.abs(change) || 0.5;
+
+  return Array.from({ length: N }, (_, i) => {
+    const t      = i / (N - 1);
+    const trend  = startY + (endY - startY) * t;
+    const wobble = Math.sin(i * 1.7 + seed) * (endY * 0.003 * seed);
+    return trend + wobble;
+  });
+}
+
 function buildFallback(): MarketAsset[] {
-  return Object.entries(COIN_MAP).map(([id, meta]) => ({
-    id,
-    symbol: meta.symbol,
-    name:   meta.name,
-    rank:   meta.rank,
-    ...STATIC_FALLBACK[meta.symbol],
-  }));
+  return Object.entries(COIN_MAP).map(([id, meta]) => {
+    const base = STATIC_FALLBACK[meta.symbol];
+    return {
+      id,
+      symbol: meta.symbol,
+      name:   meta.name,
+      rank:   meta.rank,
+      ...base,
+      sparkline: synthSparkline(base.price, base.change),
+    };
+  });
 }
 
 /* ── CoinGecko API row (only the fields we consume) ───────────────────── */
@@ -93,11 +120,24 @@ interface CoinGeckoRow {
   market_cap:                    number | null;
   total_volume:                  number | null;
   circulating_supply:            number | null;
+  sparkline_in_7d?:              { price?: (number | null)[] };
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
 function isFiniteNumber(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n);
+}
+
+/** Downsample a price series to `target` points, dropping null/NaN values. */
+function downsampleSparkline(src: (number | null)[] | undefined, target = 32): number[] {
+  if (!src || src.length === 0) return [];
+  const clean = src.filter((p): p is number => isFiniteNumber(p) && p > 0);
+  if (clean.length === 0) return [];
+  if (clean.length <= target) return clean;
+  const step = clean.length / target;
+  const out: number[] = [];
+  for (let i = 0; i < target; i++) out.push(clean[Math.floor(i * step)]);
+  return out;
 }
 
 /**
@@ -125,13 +165,16 @@ export async function getMarketAssets(): Promise<MarketAsset[]> {
     const live = byId.get(fb.id);
     if (!live) return fb;
 
-    const price     = isFiniteNumber(live.current_price)               && live.current_price! > 0 ? live.current_price!               : fb.price;
-    const change    = isFiniteNumber(live.price_change_percentage_24h)                             ? live.price_change_percentage_24h! : fb.change;
-    const marketCap = isFiniteNumber(live.market_cap)                  && live.market_cap!    > 0 ? live.market_cap!                  : fb.marketCap;
-    const volume24h = isFiniteNumber(live.total_volume)                && live.total_volume!  > 0 ? live.total_volume!                : fb.volume24h;
-    const supply    = isFiniteNumber(live.circulating_supply)          && live.circulating_supply! > 0 ? live.circulating_supply!    : fb.supply;
+    const price     = isFiniteNumber(live.current_price)               && live.current_price!      > 0 ? live.current_price!               : fb.price;
+    const change    = isFiniteNumber(live.price_change_percentage_24h)                                 ? live.price_change_percentage_24h! : fb.change;
+    const marketCap = isFiniteNumber(live.market_cap)                  && live.market_cap!         > 0 ? live.market_cap!                  : fb.marketCap;
+    const volume24h = isFiniteNumber(live.total_volume)                && live.total_volume!       > 0 ? live.total_volume!                : fb.volume24h;
+    const supply    = isFiniteNumber(live.circulating_supply)          && live.circulating_supply! > 0 ? live.circulating_supply!          : fb.supply;
 
-    return { ...fb, price, change, marketCap, volume24h, supply };
+    const ds        = downsampleSparkline(live.sparkline_in_7d?.price);
+    const sparkline = ds.length > 0 ? ds : fb.sparkline;
+
+    return { ...fb, price, change, marketCap, volume24h, supply, sparkline };
   });
 }
 
