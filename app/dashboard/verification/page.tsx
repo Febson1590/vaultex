@@ -89,7 +89,13 @@ export default function VerificationPage() {
   const [dateOfBirth,   setDateOfBirth]   = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { startUpload } = useUploadThing("kycDocument");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const { startUpload } = useUploadThing("kycDocument", {
+    onUploadError: (err) => {
+      console.error("[KYC] UploadThing onUploadError:", err);
+      setUploadError(err.message);
+    },
+  });
 
   /* Load existing verification status + prefill user profile data */
   useEffect(() => {
@@ -157,12 +163,14 @@ export default function VerificationPage() {
       //    This MUST succeed before we create the verification record;
       //    otherwise admin sees "No documents uploaded".
       let frontUrl: string | null = null;
+      setUploadError(null);
       try {
         const uploaded = await startUpload([docFile]);
         console.log("[KYC] UploadThing raw response:", JSON.stringify(uploaded));
 
         if (!uploaded || uploaded.length === 0) {
-          toast.error("File upload was cancelled or returned no result. Please try again.");
+          const errDetail = uploadError || "No result returned from upload service";
+          toast.error(`Upload failed: ${errDetail}`);
           setLoading(false);
           return;
         }
@@ -181,13 +189,15 @@ export default function VerificationPage() {
         console.log("[KYC] Resolved frontUrl:", frontUrl);
       } catch (uploadErr) {
         console.error("[KYC] UploadThing upload failed:", uploadErr);
-        toast.error("Document upload failed. Please try again or use a different file format.");
+        const errMsg = uploadErr instanceof Error ? uploadErr.message : "Unknown error";
+        toast.error(`Document upload failed: ${errMsg}`);
         setLoading(false);
         return;
       }
 
       if (!frontUrl) {
-        toast.error("Document upload succeeded but no file URL was found. Please try again or contact support.");
+        toast.error(`Upload completed but no file URL returned. ${uploadError || "Please try again."}`);
+
         setLoading(false);
         return;
       }

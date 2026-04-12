@@ -9,11 +9,14 @@ export const ourFileRouter = {
     pdf:   { maxFileSize: "8MB", maxFileCount: 1 },
   })
     .middleware(async () => {
+      console.log("[UploadThing] kycDocument middleware running...");
       const session = await auth();
+      console.log("[UploadThing] session:", session?.user?.id ?? "NO SESSION");
       if (!session?.user?.id) throw new Error("Unauthorized");
       return { userId: session.user.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
+      console.log("[UploadThing] kycDocument upload complete:", { userId: metadata.userId, url: file.ufsUrl });
       return { uploadedBy: metadata.userId, url: file.ufsUrl };
     }),
 
