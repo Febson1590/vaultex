@@ -137,12 +137,12 @@ export default async function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════
            HERO — Exchange Terminal (3 product panels on the right)
       ══════════════════════════════════════════════════════════════════ */}
-      <section className="pt-36 pb-12 px-4 sm:px-6 lg:px-8 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)] gap-8 lg:gap-10 items-start">
+      <section className="pt-36 pb-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)] gap-8 lg:gap-10 items-start">
 
             {/* ── LEFT: Headline + CTAs + trust row + stats ─────────── */}
-            <div className="pt-6 lg:pt-10">
+            <div className="pt-6 lg:pt-10 min-w-0 w-full">
               <div className="vx-eyebrow mb-4">
                 Premium Crypto Brokerage
               </div>
@@ -183,12 +183,12 @@ export default async function HomePage() {
               </div>
 
               {/* Stat chips — compact */}
-              <div className="grid grid-cols-2 gap-px rounded-lg overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+              <div className="grid grid-cols-2 gap-px rounded-lg overflow-hidden border border-white/[0.06] bg-white/[0.02] min-w-0">
                 {heroStats.map((s) => (
-                  <div key={s.label} className="px-3 py-3 bg-[#060f1e]/80">
-                    <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold">{s.label}</div>
+                  <div key={s.label} className="px-3 py-3 bg-[#060f1e]/80 min-w-0">
+                    <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold truncate">{s.label}</div>
                     <div
-                      className={`mt-0.5 text-[14px] font-bold tabular-nums ${
+                      className={`mt-0.5 text-[14px] font-bold tabular-nums truncate ${
                         s.accent === "up"   ? "text-emerald-400" :
                         s.accent === "down" ? "text-red-400" :
                         "text-white"
@@ -202,20 +202,26 @@ export default async function HomePage() {
             </div>
 
             {/* ── RIGHT: Stacked product panels ──────────────────────── */}
-            <div className="relative space-y-4">
-              {/* Ambient glow */}
+            <div className="relative min-w-0 w-full space-y-4">
+              {/* Ambient glow — clipped inside a size-bounded wrapper so it
+                  never contributes to horizontal overflow on narrow screens. */}
               <div
-                className="absolute -inset-10 rounded-3xl blur-3xl pointer-events-none"
-                style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.14) 0%, transparent 65%)" }}
-              />
+                aria-hidden="true"
+                className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl"
+              >
+                <div
+                  className="absolute inset-0 blur-3xl"
+                  style={{ background: "radial-gradient(ellipse, rgba(14,165,233,0.14) 0%, transparent 65%)" }}
+                />
+              </div>
 
               {/* 1. Watchlist strip */}
-              <div className="relative">
+              <div className="relative min-w-0">
                 <WatchlistStrip assets={marketAssets} />
               </div>
 
               {/* 2. Market + Quick Trade: 2-column on xl, stacked on smaller */}
-              <div className="relative grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-4">
+              <div className="relative grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-4 min-w-0">
                 <MarketPanel
                   assets={marketAssets}
                   title="Markets"
@@ -514,19 +520,19 @@ function TradeTerminalPreview({
   return (
     <div className="vx-panel relative">
       {/* ── Top bar — ticker + stats ──────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-white/[0.06] flex-wrap">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center justify-between gap-x-3 gap-y-2 px-3 sm:px-5 py-3 border-b border-white/[0.06] flex-wrap min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-wrap">
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0"
             style={{ background: "#f7931a18", border: "1px solid #f7931a55", color: "#f7931a" }}
           >
             B
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-bold text-white leading-tight tracking-wide">BTC / USD</div>
+            <div className="text-[12px] sm:text-[13px] font-bold text-white leading-tight tracking-wide">BTC / USD</div>
             <div className="text-[10px] text-slate-500">Bitcoin · Spot</div>
           </div>
-          <div className={`ml-2 tabular-nums text-[17px] sm:text-[19px] font-bold ${up ? "text-emerald-400" : "text-red-400"}`}>
+          <div className={`sm:ml-2 tabular-nums text-[15px] sm:text-[19px] font-bold ${up ? "text-emerald-400" : "text-red-400"}`}>
             {formatCurrency(btcPrice)}
           </div>
           <span className={up ? "vx-chip vx-chip-up" : "vx-chip vx-chip-down"}>
@@ -542,7 +548,7 @@ function TradeTerminalPreview({
       </div>
 
       {/* ── 3-column grid: chart | book | form ─────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)_minmax(0,1fr)] min-w-0">
 
         {/* ══ LEFT: Chart + timeframes ══════════════════════════════════ */}
         <div className="border-b lg:border-b-0 lg:border-r border-white/[0.06]">

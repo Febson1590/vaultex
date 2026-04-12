@@ -101,12 +101,23 @@
        unless explicitly overridden by a more specific rule below
        or by a Tailwind cursor-* utility class. */
     cursor: default;
+    /* Mobile overflow guard — prevents any deep-nested element from
+       forcing a horizontal scrollbar on narrow viewports. */
+    overflow-x: hidden;
+    max-width: 100%;
   }
   body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+  }
+  /* Media can never push layout beyond their container */
+  img, video, canvas {
+    max-width: 100%;
+    height: auto;
   }
 
   /* ── Text cursor: only real editable fields ─────────────────── */
@@ -362,6 +373,9 @@
     0 0 0 1px rgba(14, 165, 233, 0.02),
     0 24px 60px rgba(0, 0, 0, 0.45);
   overflow: hidden;
+  /* Never overflow the parent container — critical for mobile grids. */
+  max-width: 100%;
+  min-width: 0;
 }
 .vx-panel-hover {
   transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
@@ -411,9 +425,46 @@
   padding: 10px 14px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.05);
   transition: background-color 140ms ease;
+  min-width: 0;
+  max-width: 100%;
 }
+.vx-row > * { min-width: 0; }
 .vx-row:last-child { border-bottom: 0; }
 .vx-row:hover      { background: rgba(14, 165, 233, 0.035); }
+
+/* ── Market table responsive grid template ──────────────────────────── */
+/* 3 columns on mobile, 5 on sm, 6 on md. Using classic media queries
+   avoids stale fr-tracks for display:none cells, which would otherwise
+   leave empty space on the right of each row on narrow viewports. */
+.vx-market-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.8fr)
+    minmax(0, 1.1fr)
+    minmax(0, 0.9fr);
+  column-gap: 12px;
+}
+@media (min-width: 640px) {
+  .vx-market-grid {
+    grid-template-columns:
+      minmax(0, 1.8fr)
+      minmax(0, 1.1fr)
+      minmax(0, 0.8fr)
+      minmax(0, 1fr)
+      minmax(0, 1.1fr);
+  }
+}
+@media (min-width: 768px) {
+  .vx-market-grid {
+    grid-template-columns:
+      minmax(0, 1.8fr)
+      minmax(0, 1.1fr)
+      minmax(0, 0.8fr)
+      minmax(0, 1fr)
+      minmax(0, 1fr)
+      minmax(0, 1.1fr);
+  }
+}
 
 /* ── Segmented tabs ──────────────────────────────────────────────────── */
 .vx-tabs {

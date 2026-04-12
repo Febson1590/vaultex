@@ -85,11 +85,11 @@ export function QuickTrade({ assets, defaultSymbol = "BTC", embedded = false, cl
       </div>
 
       {/* ── Pair selector + side tabs ─────────────────────────────────── */}
-      <div className="px-3.5 pt-3 pb-2.5 flex items-center gap-2">
+      <div className="px-3.5 pt-3 pb-2.5 flex items-center gap-2 flex-wrap min-w-0">
         <select
           value={symbol}
           onChange={(e) => onSymbolChange(e.target.value)}
-          className="h-8 pl-2 pr-7 text-[12px] font-semibold text-white bg-[#06101e] border border-white/[0.08] rounded-md focus:outline-none focus:border-sky-500/50 cursor-pointer [&>option]:bg-[#0a1628]"
+          className="h-8 pl-2 pr-7 text-[12px] font-semibold text-white bg-[#06101e] border border-white/[0.08] rounded-md focus:outline-none focus:border-sky-500/50 cursor-pointer max-w-full [&>option]:bg-[#0a1628]"
           aria-label="Select pair"
         >
           {tradable.map((a) => (
@@ -122,7 +122,7 @@ export function QuickTrade({ assets, defaultSymbol = "BTC", embedded = false, cl
       </div>
 
       {/* ── Order type tabs ───────────────────────────────────────────── */}
-      <div className="px-3.5 pb-3 flex items-center gap-2">
+      <div className="px-3.5 pb-3 flex items-center gap-2 flex-wrap min-w-0">
         <div className="vx-tabs">
           {(["limit", "market", "stop"] as const).map((t) => (
             <button
@@ -136,7 +136,7 @@ export function QuickTrade({ assets, defaultSymbol = "BTC", embedded = false, cl
             </button>
           ))}
         </div>
-        <div className="ml-auto text-[10px] text-slate-500 tabular-nums">
+        <div className="ml-auto text-[10px] text-slate-500 tabular-nums truncate min-w-0">
           Mark: <span className="text-slate-300 font-semibold">{formatCurrency(asset?.price ?? 0)}</span>
         </div>
       </div>

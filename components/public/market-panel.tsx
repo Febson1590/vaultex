@@ -59,14 +59,6 @@ export function MarketPanel({
     }
   }, [assets, tab, maxRows]);
 
-  /*
-   * Dense 6-column grid on desktop, collapses gracefully on mobile.
-   *   [ Asset | Price | 24h % | Volume | MCap | 7d ]
-   * Using a single template string means the header and every row
-   * line up pixel-perfectly.
-   */
-  const gridCols = "minmax(0,1.8fr) minmax(0,1.1fr) minmax(0,0.8fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr)";
-
   return (
     <div className={`vx-panel ${className ?? ""}`}>
       {/* ── Header ─────────────────────────────────────────────────── */}
@@ -106,10 +98,7 @@ export function MarketPanel({
       </div>
 
       {/* ── Column headers ─────────────────────────────────────────── */}
-      <div
-        className="grid items-center gap-3 px-3.5 pb-1.5 text-[9.5px] uppercase tracking-widest text-slate-500 font-semibold border-b border-white/[0.05]"
-        style={{ gridTemplateColumns: gridCols }}
-      >
+      <div className="vx-market-grid items-center px-3.5 pb-1.5 text-[9.5px] uppercase tracking-widest text-slate-500 font-semibold border-b border-white/[0.05]">
         <div>Asset</div>
         <div className="text-right">Price</div>
         <div className="text-right">24h</div>
@@ -131,8 +120,8 @@ export function MarketPanel({
             return (
               <div
                 key={a.symbol}
-                className="vx-row"
-                style={{ gridTemplateColumns: gridCols, columnGap: "12px", padding: "9px 14px" }}
+                className="vx-row vx-market-grid"
+                style={{ padding: "9px 14px" }}
               >
                 {/* Asset */}
                 <div className="flex items-center gap-2.5 min-w-0">

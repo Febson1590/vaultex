@@ -47,7 +47,7 @@ export function WatchlistStrip({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-white/[0.04]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-white/[0.04]">
         {items.map((a) => {
           const up    = a.change >= 0;
           const color = BRAND_COLOR[a.symbol] ?? "#0ea5e9";
@@ -55,33 +55,35 @@ export function WatchlistStrip({
             <Link
               key={a.symbol}
               href="/markets"
-              className="flex items-center gap-3 px-3.5 py-3 hover:bg-sky-500/[0.04] transition-colors duration-150 group min-w-0"
+              className="flex items-center gap-2 sm:gap-3 px-3 py-3 hover:bg-sky-500/[0.04] transition-colors duration-150 group min-w-0"
             >
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-black"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] sm:text-[10px] font-black"
                 style={{ background: `${color}18`, border: `1px solid ${color}55`, color }}
               >
                 {a.symbol.slice(0, 1)}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-[12px] font-semibold text-white tracking-wide">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-[11.5px] sm:text-[12px] font-semibold text-white tracking-wide">
                     {a.symbol}
                   </span>
-                  <span className="text-[9px] text-slate-600">/ USD</span>
+                  <span className="text-[9px] text-slate-600 hidden sm:inline">/ USD</span>
                 </div>
-                <div className="text-[11.5px] font-semibold text-slate-200 tabular-nums truncate">
+                <div className="text-[11px] sm:text-[11.5px] font-semibold text-slate-200 tabular-nums truncate">
                   {formatCurrency(a.price)}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Sparkline
-                  data={a.sparkline}
-                  width={38}
-                  height={18}
-                  up={up}
-                  idSuffix={`wl-${a.symbol}`}
-                />
+                <span className="hidden md:inline-block">
+                  <Sparkline
+                    data={a.sparkline}
+                    width={38}
+                    height={18}
+                    up={up}
+                    idSuffix={`wl-${a.symbol}`}
+                  />
+                </span>
                 <span
                   className={`text-[10px] font-bold tabular-nums ${up ? "text-emerald-400" : "text-red-400"}`}
                 >
