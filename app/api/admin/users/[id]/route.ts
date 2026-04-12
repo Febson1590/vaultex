@@ -10,30 +10,39 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
 
-  const user = await db.user.findUnique({
-    where: { id },
-    include: {
-      profile: true,
-      wallets: true,
-      verifications: { orderBy: { submittedAt: "desc" }, take: 1 },
-      transactions: { orderBy: { createdAt: "desc" }, take: 10 },
-      depositRequests: { orderBy: { createdAt: "desc" }, take: 5 },
-      withdrawalRequests: { orderBy: { createdAt: "desc" }, take: 5 },
-      investment: true,
-      copyTrades: {
-        orderBy: { startedAt: "desc" },
-        include: { trader: { select: { avatarUrl: true } } },
+  try {
+    const user = await db.user.findUnique({
+      where: { id },
+      include: {
+        profile: true,
+        wallets: true,
+        verifications: { orderBy: { submittedAt: "desc" }, take: 1 },
+        transactions: { orderBy: { createdAt: "desc" }, take: 10 },
+        depositRequests: { orderBy: { createdAt: "desc" }, take: 5 },
+        withdrawalRequests: { orderBy: { createdAt: "desc" }, take: 5 },
+        investment: true,
+        copyTrades: {
+          orderBy: { startedAt: "desc" },
+          include: { trader: { select: { avatarUrl: true } } },
+        },
+        targetActions: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          include: { admin: { select: { name: true, email: true } } },
+        },
       },
-      targetActions: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: { admin: { select: { name: true, email: true } } },
-      },
-    },
-  });
+    });
 
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  return NextResponse.json(user);
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json(user);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[GET /api/admin/users/${id}] Query failed:`, message);
+    return NextResponse.json(
+      { error: `Failed to load user data. This may be a database schema sync issue. Details: ${message}` },
+      { status: 500 },
+    );
+  }
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

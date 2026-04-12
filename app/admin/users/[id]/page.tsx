@@ -64,6 +64,7 @@ export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [user, setUser]       = useState<any>(null);
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteBusy, setDeleteBusy]           = useState(false);
@@ -88,9 +89,20 @@ export default function AdminUserDetailPage() {
     try {
       const r = await fetch(`/api/admin/users/${id}`);
       const d = await r.json();
-      setUser(d);
-      setNewStatus(d.status);
-    } catch { toast.error("Failed to load user"); }
+      if (!r.ok || d.error) {
+        const msg = d.error ?? `Failed to load user (HTTP ${r.status})`;
+        console.error("[AdminUserDetail] API error:", d);
+        toast.error(msg);
+        setLoadError(msg);
+        setUser(null);
+      } else {
+        setUser(d);
+        setNewStatus(d.status);
+      }
+    } catch (err) {
+      console.error("[AdminUserDetail] fetch error:", err);
+      toast.error("Failed to load user — check console for details");
+    }
     setLoading(false);
   }
 
@@ -151,7 +163,21 @@ export default function AdminUserDetailPage() {
       <Loader2 size={24} className="animate-spin text-sky-400" />
     </div>
   );
-  if (!user) return <div className="text-slate-400 text-center py-16 text-sm">User not found.</div>;
+  if (!user) return (
+    <div className="text-center py-16 space-y-3">
+      <div className="text-slate-400 text-sm">User not found.</div>
+      {loadError && (
+        <div className="max-w-lg mx-auto text-xs text-red-400/80 bg-red-500/5 border border-red-500/15 rounded-lg px-4 py-3 text-left break-words">
+          <span className="font-semibold text-red-400">Error: </span>{loadError}
+        </div>
+      )}
+      <Link href="/admin/users">
+        <Button variant="outline" size="sm" className="border-white/10 text-slate-300 mt-2">
+          <ArrowLeft size={13} className="mr-1" /> Back to Users
+        </Button>
+      </Link>
+    </div>
+  );
 
   // ── Derived data ──────────────────────────────────────────
   const wallets: Record<string, number> = {};
