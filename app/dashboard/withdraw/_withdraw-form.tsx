@@ -13,6 +13,8 @@ import { requestWithdrawal } from "@/lib/actions/deposits";
 import { Loader2, CheckCircle2, ArrowUpFromLine, Info, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
+import { KycBanner } from "@/components/dashboard/kyc-banner";
+import type { KycStatus } from "@/lib/kyc";
 
 const schema = z.object({
   currency: z.string().min(1),
@@ -23,7 +25,8 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export default function WithdrawForm() {
+export default function WithdrawForm({ kycStatus = "approved" }: { kycStatus?: KycStatus }) {
+  const isRestricted = kycStatus !== "approved";
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [currency, setCurrency] = useState("USD");
@@ -60,6 +63,7 @@ export default function WithdrawForm() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
+      {isRestricted && <KycBanner kycStatus={kycStatus} className="mb-4" />}
       <div>
         <h1 className="text-2xl font-bold text-white">Withdraw Funds</h1>
         <p className="text-sm text-slate-500 mt-0.5">Request a withdrawal from your account</p>
@@ -121,8 +125,8 @@ export default function WithdrawForm() {
             {errors.destination && <p className="text-xs text-red-400">{errors.destination.message}</p>}
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold h-11">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><ArrowUpFromLine className="mr-2 h-4 w-4" /> Submit Withdrawal</>}
+          <Button type="submit" disabled={loading || isRestricted} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold h-11">
+            {isRestricted ? "Verification Required" : loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><ArrowUpFromLine className="mr-2 h-4 w-4" /> Submit Withdrawal</>}
           </Button>
         </form>
       </Card>

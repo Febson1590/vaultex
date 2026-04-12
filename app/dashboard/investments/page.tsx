@@ -6,20 +6,15 @@ import { getKycStatusForUser } from "@/lib/kyc";
 import type { Metadata } from "next";
 import InvestmentsClient from "./investments-client";
 
-export const metadata: Metadata = { title: "Investments \u2014 VaultEx" };
+export const metadata: Metadata = { title: "Investments — VaultEx" };
 
 export default async function InvestmentsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  // KYC gate — non-approved users are sent to the verification page
-  const kycStatus = await getKycStatusForUser(userId);
-  if (kycStatus !== "approved") {
-    redirect(`/dashboard/verification?status=${kycStatus}`);
-  }
-
-  const [plansRaw, investment, usdWallet] = await Promise.all([
+  const [kycStatus, plansRaw, investment, usdWallet] = await Promise.all([
+    getKycStatusForUser(userId),
     getAvailablePlans(),
     db.userInvestment.findUnique({ where: { userId } }),
     db.wallet.findFirst({ where: { userId, currency: "USD" } }),
@@ -47,5 +42,5 @@ export default async function InvestmentsPage() {
 
   const usdBalance = usdWallet ? Number(usdWallet.balance) : 0;
 
-  return <InvestmentsClient plans={plans} investment={inv} usdBalance={usdBalance} />;
+  return <InvestmentsClient plans={plans} investment={inv} usdBalance={usdBalance} kycStatus={kycStatus} />;
 }

@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { userStartCopyTrade, stopCopyTrade, getAvailableTraders } from "@/lib/actions/investment";
 import { formatCurrency } from "@/lib/utils";
+import { KycBanner } from "@/components/dashboard/kyc-banner";
+import type { KycStatus } from "@/lib/kyc";
 
 interface Trader {
   id: string; name: string; avatarUrl: string | null; specialty: string | null;
@@ -20,7 +22,7 @@ interface ActiveTrade {
   amount: number; totalEarned: number;
   minProfit: number; maxProfit: number; profitInterval: number; maxInterval: number; status: string;
 }
-interface Props { activeTrades: ActiveTrade[]; stoppedTrades: ActiveTrade[]; usdBalance: number }
+interface Props { activeTrades: ActiveTrade[]; stoppedTrades: ActiveTrade[]; usdBalance: number; kycStatus: KycStatus }
 
 function Avatar({ name, avatarUrl, size = "md" }: { name: string; avatarUrl: string | null; size?: "sm" | "md" | "lg" }) {
   const hue = [...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
@@ -36,8 +38,8 @@ function Avatar({ name, avatarUrl, size = "md" }: { name: string; avatarUrl: str
   );
 }
 
-function CopyModal({ trader, usdBalance, onClose, onSuccess }: {
-  trader: Trader; usdBalance: number; onClose: () => void; onSuccess: () => void;
+function CopyModal({ trader, usdBalance, onClose, onSuccess, isRestricted }: {
+  trader: Trader; usdBalance: number; onClose: () => void; onSuccess: () => void; isRestricted: boolean;
 }) {
   const [amount, setAmount] = useState(String(trader.minCopyAmount));
   const [isPending, start] = useTransition();
@@ -45,6 +47,7 @@ function CopyModal({ trader, usdBalance, onClose, onSuccess }: {
   const ok = val >= trader.minCopyAmount && val <= usdBalance;
 
   function submit() {
+    if (isRestricted) { toast.error("Complete identity verification to continue."); return; }
     if (val < trader.minCopyAmount) { toast.error(`Minimum is ${formatCurrency(trader.minCopyAmount)}`); return; }
     if (val > usdBalance) { toast.error("Insufficient USD balance"); return; }
     start(async () => {
@@ -93,8 +96,8 @@ function CopyModal({ trader, usdBalance, onClose, onSuccess }: {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose} disabled={isPending}>Cancel</Button>
-          <Button className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold" onClick={submit} disabled={isPending || !ok}>
-            {isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : <DollarSign size={14} className="mr-1" />}Start Copying
+          <Button className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold" onClick={submit} disabled={isPending || !ok || isRestricted}>
+            {isPending ? <Loader2 size={14} className="animate-spin mr-1" /> : <DollarSign size={14} className="mr-1" />}{isRestricted ? "Verification Required" : "Start Copying"}
           </Button>
         </div>
       </div>
@@ -102,7 +105,8 @@ function CopyModal({ trader, usdBalance, onClose, onSuccess }: {
   );
 }
 
-export default function CopyTradingClient({ activeTrades: initActive, stoppedTrades, usdBalance }: Props) {
+export default function CopyTradingClient({ activeTrades: initActive, stoppedTrades, usdBalance, kycStatus }: Props) {
+  const isRestricted = kycStatus !== "approved";
   const [traders, setTraders] = useState<Trader[]>([]);
   const [loadingTraders, setLoadingTraders] = useState(true);
   const [activeTrades, setActiveTrades] = useState<ActiveTrade[]>(initActive);
@@ -139,6 +143,7 @@ export default function CopyTradingClient({ activeTrades: initActive, stoppedTra
 
   return (
     <div className="space-y-6">
+      {isRestricted && <KycBanner kycStatus={kycStatus} className="mb-4" />}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Copy Trading</h1>
@@ -206,9 +211,9 @@ export default function CopyTradingClient({ activeTrades: initActive, stoppedTra
             </div>
             <h3 className="text-lg font-bold text-white mb-2">No Traders Available</h3>
             <p className="text-sm text-slate-500 mb-7 max-w-sm mx-auto">Our team is setting up trader profiles. Make a deposit to get started.</p>
-            <a href="/dashboard/deposit">
-              <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow-lg shadow-sky-500/25">
-                <ArrowDownToLine size={14} /> Make a Deposit
+            <a href={isRestricted ? undefined : "/dashboard/deposit"} onClick={e => { if (isRestricted) { e.preventDefault(); toast.error("Complete identity verification to continue."); } }}>
+              <button disabled={isRestricted} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow-lg shadow-sky-500/25 disabled:opacity-50 disabled:cursor-not-allowed">
+                <ArrowDownToLine size={14} /> {isRestricted ? "Verification Required" : "Make a Deposit"}
               </button>
             </a>
           </div>
@@ -219,7 +224,7 @@ export default function CopyTradingClient({ activeTrades: initActive, stoppedTra
               return (
                 <div key={trader.id}
                   className={`glass-card rounded-2xl border transition-all overflow-hidden ${alreadyCopying ? "border-emerald-500/30 opacity-80" : "border-sky-500/15 hover:border-sky-500/40 cursor-pointer group"}`}
-                  onClick={() => !alreadyCopying && setSelectedTrader(trader)}>
+                  onClick={() => { if (isRestricted) { toast.error("Complete identity verification to continue."); return; } if (!alreadyCopying) setSelectedTrader(trader); }}>
                   <div className="px-5 pt-5 pb-4">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -256,7 +261,7 @@ export default function CopyTradingClient({ activeTrades: initActive, stoppedTra
                   </div>
                   <div className={`px-5 py-3 border-t border-white/[0.05] transition-colors ${alreadyCopying ? "bg-emerald-500/[0.05]" : "bg-sky-500/[0.03] group-hover:bg-sky-500/[0.06]"}`}>
                     <span className={`text-xs font-semibold flex items-center gap-1 ${alreadyCopying ? "text-emerald-400" : "text-sky-400"}`}>
-                      <TrendingUp size={11} /> {alreadyCopying ? "Already copying this trader" : "Click to start copying"}
+                      <TrendingUp size={11} /> {alreadyCopying ? "Already copying this trader" : isRestricted ? "Verification Required" : "Click to start copying"}
                     </span>
                   </div>
                 </div>
@@ -297,7 +302,7 @@ export default function CopyTradingClient({ activeTrades: initActive, stoppedTra
       )}
 
       {selectedTrader && (
-        <CopyModal trader={selectedTrader} usdBalance={usdBalance} onClose={() => setSelectedTrader(null)} onSuccess={handleSuccess} />
+        <CopyModal trader={selectedTrader} usdBalance={usdBalance} onClose={() => setSelectedTrader(null)} onSuccess={handleSuccess} isRestricted={isRestricted} />
       )}
     </div>
   );

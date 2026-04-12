@@ -7,17 +7,15 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Withdraw — VaultEx" };
 
 /**
- * KYC-gated withdrawal page.
- * Redirects non-approved users to the verification page with a status hint.
+ * Withdrawal page — always renders for authenticated users.
+ * The KYC status is passed to the form so it can disable submission
+ * and show a contextual banner instead of a full-page redirect.
  */
 export default async function WithdrawPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const kycStatus = await getKycStatusForUser(session.user.id);
-  if (kycStatus !== "approved") {
-    redirect(`/dashboard/verification?status=${kycStatus}`);
-  }
 
-  return <WithdrawForm />;
+  return <WithdrawForm kycStatus={kycStatus} />;
 }

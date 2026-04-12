@@ -5,20 +5,15 @@ import { getKycStatusForUser } from "@/lib/kyc";
 import type { Metadata } from "next";
 import CopyTradingClient from "./copy-trading-client";
 
-export const metadata: Metadata = { title: "Copy Trading \u2014 VaultEx" };
+export const metadata: Metadata = { title: "Copy Trading — VaultEx" };
 
 export default async function CopyTradingPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  // KYC gate — non-approved users are sent to the verification page
-  const kycStatus = await getKycStatusForUser(userId);
-  if (kycStatus !== "approved") {
-    redirect(`/dashboard/verification?status=${kycStatus}`);
-  }
-
-  const [copyTrades, usdWallet] = await Promise.all([
+  const [kycStatus, copyTrades, usdWallet] = await Promise.all([
+    getKycStatusForUser(userId),
     db.userCopyTrade.findMany({
       where: { userId },
       orderBy: { startedAt: "desc" },
@@ -47,5 +42,5 @@ export default async function CopyTradingPage() {
   const stoppedTrades = copyTrades.filter(t => t.status === "STOPPED").map(ser);
   const usdBalance    = usdWallet ? Number(usdWallet.balance) : 0;
 
-  return <CopyTradingClient activeTrades={activeTrades} stoppedTrades={stoppedTrades} usdBalance={usdBalance} />;
+  return <CopyTradingClient activeTrades={activeTrades} stoppedTrades={stoppedTrades} usdBalance={usdBalance} kycStatus={kycStatus} />;
 }

@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { requestDeposit } from "@/lib/actions/deposits";
 import { Loader2, CheckCircle2, ArrowDownToLine, Info, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { KycBanner } from "@/components/dashboard/kyc-banner";
+import type { KycStatus } from "@/lib/kyc";
 
 const schema = z.object({
   currency: z.string().min(1, "Select a currency"),
@@ -23,7 +25,8 @@ type FormData = z.infer<typeof schema>;
 
 const methods = ["Bank Transfer", "Wire Transfer", "SEPA Transfer", "Crypto Transfer"];
 
-export default function DepositForm() {
+export default function DepositForm({ kycStatus = "approved" }: { kycStatus?: KycStatus }) {
+  const isRestricted = kycStatus !== "approved";
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [currency, setCurrency] = useState("USD");
@@ -67,6 +70,7 @@ export default function DepositForm() {
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
+      {isRestricted && <KycBanner kycStatus={kycStatus} className="mb-4" />}
       <div>
         <h1 className="text-2xl font-bold text-white">Deposit Funds</h1>
         <p className="text-sm text-slate-500 mt-0.5">Submit a deposit request to fund your account</p>
@@ -131,8 +135,8 @@ export default function DepositForm() {
             <div className="flex items-center gap-2"><CheckCircle2 size={12} className="text-emerald-400" /><span>No deposit fees</span></div>
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold h-11">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><ArrowDownToLine className="mr-2 h-4 w-4" /> Submit Deposit Request</>}
+          <Button type="submit" disabled={loading || isRestricted} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold h-11">
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : isRestricted ? "Verification Required" : <><ArrowDownToLine className="mr-2 h-4 w-4" /> Submit Deposit Request</>}
           </Button>
         </form>
       </Card>

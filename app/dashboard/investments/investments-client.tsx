@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { userStartInvestment, addInvestmentFunds } from "@/lib/actions/investment";
 import { formatCurrency } from "@/lib/utils";
+import { KycBanner } from "@/components/dashboard/kyc-banner";
+import type { KycStatus } from "@/lib/kyc";
 
 interface Plan {
   id: string; name: string; description: string | null;
@@ -20,7 +22,7 @@ interface ActiveInvestment {
   minProfit: number; maxProfit: number; profitInterval: number;
   maxInterval: number; status: string;
 }
-interface Props { plans: Plan[]; investment: ActiveInvestment | null; usdBalance: number }
+interface Props { plans: Plan[]; investment: ActiveInvestment | null; usdBalance: number; kycStatus: KycStatus }
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string; Icon: typeof CheckCircle }> = {
   ACTIVE:    { label: "Active",    color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", Icon: CheckCircle },
@@ -166,7 +168,8 @@ function AddFundsModal({ investment, usdBalance, onClose, onSuccess }: {
   );
 }
 
-export default function InvestmentsClient({ plans, investment, usdBalance }: Props) {
+export default function InvestmentsClient({ plans, investment, usdBalance, kycStatus }: Props) {
+  const isRestricted = kycStatus !== "approved";
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showAddFunds, setShowAddFunds] = useState(false);
 
@@ -182,6 +185,7 @@ export default function InvestmentsClient({ plans, investment, usdBalance }: Pro
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {isRestricted && <KycBanner kycStatus={kycStatus} className="mb-4" />}
       <div>
         <h1 className="text-2xl font-bold text-white">Investments</h1>
         <p className="text-sm text-slate-500 mt-0.5">Choose a plan and grow your portfolio automatically</p>
@@ -221,8 +225,9 @@ export default function InvestmentsClient({ plans, investment, usdBalance }: Pro
             {isActive && (
               <div className="px-6 py-4 flex flex-wrap gap-3 border-t border-white/[0.05]">
                 <button onClick={() => setShowAddFunds(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow-lg shadow-sky-500/20">
-                  <Plus size={14} /> Add Funds
+                  disabled={isRestricted}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow-lg shadow-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                  <Plus size={14} /> {isRestricted ? "Verification Required" : "Add Funds"}
                 </button>
                 <a href="/dashboard/support">
                   <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.09] text-slate-300 hover:text-white text-sm font-medium transition-colors">
@@ -258,9 +263,10 @@ export default function InvestmentsClient({ plans, investment, usdBalance }: Pro
               <p className="text-sm text-slate-500 mb-7 max-w-sm mx-auto leading-relaxed">
                 Investment plans haven&apos;t been configured. Make a deposit and contact support.
               </p>
-              <a href="/dashboard/deposit">
-                <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow-lg shadow-sky-500/25">
-                  <ArrowDownToLine size={14} /> Make a Deposit
+              <a href={isRestricted ? "#" : "/dashboard/deposit"} onClick={e => { if (isRestricted) { e.preventDefault(); toast.error("Complete identity verification to continue."); } }}>
+                <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-sm font-bold transition-colors shadow-lg shadow-sky-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isRestricted}>
+                  <ArrowDownToLine size={14} /> {isRestricted ? "Verification Required" : "Make a Deposit"}
                 </button>
               </a>
             </div>
@@ -273,11 +279,14 @@ export default function InvestmentsClient({ plans, investment, usdBalance }: Pro
               {usdBalance === 0 && (
                 <div className="px-4 py-3 rounded-xl bg-yellow-500/[0.08] border border-yellow-500/20 text-sm text-yellow-400 flex items-center gap-2">
                   <ArrowDownToLine size={14} className="flex-shrink-0" />
-                  <span>You need to <a href="/dashboard/deposit" className="font-bold underline underline-offset-2">make a deposit</a> before investing.</span>
+                  <span>You need to <a href={isRestricted ? "#" : "/dashboard/deposit"} onClick={e => { if (isRestricted) { e.preventDefault(); toast.error("Complete identity verification to continue."); } }} className="font-bold underline underline-offset-2">make a deposit</a> before investing.</span>
                 </div>
               )}
               <div className="grid gap-4 sm:grid-cols-2">
-                {plans.map(plan => <PlanCard key={plan.id} plan={plan} onSelect={setSelectedPlan} />)}
+                {plans.map(plan => <PlanCard key={plan.id} plan={plan} onSelect={p => {
+                  if (isRestricted) { toast.error("Complete identity verification to continue."); return; }
+                  setSelectedPlan(p);
+                }} />)}
               </div>
             </>
           )}

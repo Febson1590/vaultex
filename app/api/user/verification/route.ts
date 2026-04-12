@@ -7,14 +7,39 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
 
-  const verification = await db.verification.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { submittedAt: "desc" },
+  const [verification, profile, user] = await Promise.all([
+    db.verification.findFirst({
+      where: { userId },
+      orderBy: { submittedAt: "desc" },
+    }),
+    db.profile.findUnique({ where: { userId } }),
+    db.user.findUnique({ where: { id: userId }, select: { name: true } }),
+  ]);
+
+  // Build prefill data from profile, falling back to splitting the
+  // user.name field (set during registration) so the KYC form never
+  // starts with empty name fields if we already have the data.
+  let firstName = profile?.firstName ?? "";
+  let lastName  = profile?.lastName  ?? "";
+  if (!firstName && !lastName && user?.name) {
+    const parts = user.name.trim().split(/\s+/);
+    firstName = parts[0] ?? "";
+    lastName  = parts.slice(1).join(" ");
+  }
+
+  const dateOfBirth = profile?.dateOfBirth
+    ? profile.dateOfBirth.toISOString().slice(0, 10) // "YYYY-MM-DD"
+    : "";
+
+  return NextResponse.json({
+    status:      verification?.status ?? null,
+    notes:       verification?.notes  ?? null,
+    firstName,
+    lastName,
+    dateOfBirth,
   });
-
-  if (!verification) return NextResponse.json({ status: null });
-  return NextResponse.json({ status: verification.status, notes: verification.notes });
 }
 
 export async function POST(request: Request) {

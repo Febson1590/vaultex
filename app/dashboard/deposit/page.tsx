@@ -7,18 +7,15 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Deposit — VaultEx" };
 
 /**
- * KYC-gated deposit page.
- * Any user whose KYC is not yet approved is redirected to the verification
- * page with a ?status= hint so it can show the right message.
+ * Deposit page — always renders for authenticated users.
+ * The KYC status is passed to the form so it can disable submission
+ * and show a contextual banner instead of a full-page redirect.
  */
 export default async function DepositPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const kycStatus = await getKycStatusForUser(session.user.id);
-  if (kycStatus !== "approved") {
-    redirect(`/dashboard/verification?status=${kycStatus}`);
-  }
 
-  return <DepositForm />;
+  return <DepositForm kycStatus={kycStatus} />;
 }

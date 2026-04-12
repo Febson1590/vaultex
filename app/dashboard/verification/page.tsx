@@ -78,23 +78,32 @@ export default function VerificationPage() {
   const redirectStatus = searchParams.get("status") ?? null;
   const redirectReason = redirectStatus ? REDIRECT_REASON[redirectStatus] ?? null : null;
 
-  const [status,      setStatus]      = useState<string | null>(null);
-  const [loading,     setLoading]     = useState(false);
-  const [docType,     setDocType]     = useState("Passport");
-  const [docFile,     setDocFile]     = useState<File | null>(null);
-  const [isDragging,  setIsDragging]  = useState(false);
-  const [firstName,   setFirstName]   = useState("");
-  const [lastName,    setLastName]    = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [status,        setStatus]        = useState<string | null>(null);
+  const [rejectionNote, setRejectionNote] = useState<string | null>(null);
+  const [loading,       setLoading]       = useState(false);
+  const [docType,       setDocType]       = useState("Passport");
+  const [docFile,       setDocFile]       = useState<File | null>(null);
+  const [isDragging,    setIsDragging]    = useState(false);
+  const [firstName,     setFirstName]     = useState("");
+  const [lastName,      setLastName]      = useState("");
+  const [dateOfBirth,   setDateOfBirth]   = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { startUpload } = useUploadThing("kycDocument");
 
-  /* Load existing verification status */
+  /* Load existing verification status + prefill user profile data */
   useEffect(() => {
     fetch("/api/user/verification")
       .then(r => r.json())
-      .then(d => { if (d.status) setStatus(d.status); })
+      .then(d => {
+        if (d.status)      setStatus(d.status);
+        if (d.notes)       setRejectionNote(d.notes);
+        // Prefill name/DOB from the user's existing profile so the form
+        // never starts blank when we already have the information.
+        if (d.firstName)   setFirstName(d.firstName);
+        if (d.lastName)    setLastName(d.lastName);
+        if (d.dateOfBirth) setDateOfBirth(d.dateOfBirth);
+      })
       .catch(() => {});
   }, []);
 
@@ -216,13 +225,18 @@ export default function VerificationPage() {
 
       {/* ── Status banner ────────────────────────────────────────────────────── */}
       {currentStatus && (
-        <div className={`glass-card rounded-xl p-5 flex items-center gap-4 border ${currentStatus.bg} ${currentStatus.border}`}>
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${currentStatus.bg}`}>
+        <div className={`glass-card rounded-xl p-5 flex items-start gap-4 border ${currentStatus.bg} ${currentStatus.border}`}>
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${currentStatus.bg}`}>
             <currentStatus.icon className={`h-6 w-6 ${currentStatus.color}`} />
           </div>
           <div>
             <div className={`text-base font-semibold ${currentStatus.color}`}>{currentStatus.title}</div>
             <div className="text-sm text-slate-300">{currentStatus.message}</div>
+            {status === "REJECTED" && rejectionNote && (
+              <div className="mt-2 text-xs text-red-300/80 bg-red-500/[0.06] border border-red-500/15 rounded-md px-3 py-2">
+                <span className="font-semibold text-red-400">Reason:</span> {rejectionNote}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -244,7 +258,7 @@ export default function VerificationPage() {
                 <Label className={labelCls}>First Name <span className="text-red-400">*</span></Label>
                 <Input
                   required
-                  placeholder="John"
+                  placeholder="First name"
                   value={firstName}
                   onChange={e => setFirstName(e.target.value)}
                   className={inputCls}
@@ -254,7 +268,7 @@ export default function VerificationPage() {
                 <Label className={labelCls}>Last Name <span className="text-red-400">*</span></Label>
                 <Input
                   required
-                  placeholder="Doe"
+                  placeholder="Last name"
                   value={lastName}
                   onChange={e => setLastName(e.target.value)}
                   className={inputCls}
