@@ -159,18 +159,37 @@ export default function VerificationPage() {
       let frontUrl: string | null = null;
       try {
         const uploaded = await startUpload([docFile]);
-        frontUrl = uploaded?.[0]?.url ?? null;
+        console.log("[KYC] UploadThing raw response:", JSON.stringify(uploaded));
+
+        if (!uploaded || uploaded.length === 0) {
+          toast.error("File upload was cancelled or returned no result. Please try again.");
+          setLoading(false);
+          return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const first = uploaded[0] as any;
+        // UploadThing v7 may return the URL under different keys depending
+        // on the SDK version. Try all known locations.
+        frontUrl =
+          first?.url ??
+          first?.ufsUrl ??
+          first?.appUrl ??
+          first?.serverData?.url ??
+          null;
+
+        console.log("[KYC] Resolved frontUrl:", frontUrl);
       } catch (uploadErr) {
         console.error("[KYC] UploadThing upload failed:", uploadErr);
         toast.error("Document upload failed. Please try again or use a different file format.");
         setLoading(false);
-        return;                                       // ← STOP here, don't create a record
+        return;
       }
 
       if (!frontUrl) {
-        toast.error("Document upload did not return a file URL. Please try again.");
+        toast.error("Document upload succeeded but no file URL was found. Please try again or contact support.");
         setLoading(false);
-        return;                                       // ← STOP here, don't create a record
+        return;
       }
 
       // 2. Save the verification record to the database (with the file URL)

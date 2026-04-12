@@ -92,8 +92,17 @@ export default function DepositForm({
       if (proofFile) {
         try {
           const uploaded = await startUpload([proofFile]);
-          proofUrl = uploaded?.[0]?.url;
-        } catch { /* Continue without proof */ }
+          if (uploaded && uploaded.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const first = uploaded[0] as any;
+            proofUrl =
+              first?.url ??
+              first?.ufsUrl ??
+              first?.appUrl ??
+              first?.serverData?.url ??
+              undefined;
+          }
+        } catch { /* Continue without proof — deposit can still be reviewed manually */ }
       }
 
       const result = await requestDeposit({
