@@ -300,7 +300,7 @@ export async function notifyUser(opts: {
   userId: string;
   title: string;
   message: string;
-  type: "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "TRADE" | "DEPOSIT" | "WITHDRAWAL" | "VERIFICATION" | "SUPPORT";
+  type: "INFO" | "SUCCESS" | "WARNING" | "ERROR" | "TRADE" | "DEPOSIT" | "WITHDRAWAL" | "VERIFICATION" | "SUPPORT" | "SECURITY";
   email?: {
     to: string;
     name: string;

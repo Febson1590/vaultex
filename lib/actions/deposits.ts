@@ -19,12 +19,6 @@ export async function requestDeposit(data: {
   const kycError = await requireApprovedKyc(session.user.id);
   if (kycError) return kycError;
 
-  // Store txHash and walletId in the notes field until schema migration
-  // adds dedicated columns to the production database.
-  const noteParts: string[] = [];
-  if (data.txHash) noteParts.push(`TxHash: ${data.txHash}`);
-  if (data.walletId) noteParts.push(`WalletID: ${data.walletId}`);
-
   const request = await db.depositRequest.create({
     data: {
       userId: session.user.id,
@@ -32,7 +26,8 @@ export async function requestDeposit(data: {
       amount: data.amount,
       method: data.method,
       proofUrl: data.proofUrl,
-      notes: noteParts.length > 0 ? noteParts.join(" | ") : undefined,
+      txHash: data.txHash,
+      walletId: data.walletId,
     },
   });
 
@@ -47,6 +42,14 @@ export async function requestDeposit(data: {
 
   revalidatePath("/dashboard/deposit");
   return { success: true, requestId: request.id };
+}
+
+/** Return active deposit wallets for the user deposit page. */
+export async function getActiveDepositWallets() {
+  return db.depositWallet.findMany({
+    where: { isActive: true },
+    orderBy: { asset: "asc" },
+  });
 }
 
 export async function requestWithdrawal(data: {

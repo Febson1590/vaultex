@@ -145,7 +145,7 @@ export async function changePassword(data: {
     userId: session.user.id,
     title: "Password Changed",
     message: "Your account password has been changed successfully.",
-    type: "INFO",
+    type: "SECURITY",
     email: {
       to: user.email,
       name: user.name || "Trader",

@@ -226,6 +226,8 @@ model DepositRequest {
   method        String        @default("Bank Transfer")
   status        RequestStatus @default(PENDING)
   proofUrl      String?
+  txHash        String?
+  walletId      String?
   notes         String?
   adminNotes    String?
   processedAt   DateTime?
@@ -235,6 +237,20 @@ model DepositRequest {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("deposit_requests")
+}
+
+// ─── Admin-controlled deposit wallets ─────────────────────
+model DepositWallet {
+  id        String   @id @default(cuid())
+  asset     String
+  network   String?
+  address   String
+  label     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("deposit_wallets")
 }
 
 // ─── Withdrawal Requests ──────────────────────────────────
@@ -562,6 +578,7 @@ enum NotificationType {
   WITHDRAWAL
   VERIFICATION
   SUPPORT
+  SECURITY
 }
 
 enum InvestmentStatus {
