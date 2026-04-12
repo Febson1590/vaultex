@@ -7,8 +7,7 @@ import {
   ArrowUpRight, ArrowDownRight, LineChart, HeadphonesIcon,
   Clock, DollarSign, Activity, Wallet, TrendingUp,
 } from "lucide-react";
-import { db } from "@/lib/db";
-import { getLiveTickers } from "@/lib/coingecko";
+import { getMarketAssets } from "@/lib/coingecko";
 import { formatCurrency, formatPercent, formatCompact } from "@/lib/utils";
 
 /* ─── Per-symbol brand colours for ticker icons ───────────────────────── */
@@ -24,81 +23,87 @@ const CRYPTO_COLORS: Record<string, string> = {
 const features = [
   {
     icon: BarChart3,
-    title: "Real-Time Portfolio Tracking",
-    desc: "Monitor your holdings with live P&L, asset allocation charts, and performance analytics — updated continuously across all sessions.",
+    title: "Portfolio Tracking",
+    desc: "Monitor your holdings with P&L, asset allocation charts, and performance analytics across every session and device.",
   },
   {
     icon: Zap,
-    title: "Instant Trade Execution",
-    desc: "Place buy and sell orders instantly with market and limit order types across all supported digital assets with sub-second confirmation.",
+    title: "Fast Trade Execution",
+    desc: "Place market and limit orders across all supported digital assets with clear confirmation and complete order history.",
   },
   {
     icon: Shield,
-    title: "Institutional-Grade Security",
-    desc: "Your account is protected with multi-factor authentication, AES-256 encrypted data storage, and a comprehensive tamper-proof audit trail.",
+    title: "Account Security",
+    desc: "Your account is protected with email one-time passcodes, hashed password storage, and a full audit trail of every action.",
   },
   {
     icon: LineChart,
-    title: "Advanced Charting",
-    desc: "Visualize market trends, portfolio performance, and asset allocation with professional-grade candlestick charts and technical indicators.",
+    title: "Clean Charting",
+    desc: "Track market trends, portfolio performance, and asset allocation with clear candlestick charts and essential indicators.",
   },
   {
     icon: HeadphonesIcon,
-    title: "24/7 Support Desk",
-    desc: "Submit support tickets and receive responses from our team around the clock. Priority support and dedicated account management for verified users.",
+    title: "Dedicated Support Desk",
+    desc: "Submit support tickets directly from your dashboard and receive responses from our team, with priority handling for verified users.",
   },
   {
     icon: Globe,
-    title: "Global Market Coverage",
-    desc: "Access a curated selection of top cryptocurrencies with real-time pricing, live order books, and deep liquidity across all major pairs.",
+    title: "Broad Market Coverage",
+    desc: "Access a curated selection of top digital assets with updated pricing and a unified view across every major trading pair.",
   },
 ];
 
 /* ─── Platform stats ──────────────────────────────────────────────────── */
 const stats = [
-  { label: "Active Traders",   value: "12,400+", icon: Users      },
-  { label: "Assets Supported", value: "50+",     icon: Activity   },
-  { label: "Daily Volume",     value: "$2.4B",   icon: DollarSign },
-  { label: "Uptime",           value: "99.9%",   icon: Clock      },
+  { label: "Verified Traders",  value: "10,000+", icon: Users      },
+  { label: "Assets Supported",  value: "50+",     icon: Activity   },
+  { label: "Order Types",       value: "Market & Limit", icon: DollarSign },
+  { label: "Support",           value: "24 / 7",  icon: Clock      },
 ];
 
 /* ─── How It Works steps ──────────────────────────────────────────────── */
 const steps = [
-  { step: "01", title: "Create Your Account",   desc: "Register in under 2 minutes with your email address. No credit card or upfront commitment required." },
-  { step: "02", title: "Complete Verification", desc: "Submit your KYC documents to unlock full platform access, higher limits, and dedicated account support." },
-  { step: "03", title: "Fund Your Account",     desc: "Deposit via bank transfer or crypto to your Vaultex wallet. Funds are reviewed and credited by our finance team." },
-  { step: "04", title: "Start Trading",         desc: "Buy and sell BTC, ETH, USDT and 50+ assets at real-time market prices with instant execution." },
+  { step: "01", title: "Create Your Account",   desc: "Register in minutes with your email address. No credit card or upfront commitment required." },
+  { step: "02", title: "Complete Verification", desc: "Submit your identity documents to unlock full platform access, higher limits, and dedicated account support." },
+  { step: "03", title: "Fund Your Account",     desc: "Deposit via supported channels into your Vaultex wallet. Funds are reviewed and credited by our finance team." },
+  { step: "04", title: "Start Trading",         desc: "Buy and sell BTC, ETH, USDT and 50+ assets at up-to-date market prices with clear order confirmation." },
 ];
 
 /* ─── Trust & Security items ──────────────────────────────────────────── */
 const trust = [
-  { icon: Lock,      title: "Encrypted Data",    desc: "All user data is encrypted at rest and in transit using AES-256 encryption." },
-  { icon: Eye,       title: "Full Transparency",  desc: "Every transaction is logged and visible in your complete transaction history." },
-  { icon: RefreshCw, title: "Real-Time Updates",  desc: "All admin changes reflect instantly across your sessions and devices." },
-  { icon: Award,     title: "Compliance Ready",   desc: "Built with KYC/AML workflow and regulatory-grade user verification." },
+  { icon: Lock,      title: "Encrypted Transport", desc: "All user data is transmitted over TLS and passwords are hashed using industry-standard bcrypt." },
+  { icon: Eye,       title: "Full Transparency",   desc: "Every deposit, trade, and withdrawal is logged and visible in your complete transaction history." },
+  { icon: RefreshCw, title: "Synced Account",      desc: "All balance and order updates reflect quickly across your sessions and devices." },
+  { icon: Award,     title: "Identity Verified",   desc: "Built-in KYC workflow with reviewed document verification for every funded account." },
 ];
-
-/* ─── Data fetching ───────────────────────────────────────────────────── */
-async function getMarketData() {
-  try {
-    return await db.marketAsset.findMany({
-      where: { isActive: true },
-      orderBy: { rank: "asc" },
-      take: 6,
-    });
-  } catch { return []; }
-}
 
 /* ─── Page component ──────────────────────────────────────────────────── */
 export default async function HomePage() {
-  // Fetch DB market overview + live CoinGecko ticker data in parallel
-  const [dbAssets, liveTickers] = await Promise.all([
-    getMarketData(),
-    getLiveTickers(),
-  ]);
+  // Single unified source for every public market surface on this page
+  const marketAssets = await getMarketAssets();
+  const tickerItems  = marketAssets;
+  const overviewAssets = marketAssets.slice(0, 6);
 
-  // Ticker bar: prefer CoinGecko live prices; fall back gracefully
-  const tickerItems = liveTickers;
+  // Build a quick symbol lookup so the hero preview mockup stays in sync
+  // with the same data the ticker and market snapshot use.
+  const bySymbol = Object.fromEntries(marketAssets.map((a) => [a.symbol, a]));
+  const previewRows = (
+    [
+      { symbol: "BTC", alloc: "42%", color: "#f7931a" },
+      { symbol: "ETH", alloc: "28%", color: "#627eea" },
+      { symbol: "SOL", alloc: "18%", color: "#9945ff" },
+      { symbol: "BNB", alloc: "12%", color: "#f3ba2f" },
+    ] as const
+  ).map((row) => {
+    const asset = bySymbol[row.symbol];
+    return {
+      ...row,
+      name:   asset?.name   ?? row.symbol,
+      price:  asset?.price  ?? 0,
+      change: asset?.change ?? 0,
+    };
+  });
+  const btcPreview = bySymbol["BTC"];
 
   return (
     <div className="hero-bg overflow-x-hidden">
@@ -150,12 +155,12 @@ export default async function HomePage() {
               <h1 className="text-5xl sm:text-6xl font-bold text-white mb-6 leading-[1.08] tracking-tight"
                 style={{ textShadow: "0 2px 30px rgba(14,165,233,0.12), 0 0 60px rgba(255,255,255,0.04)" }}>
                 Trade Digital Assets{" "}
-                <span className="gradient-text">with Institutional</span>
+                <span className="gradient-text">with Professional</span>
                 <br />Confidence
               </h1>
               <p className="text-lg text-slate-400 max-w-lg mb-10 leading-relaxed">
-                Experience institutional-grade crypto brokerage infrastructure — built for professionals
-                who demand precision, security, and speed. BTC, ETH, USDT and 50+ assets in one platform.
+                A premium crypto brokerage platform built for serious traders — with clean execution,
+                strong account security, and a unified view of BTC, ETH, USDT and 50+ digital assets.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
                 <Button
@@ -178,16 +183,16 @@ export default async function HomePage() {
               {/* Trust indicators */}
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-emerald-400" /> SSL Secured
+                  <CheckCircle2 size={13} className="text-emerald-400" /> TLS Secured
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-emerald-400" /> 2FA Protected
+                  <CheckCircle2 size={13} className="text-emerald-400" /> Email OTP Login
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-emerald-400" /> KYC / AML Compliant
+                  <CheckCircle2 size={13} className="text-emerald-400" /> KYC Verified Accounts
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-emerald-400" /> Regulated & Compliant
+                  <CheckCircle2 size={13} className="text-emerald-400" /> Full Audit Trail
                 </span>
               </div>
             </div>
@@ -238,11 +243,11 @@ export default async function HomePage() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <div className="text-[10px] text-slate-500 tracking-widest uppercase font-medium">Total Portfolio Value</div>
-                        {/* LIVE indicator */}
-                        <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"
-                            style={{ boxShadow: "0 0 4px rgba(16,185,129,0.8)" }} />
-                          <span className="text-[8px] font-bold text-emerald-400 tracking-wider">LIVE</span>
+                        {/* Preview indicator — this entire panel is a static product preview */}
+                        <div className="flex items-center gap-1 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded-md">
+                          <div className="w-1.5 h-1.5 rounded-full bg-sky-400"
+                            style={{ boxShadow: "0 0 4px rgba(14,165,233,0.8)" }} />
+                          <span className="text-[8px] font-bold text-sky-400 tracking-wider">PREVIEW</span>
                         </div>
                       </div>
                       <div className="text-3xl font-bold text-white tracking-tight"
@@ -314,60 +319,60 @@ export default async function HomePage() {
                     </svg>
                   </div>
 
-                  {/* Asset allocation rows */}
+                  {/* Asset allocation rows — prices pulled from unified market source */}
                   <div className="space-y-2.5">
-                    {[
-                      { s: "BTC", n: "Bitcoin",  p: "$84,231", c: "+2.34%", alloc: "42%", up: true, color: "#f7931a" },
-                      { s: "ETH", n: "Ethereum", p: "$3,921",  c: "+1.87%", alloc: "28%", up: true, color: "#627eea" },
-                      { s: "SOL", n: "Solana",   p: "$182.60", c: "+4.21%", alloc: "18%", up: true, color: "#9945ff" },
-                      { s: "BNB", n: "BNB",      p: "$621.40", c: "+3.12%", alloc: "12%", up: true, color: "#f3ba2f" },
-                    ].map(asset => (
-                      <div key={asset.s} className="flex items-center justify-between py-1 border-b border-white/[0.04] last:border-0">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{ background: `${asset.color}18`, border: `1px solid ${asset.color}40` }}>
-                            <span className="text-[8px] font-black leading-none" style={{ color: asset.color }}>{asset.s.slice(0,1)}</span>
+                    {previewRows.map(asset => {
+                      const up = asset.change >= 0;
+                      return (
+                        <div key={asset.symbol} className="flex items-center justify-between py-1 border-b border-white/[0.04] last:border-0">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ background: `${asset.color}18`, border: `1px solid ${asset.color}40` }}>
+                              <span className="text-[8px] font-black leading-none" style={{ color: asset.color }}>{asset.symbol.slice(0,1)}</span>
+                            </div>
+                            <div>
+                              <div className="text-[11px] font-semibold text-white">{asset.symbol}</div>
+                              <div className="text-[9px] text-slate-600">{asset.alloc} allocation</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-[11px] font-semibold text-white">{asset.s}</div>
-                            <div className="text-[9px] text-slate-600">{asset.alloc} allocation</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-0.5 rounded-full bg-white/5 overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: asset.alloc, background: asset.color, opacity: 0.5 }} />
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[11px] font-semibold text-slate-200">{asset.p}</div>
-                            <div className={`text-[9px] font-bold ${asset.up ? "text-emerald-400" : "text-red-400"}`}
-                              style={{ textShadow: asset.up ? "0 0 8px rgba(16,185,129,0.4)" : "0 0 8px rgba(239,68,68,0.4)" }}>
-                              {asset.c}
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-0.5 rounded-full bg-white/5 overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: asset.alloc, background: asset.color, opacity: 0.5 }} />
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[11px] font-semibold text-slate-200">{formatCurrency(asset.price)}</div>
+                              <div className={`text-[9px] font-bold ${up ? "text-emerald-400" : "text-red-400"}`}
+                                style={{ textShadow: up ? "0 0 8px rgba(16,185,129,0.4)" : "0 0 8px rgba(239,68,68,0.4)" }}>
+                                {formatPercent(asset.change)}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
 
-              {/* Floating badge — trade executed */}
+              {/* Floating badge — sample order */}
               <div className="absolute -bottom-5 -right-7 mockup-frame rounded-xl px-4 py-3 shadow-2xl"
                 style={{ borderColor: "rgba(16,185,129,0.22)" }}>
-                <div className="text-[9px] text-slate-500 mb-0.5 uppercase tracking-wider">Order Filled</div>
+                <div className="text-[9px] text-slate-500 mb-0.5 uppercase tracking-wider">Sample Order</div>
                 <div className="text-sm font-bold text-white">BTC +0.500</div>
-                <div className="text-[10px] font-semibold text-emerald-400 mt-0.5" style={{ textShadow: "0 0 10px rgba(16,185,129,0.5)" }}>@ $84,231.50 · Market</div>
+                <div className="text-[10px] font-semibold text-emerald-400 mt-0.5" style={{ textShadow: "0 0 10px rgba(16,185,129,0.5)" }}>
+                  @ {btcPreview ? formatCurrency(btcPreview.price) : "—"} · Market
+                </div>
               </div>
 
-              {/* Floating badge — live status */}
+              {/* Floating badge — markets status */}
               <div className="absolute -top-5 -left-7 mockup-frame rounded-xl px-4 py-3 shadow-2xl"
                 style={{ borderColor: "rgba(14,165,233,0.2)" }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"
-                    style={{ boxShadow: "0 0 6px rgba(16,185,129,0.7)" }} />
-                  <div className="text-[10px] font-semibold text-slate-200 tracking-wide">Markets Live</div>
+                  <div className="w-2 h-2 rounded-full bg-sky-400 flex-shrink-0"
+                    style={{ boxShadow: "0 0 6px rgba(14,165,233,0.7)" }} />
+                  <div className="text-[10px] font-semibold text-slate-200 tracking-wide">Markets Open</div>
                 </div>
-                <div className="text-[10px] text-slate-500">50+ assets active</div>
+                <div className="text-[10px] text-slate-500">50+ assets tracked</div>
               </div>
             </div>
           </div>
@@ -397,7 +402,7 @@ export default async function HomePage() {
       </div>
 
       {/* ── Market Overview ─────────────────────────────────────────────── */}
-      {dbAssets.length > 0 && (
+      {overviewAssets.length > 0 && (
         <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
           {/* Section light source */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-px pointer-events-none"
@@ -407,8 +412,8 @@ export default async function HomePage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h2 className="text-2xl font-bold text-white mb-1">Market Overview</h2>
-                <p className="text-sm text-slate-500">Top assets by market cap · Updated live</p>
+                <h2 className="text-2xl font-bold text-white mb-1">Market Snapshot</h2>
+                <p className="text-sm text-slate-500">Top assets by market cap · Refreshed every minute</p>
               </div>
               <Button
                 variant="ghost"
@@ -419,9 +424,8 @@ export default async function HomePage() {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dbAssets.map(asset => {
-                const change = Number(asset.priceChange24h);
-                const isUp = change >= 0;
+              {overviewAssets.map(asset => {
+                const isUp = asset.change >= 0;
                 return (
                   <div key={asset.id} className="glass-card glass-card-hover p-5 rounded-xl cursor-pointer">
                     <div className="flex items-center justify-between mb-4">
@@ -436,12 +440,12 @@ export default async function HomePage() {
                       </div>
                       <div className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg ${isUp ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                         {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                        {formatPercent(change)}
+                        {formatPercent(asset.change)}
                       </div>
                     </div>
-                    <div className="text-2xl font-bold text-white mb-1">{formatCurrency(Number(asset.currentPrice))}</div>
+                    <div className="text-2xl font-bold text-white mb-1">{formatCurrency(asset.price)}</div>
                     <div className="text-xs text-slate-500">
-                      Vol: {formatCompact(Number(asset.volume24h || 0))} · MCap: {formatCompact(Number(asset.marketCap || 0))}
+                      Vol: ${formatCompact(asset.volume24h)} · MCap: ${formatCompact(asset.marketCap)}
                     </div>
                   </div>
                 );
@@ -472,7 +476,7 @@ export default async function HomePage() {
               <div className="absolute -inset-4  bg-cyan-400/4 rounded-3xl blur-xl  pointer-events-none" />
               <div className="relative mockup-frame rounded-3xl overflow-hidden">
 
-                {/* Top bar */}
+                {/* Top bar — price pulled from unified market source */}
                 <div className="flex items-center justify-between px-4 py-3 bg-[#020b18]/80 border-b border-white/[0.06]"
                   style={{ boxShadow: "inset 0 -1px 0 rgba(14,165,233,0.06)" }}>
                   <div className="flex items-center gap-3">
@@ -482,14 +486,17 @@ export default async function HomePage() {
                       <div className="text-sm font-bold text-white leading-tight">BTC / USD</div>
                       <div className="text-[9px] text-slate-500">Bitcoin · Spot</div>
                     </div>
-                    <div className="text-sm font-bold text-emerald-400 ml-1"
-                      style={{ textShadow: "0 0 12px rgba(16,185,129,0.45)" }}>$84,231.50</div>
-                    <div className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md font-semibold">▲ +2.34%</div>
+                    <div className={`text-sm font-bold ml-1 ${btcPreview && btcPreview.change >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                      style={{ textShadow: "0 0 12px rgba(16,185,129,0.45)" }}>
+                      {btcPreview ? formatCurrency(btcPreview.price) : "—"}
+                    </div>
+                    <div className={`text-[10px] border px-2 py-0.5 rounded-md font-semibold ${btcPreview && btcPreview.change >= 0 ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-red-400 bg-red-500/10 border-red-500/20"}`}>
+                      {btcPreview && btcPreview.change >= 0 ? "▲" : "▼"} {formatPercent(btcPreview?.change ?? 0)}
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-[10px]">
-                    <span className="text-slate-600">H <span className="text-slate-400 font-medium">$85,100</span></span>
-                    <span className="text-slate-600">L <span className="text-slate-400 font-medium">$82,400</span></span>
-                    <span className="text-slate-600">Vol <span className="text-slate-400 font-medium">$28.4B</span></span>
+                    <span className="text-slate-600">Vol <span className="text-slate-400 font-medium">${formatCompact(btcPreview?.volume24h ?? 0)}</span></span>
+                    <span className="text-slate-600">MCap <span className="text-slate-400 font-medium">${formatCompact(btcPreview?.marketCap ?? 0)}</span></span>
                   </div>
                 </div>
 
@@ -559,37 +566,44 @@ export default async function HomePage() {
                     </svg>
                   </div>
 
-                  {/* Order book */}
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <div className="text-[10px] font-bold text-emerald-400 mb-2 tracking-wider uppercase"
-                        style={{ textShadow: "0 0 8px rgba(16,185,129,0.4)" }}>Buy Orders</div>
-                      {[
-                        ["$84,100.00", "0.420"],
-                        ["$84,050.00", "1.205"],
-                        ["$84,000.00", "2.840"],
-                      ].map(([price, amt]) => (
-                        <div key={price} className="flex justify-between text-[10px] py-1 border-b border-white/[0.04]">
-                          <span className="text-emerald-400 font-medium">{price}</span>
-                          <span className="text-slate-500">{amt} BTC</span>
+                  {/* Order book — synthesized around the same BTC price as above */}
+                  {(() => {
+                    const mid = btcPreview?.price ?? 0;
+                    const buys  = [
+                      { offset: -130, amt: "0.420" },
+                      { offset: -180, amt: "1.205" },
+                      { offset: -230, amt: "2.840" },
+                    ];
+                    const sells = [
+                      { offset:  120, amt: "0.310" },
+                      { offset:  170, amt: "0.985" },
+                      { offset:  220, amt: "1.620" },
+                    ];
+                    return (
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <div className="text-[10px] font-bold text-emerald-400 mb-2 tracking-wider uppercase"
+                            style={{ textShadow: "0 0 8px rgba(16,185,129,0.4)" }}>Buy Orders</div>
+                          {buys.map((row) => (
+                            <div key={row.offset} className="flex justify-between text-[10px] py-1 border-b border-white/[0.04]">
+                              <span className="text-emerald-400 font-medium">{formatCurrency(mid + row.offset)}</span>
+                              <span className="text-slate-500">{row.amt} BTC</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-bold text-red-400 mb-2 tracking-wider uppercase"
-                        style={{ textShadow: "0 0 8px rgba(239,68,68,0.4)" }}>Sell Orders</div>
-                      {[
-                        ["$84,350.00", "0.310"],
-                        ["$84,400.00", "0.985"],
-                        ["$84,450.00", "1.620"],
-                      ].map(([price, amt]) => (
-                        <div key={price} className="flex justify-between text-[10px] py-1 border-b border-white/[0.04]">
-                          <span className="text-red-400 font-medium">{price}</span>
-                          <span className="text-slate-500">{amt} BTC</span>
+                        <div>
+                          <div className="text-[10px] font-bold text-red-400 mb-2 tracking-wider uppercase"
+                            style={{ textShadow: "0 0 8px rgba(239,68,68,0.4)" }}>Sell Orders</div>
+                          {sells.map((row) => (
+                            <div key={row.offset} className="flex justify-between text-[10px] py-1 border-b border-white/[0.04]">
+                              <span className="text-red-400 font-medium">{formatCurrency(mid + row.offset)}</span>
+                              <span className="text-slate-500">{row.amt} BTC</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Trade buttons */}
@@ -616,16 +630,16 @@ export default async function HomePage() {
                 <span className="gradient-text">Trading Interface</span>
               </h2>
               <p className="text-slate-400 mb-8 leading-relaxed">
-                A full-featured trading environment with real-time order books, advanced charting,
-                and instant execution — engineered for serious traders who demand institutional-quality
-                infrastructure without compromise.
+                A full-featured trading environment with clear order books, advanced charting,
+                and clean execution — engineered for serious traders who want a premium interface
+                without the clutter.
               </p>
               <div className="space-y-5">
                 {[
-                  { icon: BarChart3,  label: "Candlestick Charts",        desc: "Multi-timeframe charts with volume, indicators, and price action" },
-                  { icon: Zap,        label: "Instant Order Execution",    desc: "Market & limit orders with real-time confirmation and history" },
-                  { icon: Wallet,     label: "Multi-Asset Portfolio",      desc: "Manage BTC, ETH, SOL and 50+ assets in one unified dashboard" },
-                  { icon: TrendingUp, label: "Performance Analytics",      desc: "Track P&L, ROI, win rate, and portfolio growth over time" },
+                  { icon: BarChart3,  label: "Candlestick Charts",     desc: "Multi-timeframe charts with volume, indicators, and price action" },
+                  { icon: Zap,        label: "Clean Order Execution",  desc: "Market & limit orders with clear confirmation and full history" },
+                  { icon: Wallet,     label: "Multi-Asset Portfolio",  desc: "Manage BTC, ETH, SOL and 50+ assets in one unified dashboard" },
+                  { icon: TrendingUp, label: "Performance Analytics",  desc: "Track P&L, ROI, win rate, and portfolio growth over time" },
                 ].map(item => (
                   <div key={item.label} className="flex items-start gap-4">
                     <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -737,19 +751,19 @@ export default async function HomePage() {
                 Security First
               </Badge>
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-5">
-                Institutional-Grade <span className="gradient-text">Security</span>
+                Premium Account <span className="gradient-text">Security</span>
               </h2>
               <p className="text-slate-400 mb-8 leading-relaxed">
-                We take security seriously. Your account, data, and digital assets are protected with
-                best-in-class infrastructure that meets enterprise and regulatory-grade standards.
+                We take security seriously. Your account, data, and digital assets are protected
+                with clean, well-audited infrastructure and sensible defaults at every layer.
               </p>
               <div className="space-y-3.5">
                 {[
-                  "Multi-layer account authentication",
-                  "256-bit encrypted data storage",
-                  "Admin-controlled access controls",
-                  "Comprehensive audit trail for all actions",
-                  "Real-time fraud detection system",
+                  "Email one-time passcode login flow",
+                  "Bcrypt-hashed password storage",
+                  "Role-based admin access controls",
+                  "Comprehensive audit trail for every action",
+                  "Manual review for deposits & withdrawals",
                 ].map(item => (
                   <div key={item} className="flex items-center gap-3">
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
@@ -820,7 +834,7 @@ export default async function HomePage() {
               </h2>
               <p className="text-slate-400 mb-10 max-w-lg mx-auto leading-relaxed">
                 Join thousands of verified traders on Vaultex Market. Open your account today and
-                access institutional-grade execution, live market data, and dedicated support.
+                access clean execution, up-to-date market data, and dedicated support.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button

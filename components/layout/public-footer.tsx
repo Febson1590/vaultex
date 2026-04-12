@@ -4,28 +4,24 @@ import { Shield, Twitter, Linkedin, Github } from "lucide-react";
 
 const footerLinks = {
   Platform: [
-    { href: "/markets", label: "Markets" },
-    { href: "/pricing", label: "Fees & Pricing" },
-    { href: "/security", label: "Security" },
-    { href: "/register", label: "Open Account" },
+    { href: "/markets",  label: "Markets"        },
+    { href: "/pricing",  label: "Fees & Pricing" },
+    { href: "/security", label: "Security"       },
+    { href: "/register", label: "Open Account"   },
   ],
   Company: [
-    { href: "/about", label: "About Us" },
-    { href: "/contact", label: "Contact" },
-    { href: "/contact", label: "Careers" },
-    { href: "/contact", label: "Press" },
-  ],
-  Legal: [
-    { href: "#", label: "Terms of Service" },
-    { href: "#", label: "Privacy Policy" },
-    { href: "#", label: "Risk Disclosure" },
-    { href: "#", label: "AML Policy" },
+    { href: "/about",   label: "About Us" },
+    { href: "/contact", label: "Contact"  },
   ],
   Support: [
-    { href: "/dashboard/support", label: "Help Center" },
-    { href: "/contact", label: "Submit a Ticket" },
+    { href: "/help",     label: "Help Center"     },
+    { href: "/contact",  label: "Contact Support" },
     { href: "/security", label: "Report an Issue" },
-    { href: "/contact", label: "Live Chat" },
+  ],
+  Legal: [
+    { href: "/terms",   label: "Terms of Service" },
+    { href: "/privacy", label: "Privacy Policy"   },
+    { href: "/risk",    label: "Risk Disclosure"  },
   ],
 };
 
@@ -37,13 +33,14 @@ export function PublicFooter() {
           <div className="col-span-2 md:col-span-1">
             <Logo size="md" href="/" className="mb-5" />
             <p className="text-sm text-slate-500 leading-relaxed mb-5">
-              Institutional-grade crypto brokerage infrastructure built for professional traders and verified investors.
+              A premium crypto brokerage platform built for serious traders and verified investors.
             </p>
             <div className="flex items-center gap-3">
               {[Twitter, Linkedin, Github].map((Icon, i) => (
                 <a
                   key={i}
                   href="#"
+                  aria-label="Social link"
                   className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 transition-colors"
                 >
                   <Icon size={14} />
@@ -79,7 +76,7 @@ export function PublicFooter() {
           </p>
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <Shield size={12} className="text-sky-500" />
-            <span>AES-256 encrypted · KYC / AML compliant · 99.9% uptime SLA</span>
+            <span>TLS secured · KYC verified accounts · Full audit trail</span>
           </div>
         </div>
       </div>

@@ -549,9 +549,9 @@ export default function RegisterPage() {
                 </div>
                 <span className="text-xs text-slate-300 leading-relaxed mt-0.5">
                   I agree to Vaultex Market&apos;s{" "}
-                  <Link href="#" className="text-sky-400 hover:text-sky-300 underline underline-offset-2" onClick={e => e.stopPropagation()}>Terms of Service</Link>
+                  <Link href="/terms" target="_blank" className="text-sky-400 hover:text-sky-300 underline underline-offset-2" onClick={e => e.stopPropagation()}>Terms of Service</Link>
                   {" "}and{" "}
-                  <Link href="#" className="text-sky-400 hover:text-sky-300 underline underline-offset-2" onClick={e => e.stopPropagation()}>Privacy Policy</Link>.
+                  <Link href="/privacy" target="_blank" className="text-sky-400 hover:text-sky-300 underline underline-offset-2" onClick={e => e.stopPropagation()}>Privacy Policy</Link>.
                   {" "}I confirm I am at least 18 years old.
                 </span>
               </label>
@@ -626,9 +626,9 @@ export default function RegisterPage() {
         {/* Trust badges */}
         <div className="flex items-center justify-center gap-6 mt-5 pt-1">
           {[
-            { icon: Lock,   label: "SSL Secured"      },
-            { icon: Shield, label: "256-bit Encrypted" },
-            { icon: Check,  label: "KYC Compliant"     },
+            { icon: Lock,   label: "TLS Secured"       },
+            { icon: Shield, label: "Hashed Passwords"  },
+            { icon: Check,  label: "KYC Verified"      },
           ].map(({ icon: Icon, label }) => (
             <div key={label} className="flex items-center gap-1.5 text-slate-500">
               <Icon size={11} />

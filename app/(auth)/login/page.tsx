@@ -181,7 +181,7 @@ export default function LoginPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-slate-400 uppercase tracking-widest">Password</Label>
-                  <Link href="#" className="text-xs text-sky-400 hover:text-sky-300">Forgot password?</Link>
+                  <Link href="/contact" className="text-xs text-sky-400 hover:text-sky-300">Forgot password?</Link>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -224,14 +224,6 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Test credentials */}
-            <div className="mt-4 p-3 rounded-lg bg-white/3 border border-white/5">
-              <p className="text-xs text-slate-500 text-center mb-2 font-medium">Test Access</p>
-              <div className="space-y-1 text-xs text-slate-500">
-                <div className="flex justify-between"><span>User:</span><span className="text-slate-400">james.carter@example.com / Demo@123456</span></div>
-                <div className="flex justify-between"><span>Admin:</span><span className="text-slate-400">admin@vaultexmarket.com / Admin@123456</span></div>
-              </div>
-            </div>
           </Card>
         </>
       )}

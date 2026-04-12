@@ -6,19 +6,27 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(
-  amount: number | string,
+  amount: number | string | null | undefined,
   currency: string = "USD",
-  decimals: number = 2
+  decimals?: number
 ): string {
-  const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  if (isNaN(num)) return "$0.00";
+  const num = typeof amount === "string" ? parseFloat(amount) : (amount ?? NaN);
+  if (!Number.isFinite(num)) return "$0.00";
 
   if (currency === "USD" || currency === "USDT") {
+    // Auto-scale decimals for sub-dollar assets so we don't lose precision.
+    const abs = Math.abs(num);
+    const auto =
+      decimals ??
+      (abs >= 1     ? 2
+        : abs >= 0.01  ? 4
+        : abs >= 0.0001 ? 6
+        : 8);
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
+      minimumFractionDigits: auto,
+      maximumFractionDigits: auto,
     }).format(num);
   }
 
@@ -34,16 +42,18 @@ export function formatNumber(num: number | string, decimals: number = 2): string
   }).format(n);
 }
 
-export function formatCompact(num: number): string {
+export function formatCompact(num: number | string | null | undefined): string {
+  const n = typeof num === "string" ? parseFloat(num) : (num ?? NaN);
+  if (!Number.isFinite(n)) return "0";
   return new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 2,
-  }).format(num);
+  }).format(n);
 }
 
-export function formatPercent(num: number | string): string {
-  const n = typeof num === "string" ? parseFloat(num) : num;
-  if (isNaN(n)) return "0.00%";
+export function formatPercent(num: number | string | null | undefined): string {
+  const n = typeof num === "string" ? parseFloat(num) : (num ?? NaN);
+  if (!Number.isFinite(n)) return "0.00%";
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 }
 

@@ -1,44 +1,37 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { db } from "@/lib/db";
+import { getMarketAssets } from "@/lib/coingecko";
 import { formatCurrency, formatPercent, formatCompact } from "@/lib/utils";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Markets" };
 
-async function getAssets() {
-  try {
-    return await db.marketAsset.findMany({ where: { isActive: true }, orderBy: { rank: "asc" } });
-  } catch { return []; }
-}
-
 export default async function MarketsPage() {
-  const assets = await getAssets();
+  const assets = await getMarketAssets();
 
   return (
     <div className="min-h-screen pt-28 pb-16 px-4 sm:px-6 lg:px-8 hero-bg">
       <div className="max-w-7xl mx-auto">
         <div className="mb-10 text-center">
-          <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">Live Markets</Badge>
+          <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">Markets</Badge>
           <h1 className="text-4xl font-bold text-white mb-3">Market Overview</h1>
-          <p className="text-slate-400">Live prices and 24h performance for top digital assets</p>
+          <p className="text-slate-400">Latest prices and 24h performance for top digital assets · Refreshed every minute</p>
         </div>
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {assets.slice(0, 4).map((asset) => {
-            const change = Number(asset.priceChange24h);
-            const isUp = change >= 0;
+            const isUp = asset.change >= 0;
             return (
               <div key={asset.id} className="glass-card rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-sky-400">{asset.symbol}</span>
                   <span className={`text-xs font-medium ${isUp ? "text-emerald-400" : "text-red-400"}`}>
-                    {formatPercent(change)}
+                    {formatPercent(asset.change)}
                   </span>
                 </div>
-                <div className="text-lg font-bold text-white">{formatCurrency(Number(asset.currentPrice))}</div>
+                <div className="text-lg font-bold text-white">{formatCurrency(asset.price)}</div>
               </div>
             );
           })}
@@ -65,8 +58,7 @@ export default async function MarketsPage() {
               </thead>
               <tbody>
                 {assets.map((asset) => {
-                  const change = Number(asset.priceChange24h);
-                  const isUp = change >= 0;
+                  const isUp = asset.change >= 0;
                   return (
                     <tr key={asset.id} className="border-b border-white/5 hover:bg-sky-500/2 transition-colors">
                       <td className="px-6 py-4 text-sm text-slate-500">{asset.rank}</td>
@@ -82,22 +74,22 @@ export default async function MarketsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-white">{formatCurrency(Number(asset.currentPrice))}</span>
+                        <span className="text-sm font-bold text-white">{formatCurrency(asset.price)}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md ${isUp ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                           {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                          {formatPercent(change)}
+                          {formatPercent(asset.change)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-slate-400 hidden md:table-cell">
-                        ${formatCompact(Number(asset.marketCap || 0))}
+                        ${formatCompact(asset.marketCap)}
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-slate-400 hidden md:table-cell">
-                        ${formatCompact(Number(asset.volume24h || 0))}
+                        ${formatCompact(asset.volume24h)}
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-slate-400 hidden lg:table-cell">
-                        {formatCompact(Number(asset.circulatingSupply || 0))} {asset.symbol}
+                        {formatCompact(asset.supply)} {asset.symbol}
                       </td>
                     </tr>
                   );

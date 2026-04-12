@@ -4,12 +4,12 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Security" };
 
 const measures = [
-  { icon: Lock, title: "End-to-End Encryption", desc: "All data is encrypted using AES-256 in transit and at rest. Sensitive information is never stored in plain text." },
-  { icon: Key, title: "Secure Authentication", desc: "Auth.js-powered credential system with bcrypt-hashed passwords, session tokens, and optional 2FA." },
-  { icon: Eye, title: "Full Audit Trail", desc: "Every admin action, account change, and transaction is logged with timestamps and actor information." },
-  { icon: Server, title: "Infrastructure Security", desc: "Enterprise-grade infrastructure with automatic backups, DDoS protection, and 99.9% uptime SLA." },
-  { icon: Shield, title: "KYC/AML Compliance", desc: "Identity verification workflow ensures all users are verified before accessing full platform features." },
-  { icon: AlertTriangle, title: "Fraud Prevention", desc: "Real-time monitoring for suspicious account activity with automatic restriction triggers." },
+  { icon: Lock,          title: "TLS In Transit",         desc: "All traffic between your browser and the platform is transmitted over HTTPS with modern TLS. Sensitive credentials are never sent in plain text." },
+  { icon: Key,           title: "Secure Authentication",  desc: "Auth.js-powered login with bcrypt-hashed passwords, session tokens, and an email one-time passcode flow for every sign-in." },
+  { icon: Eye,           title: "Full Audit Trail",       desc: "Every admin action, account change, deposit, withdrawal, and trade is logged with timestamps and actor information." },
+  { icon: Server,        title: "Managed Infrastructure", desc: "The platform runs on managed infrastructure with regular backups and standard hardening practices." },
+  { icon: Shield,        title: "KYC Workflow",           desc: "Identity verification is required before unlocking full platform features. All submissions are reviewed manually by our compliance team." },
+  { icon: AlertTriangle, title: "Manual Review",          desc: "Deposits and withdrawals are reviewed by our finance team to help catch suspicious activity before funds leave the platform." },
 ];
 
 export default function SecurityPage() {
@@ -19,7 +19,7 @@ export default function SecurityPage() {
         <div className="text-center mb-14">
           <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">Security Center</Badge>
           <h1 className="text-4xl font-bold text-white mb-4">Your Security Is Our Priority</h1>
-          <p className="text-slate-400 max-w-xl mx-auto">Vaultex Market is built with institutional-grade security at every layer of the stack.</p>
+          <p className="text-slate-400 max-w-xl mx-auto">Vaultex Market is built with sensible security defaults at every layer of the stack.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
@@ -40,11 +40,11 @@ export default function SecurityPage() {
             Report a Vulnerability
           </h2>
           <p className="text-sm text-slate-400 leading-relaxed">
-            If you discover a security vulnerability, please report it to{" "}
+            If you discover a security issue, please report it responsibly to{" "}
             <a href="mailto:security@vaultexmarket.com" className="text-sky-400 hover:text-sky-300">
               security@vaultexmarket.com
             </a>
-            . We take all security reports seriously and will respond within 24 hours.
+            . We review every report and aim to respond within one business day.
           </p>
         </div>
       </div>
