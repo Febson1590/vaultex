@@ -47,7 +47,7 @@ const faqs = [
         <a href="mailto:support@vaultexmarket.com" className="text-sky-400 hover:text-sky-300">
           support@vaultexmarket.com
         </a>{" "}
-        at any time.
+        and we reply within one business day during published hours.
       </>
     ),
   },
@@ -92,7 +92,8 @@ export default function HelpPage() {
         <div className="glass-card rounded-2xl p-6 border border-sky-500/20 bg-sky-500/5 text-center">
           <h2 className="text-lg font-bold text-white mb-1">Still need help?</h2>
           <p className="text-sm text-slate-400 mb-5">
-            Our support team is available to assist verified users around the clock.
+            Our support team replies within one business day during published hours
+            ({"Monday\u2013Friday, 09:00\u201318:00 UTC"}).
           </p>
           <Button
             render={<Link href="/contact" />}

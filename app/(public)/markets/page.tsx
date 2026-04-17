@@ -16,7 +16,7 @@ export default async function MarketsPage() {
         <div className="mb-10 text-center">
           <Badge className="mb-4 bg-sky-500/10 text-sky-400 border-sky-500/20 text-xs tracking-widest uppercase">Markets</Badge>
           <h1 className="text-4xl font-bold text-white mb-3">Market Overview</h1>
-          <p className="text-slate-400">Latest prices and 24h performance for top digital assets · Refreshed every minute</p>
+          <p className="text-slate-400">Market snapshot — latest prices and 24h performance for the digital assets listed on Vaultex.</p>
         </div>
 
         {/* Summary cards */}

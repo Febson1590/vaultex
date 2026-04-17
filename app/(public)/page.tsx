@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight, Zap, Globe, BarChart3,
-  CheckCircle2, Lock, Eye, RefreshCw, Award,
+  CheckCircle2, Lock, Eye, Award,
   ArrowUpRight, ArrowDownRight, LineChart, HeadphonesIcon,
   Activity, ShieldCheck, KeyRound, FileCheck2,
   ChevronRight, LayoutGrid,
@@ -12,6 +12,7 @@ import { MarketPanel }     from "@/components/public/market-panel";
 import { Sparkline }       from "@/components/public/sparkline";
 import { WatchlistStrip }  from "@/components/public/watchlist-strip";
 import { QuickTrade }      from "@/components/public/quick-trade";
+import { PLATFORM, SHORT_RISK_NOTICE } from "@/lib/company";
 
 /* ─── Per-symbol brand color accents ──────────────────────────────────── */
 const CRYPTO_COLORS: Record<string, string> = {
@@ -26,49 +27,49 @@ const features = [
   {
     icon: BarChart3,
     title: "Portfolio Tracking",
-    desc: "Monitor holdings with clean P&L, asset allocation charts, and performance analytics across every session.",
+    desc: "Monitor holdings, P&L, and asset allocation with a clean dashboard that works on every device.",
   },
   {
     icon: Zap,
-    title: "Fast Trade Execution",
-    desc: "Place market and limit orders across 50+ digital assets with clear confirmation and full order history.",
+    title: "Market & Limit Orders",
+    desc: "Place market and limit orders on supported digital assets with clear confirmation and a full order history.",
   },
   {
     icon: ShieldCheck,
-    title: "Account Security",
-    desc: "Email one-time passcodes, bcrypt-hashed passwords, and a complete audit trail on every account action.",
+    title: "Security-Focused Accounts",
+    desc: "Every sign-in requires an email one-time passcode. Passwords are hashed with bcrypt and every action is logged.",
   },
   {
     icon: LineChart,
-    title: "Professional Charts",
-    desc: "Multi-timeframe candlestick charts, essential indicators, and clean price action visuals.",
+    title: "Clean Charts",
+    desc: "Multi-timeframe candlestick charts with the essential indicators — without unnecessary clutter.",
   },
   {
     icon: HeadphonesIcon,
-    title: "Dedicated Support",
-    desc: "Submit tickets from your dashboard and get responses from our team, with priority handling for verified users.",
+    title: "Human Support",
+    desc: "Submit a ticket from your dashboard. Our support team replies within one business day during published hours.",
   },
   {
     icon: Globe,
-    title: "Broad Market Coverage",
-    desc: "A curated selection of top digital assets with updated pricing and a single unified view of every pair.",
+    title: "Core Market Coverage",
+    desc: `${PLATFORM.listedAssets} of the most-traded digital assets quoted against ${PLATFORM.quoteCurrency}, all in one unified interface.`,
   },
 ];
 
-/* ─── Trust items ──────────────────────────────────────────────────────── */
+/* ─── Platform Trust & Operations items ──────────────────────────────── */
 const trust = [
-  { icon: Lock,      title: "Encrypted Transport",  desc: "All user data is transmitted over TLS and passwords are hashed with industry-standard bcrypt." },
-  { icon: Eye,       title: "Full Transparency",    desc: "Every deposit, trade, and withdrawal is logged and visible in your complete transaction history." },
-  { icon: RefreshCw, title: "Synced Account",       desc: "Balances and order updates reflect quickly across every session and device you use." },
-  { icon: Award,     title: "Identity Verified",    desc: "A reviewed KYC workflow with manual document verification for every funded account." },
+  { icon: Lock,      title: "Encrypted Transport",   desc: "All traffic to the platform is sent over TLS. Passwords are hashed with bcrypt and are never stored in plain text." },
+  { icon: Eye,       title: "Full Activity Log",     desc: "Every deposit, trade, and withdrawal you make is visible in your account history with timestamps." },
+  { icon: FileCheck2,title: "Reviewed Onboarding",   desc: "Every funded account is manually reviewed against the identity documents you submit during KYC." },
+  { icon: Award,     title: "Transparent Fees",      desc: "Trading fees are published up-front and the final cost is shown on the order confirmation before you submit." },
 ];
 
 /* ─── How it works steps ──────────────────────────────────────────────── */
 const steps = [
-  { n: "01", title: "Create Account",     desc: "Register in minutes with your email. No credit card or commitment up front."                       },
-  { n: "02", title: "Verify Identity",    desc: "Submit your ID documents to unlock full access, higher limits, and dedicated support."             },
-  { n: "03", title: "Fund Your Wallet",   desc: "Deposit via supported channels. Every transfer is reviewed and credited by our finance team."      },
-  { n: "04", title: "Start Trading",      desc: "Buy and sell BTC, ETH, USDT and 50+ assets with clear order confirmation and a full audit trail."  },
+  { n: "01", title: "Create Account",     desc: "Register with your email. You'll receive a one-time code to confirm ownership — no credit card required."           },
+  { n: "02", title: "Verify Identity",    desc: "Upload a government-issued ID and a short selfie. Our compliance team reviews submissions manually."                },
+  { n: "03", title: "Fund Your Wallet",   desc: "Deposit via the supported methods shown in your dashboard. Transfers are reviewed and credited by our finance team." },
+  { n: "04", title: "Start Trading",      desc: "Buy and sell supported assets with market or limit orders. Order details are shown before every confirmation."      },
 ];
 
 export default async function HomePage() {
@@ -144,19 +145,25 @@ export default async function HomePage() {
             {/* ── LEFT: Headline + CTAs + trust row + stats ─────────── */}
             <div className="pt-6 lg:pt-10 min-w-0 w-full">
               <div className="vx-eyebrow mb-4">
-                Premium Crypto Brokerage
+                Digital-Asset Brokerage
               </div>
 
               <h1 className="text-[38px] sm:text-[46px] lg:text-[52px] font-bold text-white leading-[1.04] tracking-tight mb-4">
-                One terminal.
+                A clean, focused
                 <br />
-                <span className="gradient-text">Every major market.</span>
+                <span className="gradient-text">trading interface.</span>
               </h1>
 
-              <p className="text-[14px] sm:text-[15px] text-slate-400 max-w-lg mb-7 leading-relaxed">
-                Vaultex Market is a premium crypto brokerage built for serious traders — with clean
-                execution, strong account security, and a unified view of BTC, ETH, USDT and 50+
-                digital assets in one professional interface.
+              <p className="text-[14px] sm:text-[15px] text-slate-400 max-w-lg mb-5 leading-relaxed">
+                Vaultex Market is a crypto brokerage built around a careful onboarding process,
+                transparent fees, and security-focused account controls. Buy and sell the major
+                digital assets through one unified interface.
+              </p>
+
+              {/* Short risk note — kept elegant, not scary */}
+              <p className="text-[11px] text-slate-500 mb-6 max-w-lg leading-relaxed">
+                <span className="text-yellow-400/80 font-semibold">Note:</span>{" "}
+                {SHORT_RISK_NOTICE} Only trade funds you can afford to lose.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-2.5 mb-7">
@@ -164,22 +171,22 @@ export default async function HomePage() {
                   href="/register"
                   className="vx-btn-primary inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg text-[13px]"
                 >
-                  Open Free Account <ArrowRight className="h-4 w-4" />
+                  Open an Account <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/markets"
                   className="vx-btn-ghost inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg text-[13px]"
                 >
-                  Explore Markets <ChevronRight className="h-4 w-4" />
+                  View Markets <ChevronRight className="h-4 w-4" />
                 </Link>
               </div>
 
-              {/* Trust chips */}
+              {/* Trust chips — only things actually implemented */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-slate-500 mb-7">
-                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> TLS Secured</span>
-                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> Email OTP</span>
-                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> KYC Verified</span>
-                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> Audit Trail</span>
+                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> TLS transport</span>
+                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> Email OTP login</span>
+                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> Manual KYC review</span>
+                <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-400" /> Activity log</span>
               </div>
 
               {/* Stat chips — compact */}
@@ -249,13 +256,14 @@ export default async function HomePage() {
             <div>
               <div className="vx-eyebrow mb-2">Trading Terminal</div>
               <h2 className="text-[26px] sm:text-[30px] font-bold text-white tracking-tight leading-[1.1] max-w-xl">
-                A serious interface,{" "}
-                <span className="gradient-text">built for serious traders.</span>
+                Market data, order book,{" "}
+                <span className="gradient-text">and order form in one view.</span>
               </h2>
             </div>
             <p className="text-[13px] text-slate-400 max-w-md leading-relaxed">
-              Real-time quotes, a clean order book, a professional chart surface, and a unified
-              buy/sell panel — all wired to the same data feed you&apos;ll use inside the dashboard.
+              A preview of the interface that opens inside the dashboard once your account is verified.
+              Prices shown are the latest market snapshot — live order placement requires a signed-in,
+              verified account.
             </p>
           </div>
 
@@ -279,13 +287,13 @@ export default async function HomePage() {
         style={{ background: "linear-gradient(180deg, oklch(0.07 0.02 240) 0%, oklch(0.075 0.022 238) 50%, oklch(0.07 0.02 240) 100%)" }}>
         <div className="max-w-7xl mx-auto">
           <div className="max-w-2xl mb-10">
-            <div className="vx-eyebrow mb-3">Platform Capabilities</div>
+            <div className="vx-eyebrow mb-3">What the Platform Does</div>
             <h2 className="text-[26px] sm:text-[32px] font-bold text-white tracking-tight leading-[1.1]">
-              Everything you need,{" "}
-              <span className="gradient-text">without the clutter.</span>
+              A focused set of tools,{" "}
+              <span className="gradient-text">nothing extra.</span>
             </h2>
             <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
-              A focused feature set designed around real trading workflows — not a marketing checklist.
+              Only the features that matter for running a disciplined trading workflow.
             </p>
           </div>
 
@@ -329,11 +337,12 @@ export default async function HomePage() {
             <div>
               <div className="vx-eyebrow mb-2">Onboarding</div>
               <h2 className="text-[26px] sm:text-[32px] font-bold text-white tracking-tight leading-[1.1]">
-                Get started in minutes.
+                How account opening works.
               </h2>
             </div>
             <p className="text-[13px] text-slate-400 max-w-md leading-relaxed">
-              Four steps from first visit to your first order. No hidden friction, no marketing detours.
+              A monitored four-step process. Identity verification is reviewed manually
+              and typically takes one business day.
             </p>
           </div>
 
@@ -371,23 +380,24 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-12 items-start">
             <div>
-              <div className="vx-eyebrow mb-2">Security First</div>
+              <div className="vx-eyebrow mb-2">Platform Trust &amp; Operations</div>
               <h2 className="text-[26px] sm:text-[32px] font-bold text-white tracking-tight leading-[1.1] mb-4">
-                Premium account{" "}
-                <span className="gradient-text">security by default.</span>
+                Why traders{" "}
+                <span className="gradient-text">trust Vaultex.</span>
               </h2>
               <p className="text-[13px] text-slate-400 leading-relaxed mb-5 max-w-lg">
-                We take security seriously. Your account, data, and digital assets are protected with
-                clean, well-audited infrastructure and sensible defaults at every layer.
+                Every sign-in, deposit, trade, and withdrawal is recorded in your account history.
+                Our compliance and finance teams manually review identity documents and fund transfers
+                so nothing moves on the platform without a visible paper trail.
               </p>
 
               <ul className="space-y-2 max-w-md">
                 {[
-                  { icon: KeyRound,    text: "Email one-time passcode login flow"        },
-                  { icon: Lock,        text: "Bcrypt-hashed password storage"            },
-                  { icon: ShieldCheck, text: "Role-based admin access controls"          },
-                  { icon: FileCheck2,  text: "Comprehensive audit trail on every action" },
-                  { icon: Eye,         text: "Manual review for deposits & withdrawals"  },
+                  { icon: KeyRound,    text: "Email one-time passcode required on every sign-in" },
+                  { icon: Lock,        text: "Passwords hashed with bcrypt, never stored in plain text" },
+                  { icon: ShieldCheck, text: "Role-based admin access with scoped permissions"   },
+                  { icon: FileCheck2,  text: "Account activity log visible to you and our compliance team" },
+                  { icon: Eye,         text: "Manual review for every deposit and withdrawal"    },
                 ].map((item) => (
                   <li key={item.text} className="flex items-center gap-3 text-[12.5px] text-slate-300">
                     <div className="w-7 h-7 rounded-md bg-sky-500/10 border border-sky-500/20 flex items-center justify-center flex-shrink-0">
@@ -435,20 +445,20 @@ export default async function HomePage() {
                 "0 0 0 1px rgba(14,165,233,0.08), 0 50px 120px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 60px rgba(14,165,233,0.025)",
             }}
           >
-            <div className="vx-eyebrow mb-4 inline-flex">Ready to Trade?</div>
+            <div className="vx-eyebrow mb-4 inline-flex">Open an Account</div>
             <h2 className="text-[28px] sm:text-[36px] font-bold text-white mb-4 tracking-tight">
-              Start your trading journey.
+              Ready when you are.
             </h2>
             <p className="text-[13px] sm:text-[14px] text-slate-400 mb-8 max-w-xl mx-auto leading-relaxed">
-              Join thousands of verified traders on Vaultex Market. Open your account today and access
-              clean execution, up-to-date market data, and dedicated support.
+              Create an account with your email to review the full dashboard. Identity verification
+              is required before funding an account or placing an order.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
                 href="/register"
                 className="vx-btn-primary inline-flex items-center justify-center gap-2 h-[52px] px-8 rounded-lg text-[14px]"
               >
-                Create Free Account <ArrowRight className="h-4 w-4" />
+                Create Account <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/login"
@@ -458,7 +468,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <p className="text-[11px] text-slate-600 mt-6">
-              No setup fees · KYC-verified onboarding · Instant account activation
+              No account fee · Manual KYC review · {SHORT_RISK_NOTICE}
             </p>
           </div>
         </div>

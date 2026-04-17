@@ -93,7 +93,7 @@ export function MarketPanel({
           ))}
         </div>
         <div className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold hidden sm:inline-flex items-center gap-1.5">
-          <span className="vx-live-dot" /> Refreshed every minute
+          <span className="vx-live-dot" /> Market snapshot
         </div>
       </div>
 
