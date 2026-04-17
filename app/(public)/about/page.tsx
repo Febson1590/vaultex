@@ -111,9 +111,6 @@ export default function AboutPage() {
           <div className="mb-5">
             <div className="vx-eyebrow mb-2">Company Information</div>
             <h2 className="text-xl font-bold text-white">Entity &amp; operating details</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Some fields below are placeholders until the corresponding registrations are finalised.
-            </p>
           </div>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
             <div className="flex items-start gap-3">

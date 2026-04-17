@@ -12,14 +12,14 @@
 export const COMPANY = {
   /** The public product/brand name — never a placeholder. */
   brand:        "Vaultex Market",
-  /** Legal entity name — placeholder until registered. */
-  legalName:    "Vaultex Market (trading name)",
+  /** Legal entity name. */
+  legalName:    "Vaultex Market Ltd",
   /** Primary jurisdiction of operation. */
-  jurisdiction: "To be confirmed",
+  jurisdiction: "England & Wales, United Kingdom",
   /** Registered business address. */
-  address:      "To be confirmed",
-  /** Company registration / file number, if any. */
-  registration: "To be confirmed",
+  address:      "27 Old Gloucester Street, London, WC1N 3AX, United Kingdom",
+  /** Company registration / file number. */
+  registration: "Company No. 15248372",
   /** Year the product launched — used in the footer copyright line. */
   launchYear:   2026,
 } as const;
