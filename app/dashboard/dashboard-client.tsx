@@ -7,23 +7,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
 import { addInvestmentFunds, stopCopyTrade } from "@/lib/actions/investment";
-
-// Range label map — defined locally to keep lib/chart.ts out of the browser bundle
-// (lib/chart.ts imports Prisma/pg which are Node.js-only)
-const RANGE_LABELS: Record<string, string> = {
-  "7d":  "7-day",
-  "30d": "30-day",
-  "90d": "90-day",
-  "1y":  "1-year",
-};
 import {
-  TrendingUp, DollarSign, Activity, Zap,
-  ArrowUpRight, Plus, ShieldAlert, Loader2,
-  Clock, Users, StopCircle, XCircle,
-  ArrowDownToLine, ArrowUpFromLine, RefreshCw, Wallet,
+  TrendingUp, Activity, Plus, ShieldAlert, Loader2, Clock,
+  Users, StopCircle, XCircle, ArrowDownToLine, ArrowUpFromLine,
+  History, Copy as CopyIcon, ChevronRight,
 } from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────
+   Types
+────────────────────────────────────────────────────────────────────── */
 
 interface Investment {
   id: string;
@@ -69,7 +61,6 @@ interface DashboardClientProps {
   usdBalance: number;
   totalPortfolio: number;
   totalEarned: number;
-  /** Real KYC status — drives the verification banner */
   kycStatus: "not_submitted" | "pending" | "approved" | "rejected";
   investment: Investment | null;
   copyTrades: CopyTrade[];
@@ -78,18 +69,14 @@ interface DashboardClientProps {
   wallets: WalletBalance[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────
+   Helpers
+────────────────────────────────────────────────────────────────────── */
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency", currency: "USD", maximumFractionDigits: 2,
   }).format(n);
-}
-
-function fmtShort(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(2)}K`;
-  return fmt(n);
 }
 
 function fmtPct(n: number) {
@@ -104,7 +91,60 @@ function timeAgo(date: string) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// ─── Countdown hook ──────────────────────────────────────────────────────────────────────────
+/** Produce a polite greeting by time-of-day. */
+function greetingFor(name: string | null) {
+  const h = new Date().getHours();
+  const greeting = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  const first    = (name ?? "").trim().split(/\s+/)[0];
+  return first ? `${greeting}, ${first}` : greeting;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Shared primitives
+────────────────────────────────────────────────────────────────────── */
+
+/** Unified premium card surface used throughout the dashboard. */
+function Card({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border border-white/[0.06] ${className}`}
+      style={{ background: "rgba(10,18,34,0.7)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Consistent header strip used at the top of every card. */
+function CardHeader({
+  icon: Icon,
+  title,
+  action,
+}: {
+  icon?: React.ElementType;
+  title: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.05]">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon size={14} className="text-sky-400" />}
+        <span className="text-[13px] font-semibold text-white">{title}</span>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Countdown (next-profit timer)
+────────────────────────────────────────────────────────────────────── */
 
 function useCountdown(nextProfitAt: string | null) {
   const [secs, setSecs] = useState(0);
@@ -122,32 +162,29 @@ function useCountdown(nextProfitAt: string | null) {
   return { display: `${m}:${s}`, secs };
 }
 
-// ─── CountdownBadge ─────────────────────────────────────────────────────────────────────────
-
-function CountdownBadge({ nextProfitAt, label = "Next profit in" }: {
-  nextProfitAt: string | null;
-  label?: string;
-}) {
+function CountdownText({ nextProfitAt }: { nextProfitAt: string | null }) {
   const { display, secs } = useCountdown(nextProfitAt);
-  const isClose = secs > 0 && secs <= 10;
+  if (!nextProfitAt) return <span className="text-slate-500 font-mono">—</span>;
+  const due = secs === 0;
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-semibold ${
-      isClose ? "text-emerald-300 animate-pulse" : "text-slate-300"
-    }`}>
-      <Clock size={11} className={isClose ? "text-emerald-400" : "text-slate-400"} />
-      {label}: {secs === 0 ? "Due…" : display}
+    <span className={`font-mono font-semibold ${due ? "text-emerald-400" : "text-white"}`}>
+      {due ? "Due…" : display}
     </span>
   );
 }
 
-// ─── Add Funds Modal ────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────
+   Add Funds modal
+────────────────────────────────────────────────────────────────────── */
 
-function AddFundsModal({ usdBalance, onClose, onSuccess }: {
+function AddFundsModal({
+  usdBalance, onClose, onSuccess,
+}: {
   usdBalance: number;
-  onClose: () => void;
-  onSuccess: () => void;
+  onClose:    () => void;
+  onSuccess:  () => void;
 }) {
-  const [amount, setAmount] = useState("");
+  const [amount,  setAmount]  = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit() {
@@ -157,7 +194,7 @@ function AddFundsModal({ usdBalance, onClose, onSuccess }: {
     setLoading(true);
     const r = await addInvestmentFunds(n);
     setLoading(false);
-    if ('error' in r) { toast.error(r.error); return; }
+    if ("error" in r) { toast.error(r.error); return; }
     toast.success(`$${n.toLocaleString()} added to your investment`);
     onSuccess();
     onClose();
@@ -166,11 +203,11 @@ function AddFundsModal({ usdBalance, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-sky-500/25"
+        className="w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-sky-500/20"
         style={{ background: "rgba(7,15,30,0.98)" }}
         onClick={e => e.stopPropagation()}
       >
-        <h3 className="text-base font-bold text-white mb-1">Add Funds to Investment</h3>
+        <h3 className="text-base font-semibold text-white mb-1">Add Funds to Investment</h3>
         <p className="text-xs text-slate-400 mb-5">
           Available: <span className="text-white font-semibold">{fmt(usdBalance)}</span>
         </p>
@@ -180,14 +217,14 @@ function AddFundsModal({ usdBalance, onClose, onSuccess }: {
           value={amount}
           onChange={e => setAmount(e.target.value)}
           autoFocus
-          className="w-full bg-white/[0.07] border border-white/[0.18] rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60 mb-4"
+          className="w-full bg-white/[0.05] border border-white/[0.12] rounded-lg px-4 py-3 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/50 mb-4"
         />
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white h-10" onClick={onClose}>
             Cancel
           </Button>
           <Button
-            className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-bold h-10"
+            className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold h-10"
             onClick={submit}
             disabled={loading}
           >
@@ -200,605 +237,9 @@ function AddFundsModal({ usdBalance, onClose, onSuccess }: {
   );
 }
 
-// ─── Portfolio Overview ────────────────────────────────────────────────────────────────────────
-// Manages its own chart range state and re-fetches from /api/dashboard/chart
-// whenever the range changes or a profit is credited (refreshKey increments).
-
-const RANGES = ["7d", "30d", "90d", "1y"] as const;
-type Range = typeof RANGES[number];
-
-function PortfolioOverview({
-  usdBalance,
-  totalPortfolio,
-  totalEarned,
-  initialChartData,
-  refreshKey,
-  kycStatus,
-}: {
-  usdBalance: number;
-  totalPortfolio: number;
-  totalEarned: number;
-  initialChartData: { date: string; value: number }[];
-  refreshKey: number;
-  kycStatus: string;
-}) {
-  const [chartData,    setChartData]    = useState(initialChartData);
-  const [chartRange,   setChartRange]   = useState<Range>("30d");
-  const [chartLoading, setChartLoading] = useState(false);
-  const isFirstMount = useRef(true);
-  const prevRefreshKey = useRef(0);
-
-  // Fetch chart data from the API for the given range
-  const fetchChartData = useCallback(async (range: Range) => {
-    setChartLoading(true);
-    try {
-      const res = await fetch(`/api/dashboard/chart?range=${range}`);
-      if (!res.ok) return;
-      const json = await res.json();
-      setChartData(json.data ?? []);
-    } catch {
-      // silent — keep existing data
-    } finally {
-      setChartLoading(false);
-    }
-  }, []);
-
-  // Re-fetch whenever range changes (skip initial render — use SSR data)
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
-    fetchChartData(chartRange);
-  }, [chartRange, fetchChartData]);
-
-  // Re-fetch whenever a profit is credited (refreshKey increments)
-  useEffect(() => {
-    if (refreshKey > 0 && refreshKey !== prevRefreshKey.current) {
-      prevRefreshKey.current = refreshKey;
-      fetchChartData(chartRange);
-    }
-  }, [refreshKey, chartRange, fetchChartData]);
-
-  // True only when at least one chart point has a non-zero balance.
-  // Used to gate the gain section, range tabs, and chart vs. empty-state.
-  const hasActivity = chartData.some(d => d.value > 0);
-
-  // Gain = last point − first point (only meaningful when there IS activity)
-  const chartGain =
-    hasActivity && chartData.length >= 2
-      ? chartData[chartData.length - 1].value - chartData[0].value
-      : 0;
-
-  const rangeLabel = RANGE_LABELS[chartRange] ?? chartRange;
-  // Route blocked actions to the verification page with a status hint
-  const isKycApproved = kycStatus === "approved";
-  const kycHref = `/dashboard/verification?status=${kycStatus}`;
-
-  return (
-    <div
-      className="rounded-2xl border border-sky-500/15 overflow-hidden"
-      style={{ background: "rgba(7,15,30,0.85)" }}
-    >
-      {/* ── Header row ────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between px-5 pt-5 pb-2">
-        {/* Left: balance + deposit */}
-        <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
-            Total Balance
-          </p>
-          <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            {fmt(usdBalance)}
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <Link href={isKycApproved ? "/dashboard/deposit" : kycHref}>
-              <Button
-                size="sm"
-                className="h-8 px-4 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/30"
-              >
-                <ArrowDownToLine size={12} className="mr-1.5" />
-                Deposit
-              </Button>
-            </Link>
-            {totalPortfolio > usdBalance && (
-              <span className="text-xs text-slate-500">
-                Portfolio:{" "}
-                <span className="text-slate-300 font-semibold">{fmt(totalPortfolio)}</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Right: gain + earned — hidden on accounts with no real history */}
-        {hasActivity && (
-          <div className="text-right flex-shrink-0">
-            <div
-              className={`text-lg font-extrabold ${
-                chartGain >= 0 ? "text-emerald-400" : "text-red-400"
-              }`}
-            >
-              {chartGain >= 0 ? "+" : ""}
-              {fmt(chartGain)}
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5">{rangeLabel} change</div>
-            {totalEarned > 0 && (
-              <div className="text-xs font-semibold text-sky-400 mt-1">
-                {fmt(totalEarned)} earned
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Range selector — only shown when real balance history exists ── */}
-      {hasActivity && (
-        <div className="flex items-center justify-between px-5 pb-1 pt-1">
-          <span className="text-[10px] text-slate-600 font-medium tracking-wider uppercase">
-            Balance History
-          </span>
-          <div className="flex gap-1">
-            {RANGES.map(r => (
-              <button
-                key={r}
-                onClick={() => setChartRange(r)}
-                className={`
-                  text-[10px] font-bold px-2.5 py-1 rounded-md transition-all duration-150
-                  ${chartRange === r
-                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/30"
-                    : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]"
-                  }
-                `}
-              >
-                {r.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Chart / loading / empty state ─────────────────────────────────── */}
-      {chartLoading ? (
-        /* Fetching data for a range change — show inline spinner */
-        <div className="h-44 flex items-center justify-center">
-          <Loader2 size={18} className="text-sky-400 animate-spin" />
-        </div>
-      ) : hasActivity ? (
-        /* Real balance history exists — render the chart */
-        <div className="h-44 px-2 pb-3">
-          <PortfolioChart data={chartData} isLoading={false} />
-        </div>
-      ) : (
-        /* No real balance-affecting events at all — polished empty state */
-        <div className="flex flex-col items-center justify-center gap-3 px-5 py-8 border-t border-white/[0.04]">
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-            style={{
-              background: "rgba(14,165,233,0.07)",
-              border: "1px solid rgba(14,165,233,0.12)",
-            }}
-          >
-            <TrendingUp size={20} className="text-sky-700" />
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-bold text-white mb-1">No balance activity yet</p>
-            <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
-              Your balance history chart will appear here as soon as your first
-              deposit is confirmed.
-            </p>
-          </div>
-          <Link href="/dashboard/deposit" className="mt-1">
-            <Button
-              size="sm"
-              className="h-8 px-5 bg-sky-500/[0.15] hover:bg-sky-500/[0.25] text-sky-300 border border-sky-500/30 font-bold text-xs"
-            >
-              <ArrowDownToLine size={11} className="mr-1.5" /> Make a Deposit
-            </Button>
-          </Link>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Wallet Strip ────────────────────────────────────────────────────────────────────────────────
-
-const CURRENCY_META: Record<string, { color: string; symbol: string }> = {
-  USD:  { color: "#0ea5e9", symbol: "$"  },
-  USDT: { color: "#10b981", symbol: "₮"  },
-  BTC:  { color: "#f59e0b", symbol: "₿"  },
-  ETH:  { color: "#6366f1", symbol: "Ξ"  },
-  BNB:  { color: "#eab308", symbol: "Ƀ"  },
-  SOL:  { color: "#8b5cf6", symbol: "◎"  },
-};
-
-function WalletStrip({ wallets, kycStatus }: { wallets: WalletBalance[]; kycStatus: string }) {
-  if (wallets.length === 0) return null;
-  const isKycApproved = kycStatus === "approved";
-  const kycHref = `/dashboard/verification?status=${kycStatus}`;
-  return (
-    <div className="rounded-2xl border border-sky-500/15 overflow-hidden" style={{ background: "rgba(7,15,30,0.85)" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.05]">
-        <div className="flex items-center gap-2">
-          <Wallet size={14} className="text-sky-400" />
-          <span className="text-sm font-bold text-white">Wallets</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href={isKycApproved ? "/dashboard/deposit" : kycHref}>
-            <span className="text-xs text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1">
-              <ArrowDownToLine size={11} /> Deposit
-            </span>
-          </Link>
-          <Link href={isKycApproved ? "/dashboard/withdraw" : kycHref}>
-            <span className="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1">
-              <ArrowUpFromLine size={11} /> Withdraw
-            </span>
-          </Link>
-        </div>
-      </div>
-      {/* Wallet grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/[0.04]">
-        {wallets.map(w => {
-          const meta = CURRENCY_META[w.currency] ?? { color: "#64748b", symbol: "" };
-          const isFiat = w.currency === "USD" || w.currency === "USDT";
-          return (
-            <div key={w.id} className="px-5 py-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-                  style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}35`, color: meta.color }}
-                >
-                  {meta.symbol || w.currency.slice(0, 1)}
-                </div>
-                <span className="text-xs font-semibold text-slate-400">{w.currency}</span>
-              </div>
-              <div className="text-base font-extrabold text-white">
-                {isFiat
-                  ? fmt(w.balance)
-                  : `${w.balance.toFixed(6)}`}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Active Investment ──────────────────────────────────────────────────────────────────────────
-
-function ActiveInvestment({
-  investment,
-  usdBalance,
-  onRefresh,
-  kycStatus,
-}: {
-  investment: Investment | null;
-  usdBalance: number;
-  onRefresh: () => void;
-  kycStatus: string;
-}) {
-  const router = useRouter();
-  const [showAddFunds, setShowAddFunds] = useState(false);
-  const isKycApproved = kycStatus === "approved";
-  const kycHref = `/dashboard/verification?status=${kycStatus}`;
-  const roiPct = investment && investment.amount > 0
-    ? (investment.totalEarned / investment.amount) * 100
-    : 0;
-
-  return (
-    <div className="rounded-2xl border border-sky-500/15 overflow-hidden" style={{ background: "rgba(7,15,30,0.85)" }}>
-      {/* Section header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={14} className="text-sky-400" />
-          <span className="text-sm font-bold text-white">Active Investment</span>
-        </div>
-        {investment && investment.status === "ACTIVE" && (
-          <CountdownBadge nextProfitAt={investment.nextProfitAt} />
-        )}
-      </div>
-
-      {investment && investment.status !== "CANCELLED" ? (
-        <div className="px-5 py-4 space-y-4">
-          {/* Plan row */}
-          <div className="flex items-center gap-3">
-            {/* Icon */}
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(234,88,12,0.25) 100%)", border: "1px solid rgba(245,158,11,0.3)" }}>
-              <TrendingUp size={18} className="text-amber-400" />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-extrabold text-white truncate">{investment.planName}</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                  investment.status === "ACTIVE"
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                    : "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
-                }`}>
-                  {investment.status}
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  {investment.minProfit}%–{investment.maxProfit}% / cycle
-                </span>
-              </div>
-            </div>
-
-            {/* Earnings on right */}
-            <div className="text-right flex-shrink-0">
-              <div className="text-xl font-extrabold text-emerald-400">{fmt(investment.totalEarned)}</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">total earned</div>
-            </div>
-          </div>
-
-          {/* Stats bar */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl px-3 py-2.5 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Invested</div>
-              <div className="text-sm font-extrabold text-white">{fmt(investment.amount)}</div>
-            </div>
-            <div className="rounded-xl px-3 py-2.5 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">ROI</div>
-              <div className="text-sm font-extrabold text-sky-400">{fmtPct(roiPct)}</div>
-            </div>
-            <div className="rounded-xl px-3 py-2.5 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Interval</div>
-              <div className="text-sm font-extrabold text-white">{investment.profitInterval}s</div>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          {investment.status === "ACTIVE" && (
-            <div className="flex gap-2 pt-1">
-              <Button
-                size="sm"
-                className="flex-1 h-10 bg-sky-500/[0.12] hover:bg-sky-500/[0.22] text-sky-300 border border-sky-500/30 font-bold text-xs"
-                onClick={() => {
-                  if (!isKycApproved) { router.push(kycHref); return; }
-                  setShowAddFunds(true);
-                }}
-              >
-                <Plus size={13} className="mr-1.5" /> Add Funds
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1 h-10 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-lg shadow-sky-500/20"
-                render={<Link href="/dashboard/support" />}
-              >
-                <Zap size={13} className="mr-1.5" /> Upgrade Plan
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-10 w-10 px-0 border-white/10 text-slate-400 hover:text-white hover:bg-white/5 flex-shrink-0"
-                onClick={onRefresh}
-                title="Refresh"
-              >
-                <RefreshCw size={13} />
-              </Button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="px-5 py-10 flex flex-col items-center text-center">
-          <div className="w-14 h-14 rounded-2xl bg-sky-500/10 flex items-center justify-center mb-4">
-            <TrendingUp size={22} className="text-sky-400/50" />
-          </div>
-          <p className="text-sm font-bold text-white mb-1">No Active Investment</p>
-          <p className="text-xs text-slate-500 mb-5 max-w-xs">
-            Deposit funds and our team will activate an investment plan for you.
-          </p>
-          <Link href={isKycApproved ? "/dashboard/deposit" : kycHref}>
-            <Button size="sm" className="bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs h-9">
-              <ArrowDownToLine size={12} className="mr-1.5" /> Make a Deposit
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {showAddFunds && investment && (
-        <AddFundsModal
-          usdBalance={usdBalance}
-          onClose={() => setShowAddFunds(false)}
-          onSuccess={onRefresh}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Copy Trading ─────────────────────────────────────────────────────────────────────────────
-
-function CopyTradingSection({
-  trades,
-  onRefresh,
-}: {
-  trades: CopyTrade[];
-  onRefresh: () => void;
-}) {
-  const [stopping, setStopping] = useState<string | null>(null);
-  const active = trades.filter(t => t.status !== "STOPPED");
-
-  async function handleStop(id: string, name: string) {
-    setStopping(id);
-    const r = await stopCopyTrade(id);
-    setStopping(null);
-    if (r.error) { toast.error(r.error); return; }
-    toast.success(`Stopped copying ${name}`);
-    onRefresh();
-  }
-
-  return (
-    <div className="rounded-2xl border border-sky-500/15 overflow-hidden" style={{ background: "rgba(7,15,30,0.85)" }}>
-      {/* Section header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
-        <div className="flex items-center gap-2">
-          <Users size={14} className="text-sky-400" />
-          <span className="text-sm font-bold text-white">Copy Trading</span>
-        </div>
-        {active.length > 0 && (
-          <span className="text-xs text-slate-500">{active.length} active</span>
-        )}
-      </div>
-
-      {active.length === 0 ? (
-        <div className="px-5 py-10 flex flex-col items-center text-center">
-          <div className="w-14 h-14 rounded-2xl bg-sky-500/10 flex items-center justify-center mb-4">
-            <Users size={22} className="text-sky-400/50" />
-          </div>
-          <p className="text-sm font-bold text-white mb-1">No Copy Trades Active</p>
-          <p className="text-xs text-slate-500 max-w-xs">
-            Our experts can assign top traders to copy on your behalf.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Column headers */}
-          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 items-center px-5 py-2 border-b border-white/[0.03]">
-            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">Amount</span>
-            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">Trader</span>
-            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest text-right">Earned</span>
-            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest text-right">ROI</span>
-            <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest text-right">Action</span>
-          </div>
-
-          {/* Rows */}
-          <div className="divide-y divide-white/[0.04]">
-            {active.map(trade => {
-              const roiPct = trade.amount > 0 ? (trade.totalEarned / trade.amount) * 100 : 0;
-              const hue = [...trade.traderName].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
-              const isStop = stopping === trade.id;
-
-              return (
-                <div
-                  key={trade.id}
-                  className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 items-center px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
-                >
-                  {/* Amount copied */}
-                  <div className="text-sm font-bold text-sky-400 tabular-nums w-20">
-                    {fmtShort(trade.amount)}
-                  </div>
-
-                  {/* Trader name + countdown */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                        style={{
-                          background: `hsl(${hue} 55% 22%)`,
-                          border: `1px solid hsl(${hue} 55% 32%)`,
-                        }}
-                      >
-                        {trade.traderName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-white truncate">{trade.traderName}</div>
-                        {trade.status === "ACTIVE" && (
-                          <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums">
-                            <CountdownBadge nextProfitAt={trade.nextProfitAt} label="Next" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Earned */}
-                  <div className="text-sm font-extrabold text-emerald-400 tabular-nums text-right">
-                    {fmt(trade.totalEarned)}
-                  </div>
-
-                  {/* ROI */}
-                  <div className="text-xs font-bold text-sky-400 tabular-nums text-right">
-                    {fmtPct(roiPct)}
-                  </div>
-
-                  {/* Stop button */}
-                  <div className="text-right">
-                    <Button
-                      size="sm"
-                      disabled={isStop}
-                      onClick={() => handleStop(trade.id, trade.traderName)}
-                      className="h-7 px-2.5 text-[11px] font-bold bg-red-500/[0.12] hover:bg-red-500/[0.22] text-red-400 border border-red-500/25 hover:border-red-500/40"
-                    >
-                      {isStop
-                        ? <Loader2 size={11} className="animate-spin" />
-                        : <><StopCircle size={11} className="mr-1" />Stop</>
-                      }
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Recent Activity ────────────────────────────────────────────────────────────────────────
-
-const ACT_COLOR: Record<string, string> = {
-  INVESTMENT_PROFIT:     "text-emerald-400",
-  COPY_TRADE_PROFIT:     "text-sky-400",
-  INVESTMENT_STARTED:    "text-violet-400",
-  COPY_TRADE_STARTED:    "text-blue-400",
-  INVESTMENT_FUNDS_ADDED:"text-yellow-400",
-  INVESTMENT_UPGRADED:   "text-orange-400",
-  INVESTMENT_CANCELLED:  "text-red-400",
-  COPY_TRADE_STOPPED:    "text-red-400",
-};
-
-const ACT_DOT: Record<string, string> = {
-  INVESTMENT_PROFIT:     "bg-emerald-500",
-  COPY_TRADE_PROFIT:     "bg-sky-500",
-  INVESTMENT_STARTED:    "bg-violet-500",
-  COPY_TRADE_STARTED:    "bg-blue-500",
-  INVESTMENT_FUNDS_ADDED:"bg-yellow-500",
-  INVESTMENT_UPGRADED:   "bg-orange-500",
-  INVESTMENT_CANCELLED:  "bg-red-500",
-  COPY_TRADE_STOPPED:    "bg-red-500",
-};
-
-function RecentActivity({ activity }: { activity: ActivityItem[] }) {
-  return (
-    <div className="rounded-2xl border border-sky-500/15 overflow-hidden" style={{ background: "rgba(7,15,30,0.85)" }}>
-      <div className="flex items-center gap-2 px-5 py-4 border-b border-white/[0.05]">
-        <Activity size={14} className="text-sky-400" />
-        <span className="text-sm font-bold text-white">Recent Activity</span>
-      </div>
-
-      {activity.length === 0 ? (
-        <div className="px-5 py-8 text-center text-xs text-slate-500">No activity yet</div>
-      ) : (
-        <div className="divide-y divide-white/[0.04] max-h-72 overflow-y-auto">
-          {activity.map(item => (
-            <div key={item.id} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02] transition-colors">
-              {/* Dot */}
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ACT_DOT[item.type] || "bg-slate-500"}`} />
-
-              {/* Title + time */}
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-white truncate">{item.title}</div>
-                <div className="text-[10px] text-slate-600 mt-0.5">{timeAgo(item.createdAt)}</div>
-              </div>
-
-              {/* Amount */}
-              {item.amount != null && item.amount > 0 && (
-                <div className={`text-xs font-extrabold flex-shrink-0 tabular-nums ${ACT_COLOR[item.type] || "text-slate-300"}`}>
-                  +{fmt(item.amount)}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────────────────────
+/* ══════════════════════════════════════════════════════════════════════
+   Main component
+══════════════════════════════════════════════════════════════════════ */
 
 export default function DashboardClient({
   user,
@@ -812,21 +253,39 @@ export default function DashboardClient({
   chartData,
   wallets,
 }: DashboardClientProps) {
+  // Silence unused-var warning — totalEarned is recomputed below from
+  // live investment/copyTrades state, but we keep the prop for type parity.
+  void initEarned;
+  void wallets;
+  void totalPortfolio;
+
+  const router = useRouter();
+
   const [usdBalance, setUsdBalance]       = useState(initBalance);
   const [investment, setInvestment]       = useState<Investment | null>(initInvestment);
   const [copyTrades, setCopyTrades]       = useState<CopyTrade[]>(initCopyTrades);
   const [activity, setActivity]           = useState<ActivityItem[]>(initActivity);
-  const [tick, setTick]                   = useState(0);
-  // Incremented whenever a profit is credited or manual refresh happens
-  // → causes PortfolioOverview to re-fetch chart data
   const [chartRefreshKey, setChartRefreshKey] = useState(0);
+  const [showAddFunds, setShowAddFunds]   = useState(false);
+  const [stoppingId, setStoppingId]       = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  /* ── Derived values ────────────────────────────────────────────── */
+  const activeCopyTrades = copyTrades.filter(t => t.status !== "STOPPED");
+  const copyTradingTotal = activeCopyTrades.reduce((s, t) => s + t.amount, 0);
   const totalEarned =
     (investment ? investment.totalEarned : 0) +
-    copyTrades.filter(t => t.status !== "STOPPED").reduce((s, t) => s + t.totalEarned, 0);
+    activeCopyTrades.reduce((s, t) => s + t.totalEarned, 0);
+  const activeInvested = investment && investment.status !== "CANCELLED" ? investment.amount : 0;
+  const roiPct = activeInvested > 0 ? (totalEarned / activeInvested) * 100 : 0;
 
-  // 15-second profit poll
+  // Daily change — computed from chart data (last vs previous point)
+  const daily = computeDailyChange(chartData, usdBalance);
+
+  const isKycApproved = kycStatus === "approved";
+  const kycHref = `/dashboard/verification?status=${kycStatus}`;
+
+  /* ── Profit polling (unchanged logic) ─────────────────────────── */
   const pollProfit = useCallback(async () => {
     try {
       const res = await fetch("/api/investment/profit", { method: "POST" });
@@ -837,7 +296,6 @@ export default function DashboardClient({
         data.credited.forEach((c: { label: string; amount: number }) => {
           toast.success(`+${fmt(c.amount)} — ${c.label}`, { duration: 5000 });
         });
-        // New profit credited → refresh chart to show the new balance point
         setChartRefreshKey(k => k + 1);
       }
       if (data.investment !== undefined) setInvestment(data.investment ? ser(data.investment) : null);
@@ -845,7 +303,7 @@ export default function DashboardClient({
       if (data.activity)    setActivity(data.activity.map(serAct));
       if (data.usdBalance !== undefined) setUsdBalance(data.usdBalance);
     } catch {
-      // silent
+      /* silent */
     }
   }, []);
 
@@ -855,153 +313,539 @@ export default function DashboardClient({
   }, [pollProfit]);
 
   function refresh() {
-    setTick(t => t + 1);
     setChartRefreshKey(k => k + 1);
     pollProfit();
   }
 
-  const activeCopyTrades = copyTrades.filter(t => t.status !== "STOPPED");
+  /* ── Handlers ─────────────────────────────────────────────────── */
+  async function handleStopCopy(id: string, name: string) {
+    setStoppingId(id);
+    const r = await stopCopyTrade(id);
+    setStoppingId(null);
+    if (r.error) { toast.error(r.error); return; }
+    toast.success(`Stopped copying ${name}`);
+    refresh();
+  }
 
+  /* ══════════════════════════════════════════════════════════════ */
   return (
-    <div className="space-y-4 sm:space-y-5">
-      {/* ── KYC banner — 4 states ────────────────────────────────────────────── */}
-      {kycStatus === "not_submitted" && (
-        <div
-          className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-yellow-500/20"
-          style={{ background: "rgba(234,179,8,0.06)" }}
-        >
-          <div className="flex items-center gap-3">
-            <ShieldAlert className="h-5 w-5 text-yellow-400 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-bold text-yellow-300">Identity Verification Required</p>
-              <p className="text-xs text-slate-400 mt-0.5">Complete KYC to unlock full access and higher limits.</p>
+    <div className="space-y-5 max-w-3xl mx-auto">
+
+      {/* ── KYC banner ──────────────────────────────────────────── */}
+      <KycBanner kycStatus={kycStatus} />
+
+      {/* ── 1. Top greeting ─────────────────────────────────────── */}
+      <div>
+        <h1 className="text-[20px] sm:text-[22px] font-bold text-white flex items-center gap-2">
+          {greetingFor(user.name)} <span aria-hidden="true">👋</span>
+        </h1>
+        {daily !== null && (
+          <p className="text-[13px] text-slate-400 mt-1">
+            Your portfolio is {daily.value >= 0 ? "up" : "down"}{" "}
+            <span className={daily.value >= 0 ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
+              {fmtPct(daily.pct)}
+            </span>{" "}
+            today
+          </p>
+        )}
+      </div>
+
+      {/* ── 2. MAIN HERO BALANCE CARD ──────────────────────────── */}
+      <Card className="overflow-hidden">
+        <div className="px-5 pt-5 pb-4">
+          <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold mb-2">
+            Total Balance
+          </p>
+          <div className="text-[32px] sm:text-[36px] font-bold text-white tracking-tight leading-none">
+            {fmt(usdBalance)}
+          </div>
+
+          {daily !== null && (
+            <div className="mt-2 text-[13px]">
+              <span className={daily.value >= 0 ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
+                {daily.value >= 0 ? "+" : ""}{fmt(daily.value)} today
+              </span>
+              <span className="text-slate-500 ml-1.5">
+                ({fmtPct(daily.pct)})
+              </span>
             </div>
-          </div>
-          <Link href="/dashboard/verification" className="flex-shrink-0">
-            <Button size="sm" className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs h-8 px-3">
-              Verify Now
-            </Button>
-          </Link>
-        </div>
-      )}
+          )}
 
-      {kycStatus === "pending" && (
-        <div
-          className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-sky-500/20"
-          style={{ background: "rgba(14,165,233,0.06)" }}
-        >
-          <div className="flex items-center gap-3">
-            <Clock className="h-5 w-5 text-sky-400 flex-shrink-0 animate-pulse" />
-            <div>
-              <p className="text-sm font-bold text-sky-300">Verification Under Review</p>
-              <p className="text-xs text-slate-400 mt-0.5">Your documents are being reviewed. We'll notify you once complete.</p>
-            </div>
-          </div>
-          <Link href="/dashboard/verification" className="flex-shrink-0">
-            <Button size="sm" variant="outline" className="border-sky-500/30 text-sky-300 hover:bg-sky-500/10 font-bold text-xs h-8 px-3">
-              View Status
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {kycStatus === "rejected" && (
-        <div
-          className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-red-500/25"
-          style={{ background: "rgba(239,68,68,0.06)" }}
-        >
-          <div className="flex items-center gap-3">
-            <XCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-bold text-red-300">Verification Rejected</p>
-              <p className="text-xs text-slate-400 mt-0.5">Your submission was not accepted. Please resubmit with valid documents.</p>
-            </div>
-          </div>
-          <Link href="/dashboard/verification" className="flex-shrink-0">
-            <Button size="sm" className="bg-red-500 hover:bg-red-400 text-white font-bold text-xs h-8 px-3">
-              Resubmit
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {/* kycStatus === "approved" → no banner */}
-
-      {/* ── LAYOUT ──────────────────────────────────────────────────────────────── */}
-      {/* Mobile/Tablet: single column | Desktop: 2-col */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 sm:gap-5">
-
-        {/* ── Left column ─────────────────────────────────────────────────────────────── */}
-        <div className="space-y-4 sm:space-y-5">
-
-          {/* 1. Portfolio Overview — real chart, range selector, auto-refresh */}
-          <PortfolioOverview
-            usdBalance={usdBalance}
-            totalPortfolio={totalPortfolio}
-            totalEarned={totalEarned}
-            initialChartData={chartData}
-            refreshKey={chartRefreshKey}
-            kycStatus={kycStatus}
-          />
-
-          {/* 1b. Wallet Balances (merged from Wallets page) */}
-          <WalletStrip wallets={wallets} kycStatus={kycStatus} />
-
-          {/* 2. Active Investment */}
-          <ActiveInvestment
-            key={tick}
-            investment={investment}
-            usdBalance={usdBalance}
-            onRefresh={refresh}
-            kycStatus={kycStatus}
-          />
-
-          {/* 3. Copy Trading — on mobile shows here in left col */}
-          <div className="xl:hidden">
-            <CopyTradingSection key={`mob-${tick}`} trades={copyTrades} onRefresh={refresh} />
-          </div>
-
-          {/* 4. Activity — on mobile shows here */}
-          <div className="xl:hidden">
-            <RecentActivity activity={activity} />
+          {/* Primary actions — Deposit, Withdraw */}
+          <div className="flex items-center gap-2 mt-4">
+            <Link href={isKycApproved ? "/dashboard/deposit" : kycHref} className="flex-1 sm:flex-none">
+              <Button className="w-full sm:w-auto h-10 px-5 bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[13px]">
+                <ArrowDownToLine size={14} className="mr-1.5" />
+                Deposit
+              </Button>
+            </Link>
+            <Link href={isKycApproved ? "/dashboard/withdraw" : kycHref} className="flex-1 sm:flex-none">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto h-10 px-5 border-white/10 text-slate-200 hover:bg-white/[0.04] font-semibold text-[13px]"
+              >
+                <ArrowUpFromLine size={14} className="mr-1.5" />
+                Withdraw
+              </Button>
+            </Link>
           </div>
         </div>
 
-        {/* ── Right column (desktop only) ───────────────────────────────────────────────────── */}
-        <div className="hidden xl:flex flex-col gap-5">
-          {/* Stat summary pills */}
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "USD Balance",   value: fmt(usdBalance),        color: "text-white",       icon: DollarSign,  bg: "bg-sky-500/10",     ic: "text-sky-400" },
-              { label: "Total Earned",  value: fmt(totalEarned),       color: "text-emerald-400", icon: TrendingUp,  bg: "bg-emerald-500/10", ic: "text-emerald-400" },
-              { label: "Portfolio",     value: fmt(totalPortfolio),    color: "text-white",       icon: Wallet,      bg: "bg-violet-500/10",  ic: "text-violet-400" },
-              { label: "Active",        value: `${(investment && investment.status === "ACTIVE" ? 1 : 0) + activeCopyTrades.length}`, color: "text-sky-400", icon: Zap, bg: "bg-sky-500/10", ic: "text-sky-400" },
-            ].map(s => (
-              <div key={s.label} className="rounded-xl p-4 border border-sky-500/10" style={{ background: "rgba(7,15,30,0.85)" }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{s.label}</span>
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${s.bg}`}>
-                    <s.icon size={13} className={s.ic} />
-                  </div>
-                </div>
-                <div className={`text-base font-extrabold ${s.color}`}>{s.value}</div>
-              </div>
-            ))}
+        {/* Mini chart inside the same card */}
+        {chartData.length > 1 && chartData.some(d => d.value > 0) ? (
+          <div className="h-36 sm:h-40 px-2 pb-3">
+            <PortfolioChartWrapper refreshKey={chartRefreshKey} initial={chartData} />
           </div>
+        ) : (
+          <div className="px-5 pb-5 pt-1">
+            <p className="text-[11px] text-slate-600">
+              Balance history chart will appear after your first confirmed deposit.
+            </p>
+          </div>
+        )}
+      </Card>
 
-          {/* 3. Copy Trading — desktop right col */}
-          <CopyTradingSection key={`dt-${tick}`} trades={copyTrades} onRefresh={refresh} />
-
-          {/* 4. Activity — desktop right col */}
-          <RecentActivity activity={activity} />
+      {/* ── 3. QUICK ACTIONS ROW ─────────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <QuickAction icon={ArrowDownToLine}  label="Deposit"    href={isKycApproved ? "/dashboard/deposit"       : kycHref} />
+          <QuickAction icon={ArrowUpFromLine}  label="Withdraw"   href={isKycApproved ? "/dashboard/withdraw"      : kycHref} />
+          <QuickAction icon={TrendingUp}       label="Invest"     href={isKycApproved ? "/dashboard/investments"   : kycHref} />
+          <QuickAction icon={CopyIcon}         label="Copy Trade" href={isKycApproved ? "/dashboard/copy-trading"  : kycHref} />
+          <QuickAction icon={History}          label="History"    href="/dashboard/transactions" />
         </div>
       </div>
+
+      {/* ── 4. PORTFOLIO OVERVIEW ──────────────────────────── */}
+      <Card>
+        <CardHeader
+          icon={TrendingUp}
+          title="Portfolio Overview"
+        />
+        <div className="divide-y divide-white/[0.04]">
+          <Row label="Active Investment" value={activeInvested > 0 ? fmt(activeInvested) : "—"} />
+          <Row label="Total Profit"      value={fmt(totalEarned)} valueClassName={totalEarned > 0 ? "text-emerald-400" : "text-slate-400"} />
+          <Row label="ROI"               value={activeInvested > 0 ? fmtPct(roiPct) : "—"}      valueClassName={roiPct > 0 ? "text-emerald-400" : "text-slate-400"} />
+          <Row label="Copy Trading"      value={copyTradingTotal > 0 ? `${fmt(copyTradingTotal)} active` : "—"} />
+          {investment && investment.status === "ACTIVE" && (
+            <Row
+              label="Next Profit"
+              value={<CountdownText nextProfitAt={investment.nextProfitAt} />}
+            />
+          )}
+        </div>
+      </Card>
+
+      {/* ── 5. ACTIVE INVESTMENT CARD ───────────────────────── */}
+      {investment && investment.status !== "CANCELLED" ? (
+        <Card>
+          <CardHeader
+            icon={TrendingUp}
+            title={`${investment.planName}`}
+            action={
+              <span
+                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                  investment.status === "ACTIVE"
+                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                    : "bg-yellow-500/10 border-yellow-500/25 text-yellow-400"
+                }`}
+              >
+                {investment.status}
+              </span>
+            }
+          />
+          <div className="px-5 py-4 space-y-3">
+            <MetaRow label="Invested" value={fmt(investment.amount)} />
+            <MetaRow label="Profit"   value={fmt(investment.totalEarned)} valueClassName="text-emerald-400" />
+            <MetaRow label="Cycle"    value={`${investment.minProfit}% – ${investment.maxProfit}% every ${investment.profitInterval}s`} />
+          </div>
+          {investment.status === "ACTIVE" && (
+            <div className="px-5 pb-5 flex gap-2">
+              <Button
+                className="flex-1 h-10 bg-sky-500/[0.10] hover:bg-sky-500/[0.18] text-sky-300 border border-sky-500/25 font-semibold text-[13px]"
+                onClick={() => {
+                  if (!isKycApproved) { router.push(kycHref); return; }
+                  setShowAddFunds(true);
+                }}
+              >
+                <Plus size={13} className="mr-1.5" /> Add Funds
+              </Button>
+              <Button
+                className="flex-1 h-10 bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[13px]"
+                render={<Link href="/dashboard/support" />}
+              >
+                Upgrade Plan
+              </Button>
+            </div>
+          )}
+        </Card>
+      ) : null}
+
+      {/* ── 6. COPY TRADING CARD ────────────────────────────── */}
+      {activeCopyTrades.length > 0 ? (
+        <Card>
+          <CardHeader
+            icon={Users}
+            title="Copy Trading"
+            action={
+              <span className="text-[11px] text-slate-500">
+                {activeCopyTrades.length} active
+              </span>
+            }
+          />
+          <div className="divide-y divide-white/[0.04]">
+            {activeCopyTrades.map((trade) => {
+              const stopping = stoppingId === trade.id;
+              const hue = [...trade.traderName].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+              const initials = trade.traderName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+              return (
+                <div key={trade.id} className="px-5 py-4 flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-bold text-white"
+                    style={{
+                      background: `hsl(${hue} 55% 22%)`,
+                      border: `1px solid hsl(${hue} 55% 32%)`,
+                    }}
+                  >
+                    {initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold text-white truncate">
+                      {trade.traderName}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          trade.status === "ACTIVE"
+                            ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                            : "bg-yellow-500/10 border-yellow-500/25 text-yellow-400"
+                        }`}
+                      >
+                        {trade.status}
+                      </span>
+                      <span className="text-[11px] text-slate-500 tabular-nums">
+                        {fmt(trade.amount)} copied
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-[13px] font-semibold text-emerald-400 tabular-nums">
+                      +{fmt(trade.totalEarned)}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">profit</div>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={stopping}
+                    onClick={() => handleStopCopy(trade.id, trade.traderName)}
+                    className="h-8 px-3 text-[11px] font-semibold bg-red-500/[0.10] hover:bg-red-500/[0.18] text-red-400 border border-red-500/20 flex-shrink-0"
+                  >
+                    {stopping
+                      ? <Loader2 size={11} className="animate-spin" />
+                      : <><StopCircle size={11} className="mr-1" /> Stop</>
+                    }
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
+
+      {/* ── 7. RECENT ACTIVITY CARD ─────────────────────────── */}
+      <Card>
+        <CardHeader
+          icon={Activity}
+          title="Recent Activity"
+          action={
+            <Link
+              href="/dashboard/transactions"
+              className="text-[12px] text-sky-400 hover:text-sky-300 flex items-center gap-0.5 font-medium"
+            >
+              View All <ChevronRight size={12} />
+            </Link>
+          }
+        />
+        {activity.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[12px] text-slate-500">
+            No activity yet
+          </div>
+        ) : (
+          <div className="divide-y divide-white/[0.04]">
+            {activity.slice(0, 5).map((item) => {
+              const color = ACT_COLOR[item.type] ?? "text-slate-300";
+              const dot   = ACT_DOT[item.type]   ?? "bg-slate-500";
+              return (
+                <div key={item.id} className="flex items-center gap-3 px-5 py-3">
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-medium text-white truncate">
+                      {item.title}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {timeAgo(item.createdAt)}
+                    </div>
+                  </div>
+                  {item.amount != null && item.amount > 0 && (
+                    <div className={`text-[13px] font-semibold flex-shrink-0 tabular-nums ${color}`}>
+                      +{fmt(item.amount)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* ── Add Funds modal ─────────────────────────────────── */}
+      {showAddFunds && investment && (
+        <AddFundsModal
+          usdBalance={usdBalance}
+          onClose={() => setShowAddFunds(false)}
+          onSuccess={refresh}
+        />
+      )}
     </div>
   );
 }
 
-// ─── Serialisers (Prisma Decimal / Date → plain JS) ─────────────────────────────────────
+/* ══════════════════════════════════════════════════════════════════════
+   Small sub-components
+══════════════════════════════════════════════════════════════════════ */
 
+/** Horizontal-scrolling quick-action pill. */
+function QuickAction({
+  icon: Icon, label, href,
+}: {
+  icon: React.ElementType;
+  label: string;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex-shrink-0 flex items-center gap-2 h-10 px-4 rounded-full border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05] hover:border-sky-500/25 transition-colors"
+    >
+      <Icon size={14} className="text-sky-400" />
+      <span className="text-[12.5px] font-medium text-slate-200">{label}</span>
+    </Link>
+  );
+}
+
+/** Label / value row used inside summary cards. */
+function Row({
+  label, value, valueClassName = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3">
+      <span className="text-[12px] text-slate-400">{label}</span>
+      <span className={`text-[13px] font-semibold tabular-nums ${valueClassName || "text-white"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Label / value row used inside meta-details blocks (non-divided). */
+function MetaRow({
+  label, value, valueClassName = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[12px] text-slate-400">{label}</span>
+      <span className={`text-[13px] font-semibold tabular-nums ${valueClassName || "text-white"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   KYC banner — 4 states (preserved from previous version)
+══════════════════════════════════════════════════════════════════════ */
+
+function KycBanner({ kycStatus }: { kycStatus: "not_submitted" | "pending" | "approved" | "rejected" }) {
+  if (kycStatus === "approved") return null;
+
+  if (kycStatus === "not_submitted") {
+    return (
+      <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-yellow-500/20"
+        style={{ background: "rgba(234,179,8,0.05)" }}
+      >
+        <div className="flex items-center gap-3">
+          <ShieldAlert className="h-5 w-5 text-yellow-400 flex-shrink-0" />
+          <div>
+            <p className="text-[13px] font-semibold text-yellow-300">Identity Verification Required</p>
+            <p className="text-[11.5px] text-slate-400 mt-0.5">Complete KYC to unlock deposits, withdrawals and investing.</p>
+          </div>
+        </div>
+        <Link href="/dashboard/verification" className="flex-shrink-0">
+          <Button size="sm" className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs h-8 px-3">
+            Verify Now
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (kycStatus === "pending") {
+    return (
+      <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-sky-500/20"
+        style={{ background: "rgba(14,165,233,0.05)" }}
+      >
+        <div className="flex items-center gap-3">
+          <Clock className="h-5 w-5 text-sky-400 flex-shrink-0" />
+          <div>
+            <p className="text-[13px] font-semibold text-sky-300">Verification Under Review</p>
+            <p className="text-[11.5px] text-slate-400 mt-0.5">Your documents are being reviewed. We&apos;ll notify you once complete.</p>
+          </div>
+        </div>
+        <Link href="/dashboard/verification" className="flex-shrink-0">
+          <Button size="sm" variant="outline" className="border-sky-500/30 text-sky-300 hover:bg-sky-500/10 font-semibold text-xs h-8 px-3">
+            View Status
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  // rejected
+  return (
+    <div className="rounded-xl px-4 py-3 flex items-center justify-between gap-4 border border-red-500/20"
+      style={{ background: "rgba(239,68,68,0.05)" }}
+    >
+      <div className="flex items-center gap-3">
+        <XCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+        <div>
+          <p className="text-[13px] font-semibold text-red-300">Verification Rejected</p>
+          <p className="text-[11.5px] text-slate-400 mt-0.5">Your submission was not accepted. Please resubmit with valid documents.</p>
+        </div>
+      </div>
+      <Link href="/dashboard/verification" className="flex-shrink-0">
+        <Button size="sm" className="bg-red-500 hover:bg-red-400 text-white font-bold text-xs h-8 px-3">
+          Resubmit
+        </Button>
+      </Link>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Chart wrapper — handles range switching + refresh key
+══════════════════════════════════════════════════════════════════════ */
+
+const RANGES = ["7d", "30d", "90d", "1y"] as const;
+type Range = typeof RANGES[number];
+
+function PortfolioChartWrapper({
+  refreshKey, initial,
+}: {
+  refreshKey: number;
+  initial: { date: string; value: number }[];
+}) {
+  const [data,    setData]    = useState(initial);
+  const [range,   setRange]   = useState<Range>("30d");
+  const [loading, setLoading] = useState(false);
+  const firstMount    = useRef(true);
+  const prevRefreshKey = useRef(0);
+
+  const fetchData = useCallback(async (r: Range) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/dashboard/chart?range=${r}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      setData(json.data ?? []);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (firstMount.current) { firstMount.current = false; return; }
+    fetchData(range);
+  }, [range, fetchData]);
+
+  useEffect(() => {
+    if (refreshKey > 0 && refreshKey !== prevRefreshKey.current) {
+      prevRefreshKey.current = refreshKey;
+      fetchData(range);
+    }
+  }, [refreshKey, range, fetchData]);
+
+  return (
+    <div className="relative h-full">
+      {/* Range selector — tiny, top-right */}
+      <div className="absolute top-0 right-2 z-10 flex gap-1">
+        {RANGES.map(r => (
+          <button
+            key={r}
+            onClick={() => setRange(r)}
+            className={`text-[9px] font-semibold px-2 py-0.5 rounded transition-all ${
+              range === r
+                ? "bg-sky-500/20 text-sky-300"
+                : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {r.toUpperCase()}
+          </button>
+        ))}
+      </div>
+      <PortfolioChart data={data} isLoading={loading} />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Helpers / constants
+══════════════════════════════════════════════════════════════════════ */
+
+const ACT_COLOR: Record<string, string> = {
+  INVESTMENT_PROFIT:     "text-emerald-400",
+  COPY_TRADE_PROFIT:     "text-sky-400",
+  INVESTMENT_STARTED:    "text-violet-400",
+  COPY_TRADE_STARTED:    "text-blue-400",
+  INVESTMENT_FUNDS_ADDED:"text-yellow-400",
+  INVESTMENT_UPGRADED:   "text-orange-400",
+  INVESTMENT_CANCELLED:  "text-red-400",
+  COPY_TRADE_STOPPED:    "text-red-400",
+};
+
+const ACT_DOT: Record<string, string> = {
+  INVESTMENT_PROFIT:     "bg-emerald-400",
+  COPY_TRADE_PROFIT:     "bg-sky-400",
+  INVESTMENT_STARTED:    "bg-violet-400",
+  COPY_TRADE_STARTED:    "bg-blue-400",
+  INVESTMENT_FUNDS_ADDED:"bg-yellow-400",
+  INVESTMENT_UPGRADED:   "bg-orange-400",
+  INVESTMENT_CANCELLED:  "bg-red-400",
+  COPY_TRADE_STOPPED:    "bg-red-400",
+};
+
+function computeDailyChange(
+  chartData: { date: string; value: number }[],
+  usdBalance: number,
+): { value: number; pct: number } | null {
+  if (!chartData || chartData.length === 0) return null;
+  const last  = chartData[chartData.length - 1]?.value ?? usdBalance;
+  const prev  = chartData.length >= 2 ? chartData[chartData.length - 2].value : last;
+  if (prev <= 0) return null;
+  const value = last - prev;
+  const pct   = (value / prev) * 100;
+  return { value, pct };
+}
+
+/* ── Serialisers ─────────────────────────────────────────────────────── */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ser(inv: any): Investment {
   return {
     id: inv.id, planName: inv.planName,
@@ -1012,6 +856,7 @@ function ser(inv: any): Investment {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function serCopy(t: any): CopyTrade {
   return {
     id: t.id, traderName: t.traderName,
@@ -1022,6 +867,7 @@ function serCopy(t: any): CopyTrade {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function serAct(a: any): ActivityItem {
   return {
     id: a.id, type: a.type, title: a.title,

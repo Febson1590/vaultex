@@ -336,6 +336,10 @@
 /* ─── Ticker pause on hover ──────────────────────── */
 .ticker-wrap:hover .animate-ticker { animation-play-state: paused; }
 
+/* ─── Hidden scrollbar (for horizontal pill rows) ── */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* ─── Border divider ─────────────────────────────── */
 .section-divider {
   height: 1px;
