@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import {
   Shield, Twitter, Linkedin, Github, Lock, FileCheck2, Eye,
-  Mail, Clock, Building2, AlertTriangle,
+  Mail, Clock, Building2,
 } from "lucide-react";
-import { COMPANY, CONTACT, RISK_NOTICE } from "@/lib/company";
+import { COMPANY, CONTACT } from "@/lib/company";
 
 /* ── Footer link structure ───────────────────────────────────────────── */
 const footerLinks: Record<string, { href: string; label: string; external?: boolean }[]> = {
@@ -158,21 +158,8 @@ export function PublicFooter() {
           </div>
         </div>
 
-        {/* ── Risk warning ─────────────────────────────────────────── */}
-        <div className="mt-7 pt-5 border-t border-white/[0.05]">
-          <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-yellow-500/[0.03] border border-yellow-500/[0.15]">
-            <AlertTriangle size={13} className="text-yellow-400/80 flex-shrink-0 mt-0.5" />
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              <strong className="text-yellow-400/90">Risk warning:</strong> {RISK_NOTICE}{" "}
-              Nothing on this website constitutes investment, tax, or legal advice. Read the full{" "}
-              <Link href="/risk" className="text-slate-400 hover:text-sky-400">Risk Disclosure</Link>{" "}
-              before funding an account.
-            </p>
-          </div>
-        </div>
-
         {/* ── Copyright ────────────────────────────────────────────── */}
-        <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="mt-8 pt-6 border-t border-white/[0.05] flex flex-col md:flex-row items-center justify-between gap-3">
           <p className="text-[11px] text-slate-600 text-center md:text-left">
             © {new Date().getFullYear()} {COMPANY.brand}. All rights reserved.
           </p>
