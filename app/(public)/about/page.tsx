@@ -5,7 +5,7 @@ import {
   Building2, MapPin, Mail, Clock,
 } from "lucide-react";
 import type { Metadata } from "next";
-import { COMPANY, CONTACT, PLATFORM, RISK_NOTICE } from "@/lib/company";
+import { COMPANY, CONTACT, PLATFORM } from "@/lib/company";
 
 export const metadata: Metadata = { title: "About" };
 
@@ -160,21 +160,18 @@ export default function AboutPage() {
           </dl>
         </div>
 
-        {/* ── Risk & regulatory stance ─────────────────────────────── */}
-        <div className="glass-card rounded-2xl p-7 border border-yellow-500/15 bg-yellow-500/[0.03]">
-          <h2 className="text-lg font-bold text-white mb-3">Risk &amp; regulatory stance</h2>
-          <p className="text-sm text-slate-400 leading-relaxed mb-3">
-            {RISK_NOTICE}
-          </p>
+        {/* ── Regulatory stance ────────────────────────────────────── */}
+        <div className="glass-card rounded-2xl p-7">
+          <h2 className="text-lg font-bold text-white mb-3">Terms &amp; operating policies</h2>
           <p className="text-sm text-slate-400 leading-relaxed">
             Vaultex Market does not provide investment, tax, or legal advice. Published fees,
             processing times, and supported assets may change — changes are reflected directly
             in the dashboard and on the{" "}
             <Link href="/pricing" className="text-sky-400 hover:text-sky-300">Fees page</Link>.
             Your responsibilities are detailed in our{" "}
-            <Link href="/terms" className="text-sky-400 hover:text-sky-300">Terms of Service</Link>,{" "}
-            <Link href="/privacy" className="text-sky-400 hover:text-sky-300">Privacy Policy</Link>, and{" "}
-            <Link href="/risk" className="text-sky-400 hover:text-sky-300">Risk Disclosure</Link>.
+            <Link href="/terms" className="text-sky-400 hover:text-sky-300">Terms of Service</Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-sky-400 hover:text-sky-300">Privacy Policy</Link>.
           </p>
         </div>
       </div>

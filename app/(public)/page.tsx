@@ -12,7 +12,7 @@ import { MarketPanel }     from "@/components/public/market-panel";
 import { Sparkline }       from "@/components/public/sparkline";
 import { WatchlistStrip }  from "@/components/public/watchlist-strip";
 import { QuickTrade }      from "@/components/public/quick-trade";
-import { PLATFORM, SHORT_RISK_NOTICE } from "@/lib/company";
+import { PLATFORM } from "@/lib/company";
 
 /* ─── Per-symbol brand color accents ──────────────────────────────────── */
 const CRYPTO_COLORS: Record<string, string> = {
@@ -158,12 +158,6 @@ export default async function HomePage() {
                 Vaultex Market is a crypto brokerage built around a careful onboarding process,
                 transparent fees, and security-focused account controls. Buy and sell the major
                 digital assets through one unified interface.
-              </p>
-
-              {/* Short risk note — kept elegant, not scary */}
-              <p className="text-[11px] text-slate-500 mb-6 max-w-lg leading-relaxed">
-                <span className="text-yellow-400/80 font-semibold">Note:</span>{" "}
-                {SHORT_RISK_NOTICE} Only trade funds you can afford to lose.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-2.5 mb-7">
@@ -468,7 +462,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <p className="text-[11px] text-slate-600 mt-6">
-              No account fee · Manual KYC review · {SHORT_RISK_NOTICE}
+              No account fee · Manual KYC review · Supported digital assets only
             </p>
           </div>
         </div>

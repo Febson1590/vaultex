@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
-  CheckCircle2, Info, AlertTriangle, ArrowRight,
+  CheckCircle2, Info, ArrowRight,
   Wallet, ArrowDownToLine, ArrowUpFromLine, Coins,
 } from "lucide-react";
 import type { Metadata } from "next";
-import { SHORT_RISK_NOTICE } from "@/lib/company";
 
 export const metadata: Metadata = { title: "Fees & Pricing" };
 
@@ -197,20 +196,6 @@ export default function PricingPage() {
                 <p className="text-[12.5px] text-slate-400 leading-relaxed">{n.body}</p>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* ── Risk notice ──────────────────────────────────────────── */}
-        <div className="rounded-xl p-5 border border-yellow-500/20 bg-yellow-500/[0.03] flex items-start gap-3 mb-8">
-          <AlertTriangle className="h-4 w-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-[12.5px] text-slate-300 leading-relaxed">
-              <strong className="text-yellow-400">Risk notice:</strong> {SHORT_RISK_NOTICE} Published
-              fees cover platform costs only — the market value of any asset you hold can change
-              at any time. Read the full{" "}
-              <Link href="/risk" className="text-sky-400 hover:text-sky-300">Risk Disclosure</Link>{" "}
-              before funding an account.
-            </p>
           </div>
         </div>
 

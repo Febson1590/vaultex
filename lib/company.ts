@@ -58,14 +58,6 @@ export const PLATFORM = {
   dataFreshnessMinutes: 1,
 } as const;
 
-/* ── Risk & regulatory stance ────────────────────────────────────────── */
-export const RISK_NOTICE =
-  "Trading digital assets involves risk, including the potential loss of principal. " +
-  "Only trade funds you can afford to lose.";
-
-export const SHORT_RISK_NOTICE =
-  "Digital-asset trading carries risk of loss.";
-
 /* ── Reusable typed helpers ──────────────────────────────────────────── */
 export type CompanyInfo = typeof COMPANY;
 export type ContactInfo = typeof CONTACT;
