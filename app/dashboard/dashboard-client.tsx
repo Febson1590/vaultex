@@ -143,37 +143,6 @@ function CardHeader({
 }
 
 /* ──────────────────────────────────────────────────────────────────────
-   Countdown (next-profit timer)
-────────────────────────────────────────────────────────────────────── */
-
-function useCountdown(nextProfitAt: string | null) {
-  const [secs, setSecs] = useState(0);
-  useEffect(() => {
-    function calc() {
-      if (!nextProfitAt) return setSecs(0);
-      setSecs(Math.max(0, Math.floor((new Date(nextProfitAt).getTime() - Date.now()) / 1000)));
-    }
-    calc();
-    const t = setInterval(calc, 1000);
-    return () => clearInterval(t);
-  }, [nextProfitAt]);
-  const m = Math.floor(secs / 60).toString().padStart(2, "0");
-  const s = (secs % 60).toString().padStart(2, "0");
-  return { display: `${m}:${s}`, secs };
-}
-
-function CountdownText({ nextProfitAt }: { nextProfitAt: string | null }) {
-  const { display, secs } = useCountdown(nextProfitAt);
-  if (!nextProfitAt) return <span className="text-slate-500 font-mono">—</span>;
-  const due = secs === 0;
-  return (
-    <span className={`font-mono font-semibold ${due ? "text-emerald-400" : "text-white"}`}>
-      {due ? "Due…" : display}
-    </span>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
    Add Funds modal
 ────────────────────────────────────────────────────────────────────── */
 
@@ -293,9 +262,8 @@ export default function DashboardClient({
       const data = await res.json();
 
       if (data.credited?.length > 0) {
-        data.credited.forEach((c: { label: string; amount: number }) => {
-          toast.success(`+${fmt(c.amount)} — ${c.label}`, { duration: 5000 });
-        });
+        // Refresh the chart silently — no toast spam on every profit tick.
+        // Users can see new profits in the Portfolio Overview and activity list.
         setChartRefreshKey(k => k + 1);
       }
       if (data.investment !== undefined) setInvestment(data.investment ? ser(data.investment) : null);
@@ -427,12 +395,6 @@ export default function DashboardClient({
           <Row label="Total Profit"      value={fmt(totalEarned)} valueClassName={totalEarned > 0 ? "text-emerald-400" : "text-slate-400"} />
           <Row label="ROI"               value={activeInvested > 0 ? fmtPct(roiPct) : "—"}      valueClassName={roiPct > 0 ? "text-emerald-400" : "text-slate-400"} />
           <Row label="Copy Trading"      value={copyTradingTotal > 0 ? `${fmt(copyTradingTotal)} active` : "—"} />
-          {investment && investment.status === "ACTIVE" && (
-            <Row
-              label="Next Profit"
-              value={<CountdownText nextProfitAt={investment.nextProfitAt} />}
-            />
-          )}
         </div>
       </Card>
 
