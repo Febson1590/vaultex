@@ -221,8 +221,8 @@ model Transaction {
 model DepositRequest {
   id            String        @id @default(cuid())
   userId        String
-  currency      String
-  amount        Decimal       @db.Decimal(20, 8)
+  currency      String                                   // Legacy — matches the crypto symbol, kept for older records
+  amount        Decimal       @db.Decimal(20, 8)         // Primary amount, always in USD
   method        String        @default("Bank Transfer")
   status        RequestStatus @default(PENDING)
   proofUrl      String?
@@ -231,6 +231,11 @@ model DepositRequest {
   notes         String?
   adminNotes    String?
   processedAt   DateTime?
+  // Dual-amount conversion snapshot captured at submission time ──────────
+  cryptoAmount  Decimal?      @db.Decimal(30, 10)        // e.g. 0.005 BTC
+  cryptoSymbol  String?                                  // e.g. "BTC"
+  cryptoNetwork String?                                  // e.g. "TRC20" / "Bitcoin"
+  exchangeRate  Decimal?      @db.Decimal(20, 8)         // USD price per crypto unit at submission
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -259,14 +264,19 @@ model DepositWallet {
 model WithdrawalRequest {
   id            String        @id @default(cuid())
   userId        String
-  currency      String
-  amount        Decimal       @db.Decimal(20, 8)
-  method        String        @default("Bank Transfer")
+  currency      String                                   // Legacy — crypto symbol, kept for older records
+  amount        Decimal       @db.Decimal(20, 8)         // Primary amount, always in USD
+  method        String        @default("Bank Transfer")  // Network label for crypto (TRC20, ERC20…)
   destination   String?
   status        RequestStatus @default(PENDING)
   notes         String?
   adminNotes    String?
   processedAt   DateTime?
+  // Dual-amount conversion snapshot captured at submission time ──────────
+  cryptoAmount  Decimal?      @db.Decimal(30, 10)
+  cryptoSymbol  String?
+  cryptoNetwork String?
+  exchangeRate  Decimal?      @db.Decimal(20, 8)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

@@ -17,18 +17,22 @@ interface DepositWalletInfo {
 }
 
 interface AdminDeposit {
-  id:         string;
-  userId:     string;
-  currency:   string;
-  amount:     string | number;
-  method:     string;
-  status:     "PENDING" | "APPROVED" | "REJECTED" | "PROCESSING";
-  proofUrl:   string | null;
-  txHash:     string | null;
-  walletId:   string | null;
-  createdAt:  string;
-  user:       { id: string; name: string | null; email: string } | null;
-  wallet:     DepositWalletInfo | null;
+  id:            string;
+  userId:        string;
+  currency:      string;
+  amount:        string | number;
+  method:        string;
+  status:        "PENDING" | "APPROVED" | "REJECTED" | "PROCESSING";
+  proofUrl:      string | null;
+  txHash:        string | null;
+  walletId:      string | null;
+  cryptoAmount:  string | number | null;
+  cryptoSymbol:  string | null;
+  cryptoNetwork: string | null;
+  exchangeRate:  string | number | null;
+  createdAt:     string;
+  user:          { id: string; name: string | null; email: string } | null;
+  wallet:        DepositWalletInfo | null;
 }
 
 function shortAddress(addr: string, head = 10, tail = 4): string {
@@ -115,13 +119,20 @@ export default function AdminDepositsPage() {
                       <div className="text-sm text-white">{dep.user?.name || "—"}</div>
                       <div className="text-xs text-slate-500">{dep.user?.email}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-white tabular-nums whitespace-nowrap">
-                      {formatCurrency(Number(dep.amount))}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-white tabular-nums">
+                        {formatCurrency(Number(dep.amount))}
+                      </div>
+                      {dep.cryptoAmount !== null && dep.cryptoSymbol && (
+                        <div className="text-[10.5px] text-slate-500 tabular-nums mt-0.5">
+                          {Number(dep.cryptoAmount).toLocaleString("en-US", { maximumFractionDigits: 8 })} {dep.cryptoSymbol}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm text-white font-semibold">{dep.currency}</div>
+                      <div className="text-sm text-white font-semibold">{dep.cryptoSymbol || dep.currency}</div>
                       <div className="text-[11px] text-slate-500">
-                        {dep.wallet?.network || dep.method || "—"}
+                        {dep.cryptoNetwork || dep.wallet?.network || dep.method || "—"}
                       </div>
                     </td>
                     <td className="px-4 py-3">

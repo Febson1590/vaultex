@@ -19,6 +19,10 @@ import {
 import { toast } from "sonner";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
 import type { KycStatus } from "@/lib/kyc";
+import {
+  DualAmountInput, useDualAmount, useLiveRates, formatCrypto,
+  type Rates,
+} from "@/components/dashboard/dual-amount-input";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -33,25 +37,30 @@ interface DepositWallet {
 }
 
 interface RecentDeposit {
-  id:          string;
-  currency:    string;
-  amount:      number;
-  method:      string;
-  status:      string;          // PENDING | APPROVED | REJECTED | PROCESSING
-  proofUrl:    string | null;
-  txHash:      string | null;
-  walletId:    string | null;
-  adminNotes:  string | null;
-  createdAt:   string;
-  processedAt: string | null;
+  id:            string;
+  currency:      string;
+  amount:        number;             // USD
+  method:        string;
+  status:        string;             // PENDING | APPROVED | REJECTED | PROCESSING
+  proofUrl:      string | null;
+  txHash:        string | null;
+  walletId:      string | null;
+  adminNotes:    string | null;
+  cryptoAmount:  number | null;
+  cryptoSymbol:  string | null;
+  cryptoNetwork: string | null;
+  exchangeRate:  number | null;
+  createdAt:     string;
+  processedAt:   string | null;
 }
 
 interface Props {
-  kycStatus?:   KycStatus;
-  wallets?:     DepositWallet[];
-  minDeposit?:  number;
-  maxDeposit?:  number | null;
-  recent?:      RecentDeposit[];
+  kycStatus?:    KycStatus;
+  wallets?:      DepositWallet[];
+  minDeposit?:   number;
+  maxDeposit?:   number | null;
+  recent?:       RecentDeposit[];
+  initialRates?: Rates;
 }
 
 /* ─── 4-state UI status derived from DB status + proofUrl ───────────── */
@@ -135,11 +144,12 @@ function AssetIcon({ asset, size = 32 }: { asset: string; size?: number }) {
 const DEFAULT_ASSETS = ["BTC", "ETH", "USDT", "BNB", "SOL"];
 
 export default function DepositForm({
-  kycStatus   = "approved",
-  wallets     = [],
-  minDeposit  = 10,
+  kycStatus    = "approved",
+  wallets      = [],
+  minDeposit   = 10,
   maxDeposit,
-  recent      = [],
+  recent       = [],
+  initialRates = {},
 }: Props) {
   const isRestricted = kycStatus !== "approved";
 
@@ -147,14 +157,20 @@ export default function DepositForm({
   const configuredAssets = Array.from(new Set(wallets.map((w) => w.asset)));
   const assetMenu = Array.from(new Set([...DEFAULT_ASSETS, ...configuredAssets]));
 
+  /* ── Live USD rates (polls /api/rates every 45s) ────────────────── */
+  const rates = useLiveRates(initialRates);
+
   /* ── New-deposit state ──────────────────────────────────────────── */
   const [selectedAsset, setSelectedAsset] = useState<string>(
     configuredAssets[0] ?? DEFAULT_ASSETS[0],
   );
-  const [amount, setAmount]   = useState("");
   const [copied, setCopied]   = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError]     = useState("");
+
+  /* Two-way dual-amount state wired to the current asset rate. */
+  const currentRate = rates[selectedAsset] ?? 0;
+  const dual        = useDualAmount(currentRate);
 
   /* Look up the active wallet for the currently selected asset.
      If an admin has configured multiple wallets for the same asset
@@ -178,24 +194,30 @@ export default function DepositForm({
   async function handleCreateDeposit() {
     setError("");
     if (!activeWallet) { setError("Select a cryptocurrency"); return; }
-    const amt = parseFloat(amount);
+    const amt = dual.usdNumber;
+    const cryptoAmt = dual.cryptoNumber;
     if (!amt || amt <= 0) { setError("Enter a valid amount"); return; }
     if (amt < effectiveMin)  { setError(`Minimum deposit is $${effectiveMin}`); return; }
     if (maxDeposit && amt > maxDeposit) { setError(`Maximum deposit is $${maxDeposit}`); return; }
+    if (currentRate <= 0) { setError("Rates are unavailable — try again in a moment"); return; }
 
     setCreating(true);
     try {
       const res = await createDepositRequest({
-        currency: activeWallet.asset,
-        amount:   amt,
-        method:   activeWallet.label,
-        walletId: activeWallet.id,
+        currency:      activeWallet.asset,
+        amount:        amt,                    // USD — primary amount
+        method:        activeWallet.label,
+        walletId:      activeWallet.id,
+        cryptoAmount:  cryptoAmt,
+        cryptoSymbol:  activeWallet.asset,
+        cryptoNetwork: activeWallet.network ?? null,
+        exchangeRate:  currentRate,
       });
       if ("error" in res && res.error) {
         setError(res.error);
       } else {
         toast.success("Deposit created — now upload your proof of payment");
-        setAmount("");
+        dual.clear();
         // Page is revalidated server-side; Next will re-render with the
         // new pending deposit appearing in the list below.
       }
@@ -278,31 +300,16 @@ export default function DepositForm({
               </div>
             )}
 
-            {/* Amount */}
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-                Amount to Deposit
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={effectiveMin}
-                  max={maxDeposit ?? undefined}
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-slate-600 h-12 pr-16 text-base font-semibold tabular-nums"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-slate-500 font-medium pointer-events-none">
-                  | USD
-                </span>
-              </div>
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <span>Min: {effectiveMin} USD</span>
-                {maxDeposit && <span>· Max: {maxDeposit} USD</span>}
-              </div>
-            </div>
+            {/* Dual amount — USD + crypto with live two-way sync */}
+            <DualAmountInput
+              asset={selectedAsset}
+              rate={currentRate}
+              state={dual}
+              titlePrefix="Amount to Deposit"
+              minUsd={effectiveMin}
+              maxUsd={maxDeposit ?? undefined}
+              rateStale={currentRate <= 0}
+            />
 
             {/* Wallet address */}
             <div className="space-y-1.5">
@@ -461,6 +468,11 @@ function DepositCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[14px] font-bold text-white">{deposit.currency}</span>
+            {deposit.cryptoNetwork && (
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 border border-white/[0.1] rounded px-1.5 py-0.5">
+                {deposit.cryptoNetwork}
+              </span>
+            )}
           </div>
           {walletAddress && (
             <div className="text-[11px] text-slate-500 font-mono truncate mt-0.5">
@@ -473,8 +485,13 @@ function DepositCard({
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-[14px] font-bold text-sky-300 tabular-nums">
-            +{deposit.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+            +${deposit.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
+          {deposit.cryptoAmount !== null && deposit.cryptoSymbol && (
+            <div className="text-[10.5px] text-slate-500 tabular-nums mt-0.5">
+              Paid with {formatCrypto(deposit.cryptoAmount)} {deposit.cryptoSymbol}
+            </div>
+          )}
         </div>
       </div>
 

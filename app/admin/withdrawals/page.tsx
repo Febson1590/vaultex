@@ -7,16 +7,40 @@ import { formatCurrency, formatDateTime, getStatusBg } from "@/lib/utils";
 import { CheckCircle2, XCircle, Clock, Loader2, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 
+interface AdminWithdrawal {
+  id:            string;
+  userId:        string;
+  currency:      string;
+  amount:        string | number;
+  method:        string;
+  destination:   string | null;
+  status:        "PENDING" | "APPROVED" | "REJECTED" | "PROCESSING";
+  cryptoAmount:  string | number | null;
+  cryptoSymbol:  string | null;
+  cryptoNetwork: string | null;
+  exchangeRate:  string | number | null;
+  createdAt:     string;
+  processedAt:   string | null;
+  user:          { id: string; name: string | null; email: string } | null;
+}
+
+function shortAddress(addr: string, head = 10, tail = 5): string {
+  if (!addr) return "";
+  if (addr.length <= head + tail + 3) return addr;
+  return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
+}
+
 export default function AdminWithdrawalsPage() {
-  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
 
   const fetchWithdrawals = () => {
+    setLoading(true);
     fetch("/api/admin/withdrawals")
       .then((r) => r.json())
-      .then(setWithdrawals)
-      .catch(() => {})
+      .then((data) => setWithdrawals(Array.isArray(data) ? data : []))
+      .catch(() => setWithdrawals([]))
       .finally(() => setLoading(false));
   };
 
@@ -55,25 +79,40 @@ export default function AdminWithdrawalsPage() {
             <table className="w-full premium-table">
               <thead>
                 <tr className="border-b border-white/5">
-                  {["User", "Amount", "Currency", "Method", "Destination", "Date", "Status", "Actions"].map((h) => (
+                  {["User", "Amount", "Coin / Network", "Destination", "Date", "Status", "Actions"].map((h) => (
                     <th key={h} className="text-left text-xs font-medium text-slate-500 px-4 py-3 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {withdrawals.map((w) => (
-                  <tr key={w.id} className="border-b border-white/5 hover:bg-white/2">
+                  <tr key={w.id} className="border-b border-white/5 hover:bg-white/[0.02] align-top">
                     <td className="px-4 py-3">
                       <div className="text-sm text-white">{w.user?.name}</div>
                       <div className="text-xs text-slate-500">{w.user?.email}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-white">{formatCurrency(Number(w.amount))}</td>
-                    <td className="px-4 py-3 text-xs text-slate-400 font-mono">{w.currency}</td>
-                    <td className="px-4 py-3 text-xs text-slate-400">{w.method}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate font-mono">
-                      {w.destination || "—"}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-white tabular-nums">
+                        {formatCurrency(Number(w.amount))}
+                      </div>
+                      {w.cryptoAmount !== null && w.cryptoSymbol && (
+                        <div className="text-[10.5px] text-slate-500 tabular-nums mt-0.5">
+                          {Number(w.cryptoAmount).toLocaleString("en-US", { maximumFractionDigits: 8 })} {w.cryptoSymbol}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{formatDateTime(w.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-white font-semibold">{w.cryptoSymbol || w.currency}</div>
+                      <div className="text-[11px] text-slate-500">
+                        {w.cryptoNetwork || w.method || "—"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-300 max-w-[180px] truncate font-mono" title={w.destination ?? undefined}>
+                      {w.destination ? shortAddress(w.destination, 12, 5) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                      {formatDateTime(w.createdAt)}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${getStatusBg(w.status)}`}>{w.status}</span>
                     </td>

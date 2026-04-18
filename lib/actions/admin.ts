@@ -160,20 +160,29 @@ export async function processDepositRequest(id: string, action: "APPROVE" | "REJ
     },
   });
 
+  const usdAmount    = Number(deposit.amount);
+  const cryptoAmount = deposit.cryptoAmount !== null ? Number(deposit.cryptoAmount) : null;
+  const cryptoSymbol = deposit.cryptoSymbol ?? deposit.currency;
+
   if (action === "APPROVE") {
-    await db.wallet.update({
-      where: { userId_currency: { userId: deposit.userId, currency: deposit.currency } },
-      data: { balance: { increment: Number(deposit.amount) } },
+    // The canonical amount is always USD — credit the user's USD wallet.
+    // Upsert in case the user somehow doesn't yet have a USD wallet.
+    await db.wallet.upsert({
+      where:  { userId_currency: { userId: deposit.userId, currency: "USD" } },
+      update: { balance: { increment: usdAmount } },
+      create: { userId: deposit.userId, currency: "USD", balance: usdAmount },
     });
 
     await db.transaction.create({
       data: {
-        userId: deposit.userId,
-        type: "DEPOSIT",
-        currency: deposit.currency,
-        amount: deposit.amount,
-        status: "COMPLETED",
-        description: `Deposit via ${deposit.method}`,
+        userId:      deposit.userId,
+        type:        "DEPOSIT",
+        currency:    "USD",
+        amount:      usdAmount,
+        status:      "COMPLETED",
+        description: cryptoAmount !== null
+          ? `Deposit via ${deposit.method} · ${cryptoAmount} ${cryptoSymbol}`
+          : `Deposit via ${deposit.method}`,
       },
     });
   }
@@ -184,9 +193,14 @@ export async function processDepositRequest(id: string, action: "APPROVE" | "REJ
     select: { email: true, name: true },
   });
 
-  const notifTitle = `Deposit ${action === "APPROVE" ? "Approved" : "Rejected"}`;
+  const usdStr    = `$${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  const cryptoStr = cryptoAmount !== null
+    ? `${cryptoAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${cryptoSymbol}`
+    : null;
+
+  const notifTitle   = `Deposit ${action === "APPROVE" ? "Approved" : "Rejected"}`;
   const notifMessage = action === "APPROVE"
-    ? `Your deposit of ${deposit.amount} ${deposit.currency} has been approved and credited to your wallet.`
+    ? `Your deposit of ${usdStr}${cryptoStr ? ` (paid with ${cryptoStr})` : ""} has been approved and credited to your wallet.`
     : `Your deposit request has been rejected. ${notes || "Contact support for details."}`;
 
   await notifyUser({
@@ -204,11 +218,15 @@ export async function processDepositRequest(id: string, action: "APPROVE" | "REJ
           heading: action === "APPROVE" ? "Deposit Approved" : "Deposit Update",
           body: action === "APPROVE"
             ? [
-                `Your deposit of ${deposit.amount} ${deposit.currency} has been approved and credited to your wallet.`,
+                `Your deposit of ${usdStr} has been approved and credited to your wallet.`,
+                ...(cryptoStr
+                  ? [`Payment asset: ${cryptoSymbol}${deposit.cryptoNetwork ? ` · ${deposit.cryptoNetwork}` : ""}`,
+                     `Submitted crypto amount: ${cryptoStr}`]
+                  : []),
                 "You can now use these funds to trade or invest.",
               ]
             : [
-                `Your deposit request for ${deposit.amount} ${deposit.currency} was not approved.`,
+                `Your deposit request for ${usdStr}${cryptoStr ? ` (${cryptoStr})` : ""} was not approved.`,
                 `Reason: ${notes}`,
                 "If you believe this is an error, please contact our support team.",
               ],
@@ -243,20 +261,28 @@ export async function processWithdrawalRequest(id: string, action: "APPROVE" | "
     },
   });
 
+  const usdAmount    = Number(withdrawal.amount);
+  const cryptoAmount = withdrawal.cryptoAmount !== null ? Number(withdrawal.cryptoAmount) : null;
+  const cryptoSymbol = withdrawal.cryptoSymbol ?? withdrawal.currency;
+  const network      = withdrawal.cryptoNetwork ?? withdrawal.method;
+
   if (action === "APPROVE") {
+    // Debit the USD wallet — that's our canonical ledger.
     await db.wallet.update({
-      where: { userId_currency: { userId: withdrawal.userId, currency: withdrawal.currency } },
-      data: { balance: { decrement: Number(withdrawal.amount) } },
+      where: { userId_currency: { userId: withdrawal.userId, currency: "USD" } },
+      data:  { balance: { decrement: usdAmount } },
     });
 
     await db.transaction.create({
       data: {
-        userId: withdrawal.userId,
-        type: "WITHDRAWAL",
-        currency: withdrawal.currency,
-        amount: withdrawal.amount,
-        status: "COMPLETED",
-        description: `Withdrawal via ${withdrawal.method}`,
+        userId:      withdrawal.userId,
+        type:        "WITHDRAWAL",
+        currency:    "USD",
+        amount:      usdAmount,
+        status:      "COMPLETED",
+        description: cryptoAmount !== null
+          ? `Withdrawal via ${network} · ${cryptoAmount} ${cryptoSymbol}`
+          : `Withdrawal via ${network}`,
       },
     });
   }
@@ -267,9 +293,14 @@ export async function processWithdrawalRequest(id: string, action: "APPROVE" | "
     select: { email: true, name: true },
   });
 
+  const usdStr    = `$${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  const cryptoStr = cryptoAmount !== null
+    ? `${cryptoAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${cryptoSymbol}`
+    : null;
+
   const notifTitle = `Withdrawal ${action === "APPROVE" ? "Approved" : "Rejected"}`;
   const notifMessage = action === "APPROVE"
-    ? `Your withdrawal of ${withdrawal.amount} ${withdrawal.currency} has been approved.`
+    ? `Your withdrawal of ${usdStr}${cryptoStr ? ` (withdrawn as ${cryptoStr})` : ""} has been approved.`
     : `Your withdrawal request has been rejected. ${notes || "Contact support for details."}`;
 
   await notifyUser({
@@ -287,11 +318,15 @@ export async function processWithdrawalRequest(id: string, action: "APPROVE" | "
           heading: action === "APPROVE" ? "Withdrawal Approved" : "Withdrawal Update",
           body: action === "APPROVE"
             ? [
-                `Your withdrawal of ${withdrawal.amount} ${withdrawal.currency} has been approved and is being processed.`,
-                `The funds will be sent to your ${withdrawal.method} destination.`,
+                `Your withdrawal of ${usdStr} has been approved and is being processed.`,
+                ...(cryptoStr
+                  ? [`Payout asset: ${cryptoSymbol}${network ? ` · ${network}` : ""}`,
+                     `Withdrawn crypto amount: ${cryptoStr}`]
+                  : []),
+                `The funds will be sent to your ${network} destination.`,
               ]
             : [
-                `Your withdrawal request for ${withdrawal.amount} ${withdrawal.currency} was not approved.`,
+                `Your withdrawal request for ${usdStr}${cryptoStr ? ` (${cryptoStr})` : ""} was not approved.`,
                 `Reason: ${notes}`,
                 "If you believe this is an error, please contact our support team.",
               ],

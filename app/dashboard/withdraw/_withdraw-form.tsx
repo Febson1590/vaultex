@@ -17,34 +17,38 @@ import {
 import { toast } from "sonner";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
 import type { KycStatus } from "@/lib/kyc";
+import {
+  DualAmountInput, useDualAmount, useLiveRates, formatCrypto, formatUsd,
+  type Rates,
+} from "@/components/dashboard/dual-amount-input";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
-interface WalletBalance {
-  currency: string;
-  balance:  number;
-}
-
 interface RecentWithdrawal {
-  id:          string;
-  currency:    string;
-  amount:      number;
-  method:      string;             // network
-  destination: string | null;
-  status:      string;             // PENDING | APPROVED | REJECTED | PROCESSING
-  adminNotes:  string | null;
-  createdAt:   string;
-  processedAt: string | null;
+  id:            string;
+  currency:      string;
+  amount:        number;              // USD
+  method:        string;              // network
+  destination:   string | null;
+  status:        string;              // PENDING | APPROVED | REJECTED | PROCESSING
+  adminNotes:    string | null;
+  cryptoAmount:  number | null;
+  cryptoSymbol:  string | null;
+  cryptoNetwork: string | null;
+  exchangeRate:  number | null;
+  createdAt:     string;
+  processedAt:   string | null;
 }
 
 interface Props {
   kycStatus?:     KycStatus;
-  balances?:      WalletBalance[];
-  minWithdrawal?: number;
-  maxWithdrawal?: number | null;
+  usdBalance?:    number;            // Available USD balance (primary source of truth)
+  minWithdrawal?: number;            // USD
+  maxWithdrawal?: number | null;     // USD
   feePercent?:    number;
-  feeFixed?:      number;
+  feeFixed?:      number;            // USD fee
   recent?:        RecentWithdrawal[];
+  initialRates?:  Rates;
 }
 
 /* ─── 4-state UI status ──────────────────────────────────────────────── */
@@ -91,7 +95,7 @@ const ASSET_NETWORKS: Record<string, string[]> = {
   SOL:  ["Solana"],
 };
 
-/** Assets the user can withdraw — must appear in their wallet list. */
+/** Assets the user can withdraw. */
 const SUPPORTED_ASSETS = ["BTC", "ETH", "USDT", "BNB", "SOL"];
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -135,30 +139,36 @@ function AssetIcon({ asset, size = 32 }: { asset: string; size?: number }) {
 
 export default function WithdrawForm({
   kycStatus     = "approved",
-  balances      = [],
+  usdBalance    = 0,
   minWithdrawal = 10,
   maxWithdrawal,
   feePercent    = 0,
   feeFixed      = 0,
   recent        = [],
+  initialRates  = {},
 }: Props) {
   const isRestricted = kycStatus !== "approved";
 
-  /* Build a balance lookup for quick chip + Max-button logic. */
-  const balanceMap = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const b of balances) m[b.currency] = b.balance;
-    return m;
-  }, [balances]);
+  /* Live rates — refreshed every 45s via /api/rates. */
+  const rates = useLiveRates(initialRates);
 
   const [selectedAsset, setSelectedAsset] = useState<string>(SUPPORTED_ASSETS[0]);
   const availableNetworks = ASSET_NETWORKS[selectedAsset] ?? [];
   const [network, setNetwork]   = useState<string>(availableNetworks[0] ?? "");
-  const [amount, setAmount]     = useState("");
   const [address, setAddress]   = useState("");
   const [error, setError]       = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  /* Current live rate for the selected asset (USD per 1 unit). */
+  const currentRate = rates[selectedAsset] ?? 0;
+  const dual        = useDualAmount(currentRate);
+
+  /* Balance, shown in both USD and the selected crypto. */
+  const cryptoBalance = useMemo(() => {
+    if (!currentRate || currentRate <= 0) return 0;
+    return usdBalance / currentRate;
+  }, [usdBalance, currentRate]);
 
   /* Reset network when asset changes. */
   function pickAsset(a: string) {
@@ -168,16 +178,15 @@ export default function WithdrawForm({
     setError("");
   }
 
-  const currentBalance = balanceMap[selectedAsset] ?? 0;
-  const amountNum      = parseFloat(amount) || 0;
+  /* Withdrawal fee: percent of USD + fixed USD fee. */
+  const usdAmount  = dual.usdNumber;
+  const feeUsd     = (usdAmount * feePercent) / 100 + feeFixed;
+  const netReceiveUsd = Math.max(0, usdAmount - feeUsd);
 
-  /* Withdrawal fee (percent + fixed in same currency for simplicity). */
-  const feeAmount = (amountNum * feePercent) / 100 + feeFixed;
-  const netReceive = Math.max(0, amountNum - feeAmount);
-
+  /** Fill both inputs with the full USD balance + its crypto equivalent. */
   function setMaxAmount() {
-    if (currentBalance <= 0) return;
-    setAmount(String(currentBalance));
+    if (usdBalance <= 0 || currentRate <= 0) return;
+    dual.setBoth(usdBalance, usdBalance / currentRate);
   }
 
   async function pasteAddress() {
@@ -198,10 +207,11 @@ export default function WithdrawForm({
     if (isRestricted) { setError("Complete identity verification first"); return; }
     if (!SUPPORTED_ASSETS.includes(selectedAsset)) { setError("Select a cryptocurrency"); return; }
     if (availableNetworks.length > 0 && !network) { setError("Select a network"); return; }
-    if (!amountNum || amountNum <= 0) { setError("Enter a valid amount"); return; }
-    if (amountNum < minWithdrawal) { setError(`Minimum withdrawal is ${minWithdrawal} ${selectedAsset}`); return; }
-    if (maxWithdrawal && amountNum > maxWithdrawal) { setError(`Maximum withdrawal is ${maxWithdrawal} ${selectedAsset}`); return; }
-    if (amountNum > currentBalance) { setError(`Insufficient ${selectedAsset} balance`); return; }
+    if (currentRate <= 0) { setError("Rates are unavailable — try again in a moment"); return; }
+    if (!usdAmount || usdAmount <= 0) { setError("Enter a valid amount"); return; }
+    if (usdAmount < minWithdrawal) { setError(`Minimum withdrawal is $${minWithdrawal}`); return; }
+    if (maxWithdrawal && usdAmount > maxWithdrawal) { setError(`Maximum withdrawal is $${maxWithdrawal}`); return; }
+    if (usdAmount > usdBalance) { setError(`Insufficient balance — you have $${usdBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`); return; }
     if (!address || address.trim().length < 6) { setError("Enter a valid wallet address"); return; }
     setShowConfirm(true);
   }
@@ -211,10 +221,14 @@ export default function WithdrawForm({
     setSubmitting(true);
     try {
       const res = await requestWithdrawal({
-        currency:    selectedAsset,
-        amount:      amountNum,
-        method:      network || selectedAsset,
-        destination: address.trim(),
+        currency:      selectedAsset,
+        amount:        usdAmount,                  // USD
+        method:        network || selectedAsset,
+        destination:   address.trim(),
+        cryptoAmount:  dual.cryptoNumber,
+        cryptoSymbol:  selectedAsset,
+        cryptoNetwork: network || null,
+        exchangeRate:  currentRate,
       });
       if ("error" in res && res.error) {
         toast.error(res.error);
@@ -223,7 +237,7 @@ export default function WithdrawForm({
       } else {
         toast.success("Withdrawal submitted — pending review");
         setShowConfirm(false);
-        setAmount("");
+        dual.clear();
         setAddress("");
       }
     } catch {
@@ -267,7 +281,7 @@ export default function WithdrawForm({
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
             {SUPPORTED_ASSETS.map((asset) => {
               const isActive = selectedAsset === asset;
-              const bal      = balanceMap[asset] ?? 0;
+              const r        = rates[asset] ?? 0;
               return (
                 <button
                   key={asset}
@@ -285,8 +299,8 @@ export default function WithdrawForm({
                     <span className={`text-[13px] font-semibold ${isActive ? "text-white" : "text-slate-300"}`}>
                       {asset}
                     </span>
-                    <span className="text-[10px] text-slate-500 tabular-nums">
-                      {bal.toLocaleString("en-US", { maximumFractionDigits: 6 })}
+                    <span className="text-[9.5px] text-slate-500 tabular-nums">
+                      {r > 0 ? `$${r.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : "—"}
                     </span>
                   </div>
                 </button>
@@ -295,21 +309,26 @@ export default function WithdrawForm({
           </div>
         </div>
 
-        {/* Available balance + Max */}
-        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 flex items-center justify-between">
+        {/* Available balance — primary USD + secondary crypto */}
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div>
             <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
               Available Balance
             </div>
             <div className="text-[17px] font-bold text-white tabular-nums mt-0.5">
-              {currentBalance.toLocaleString("en-US", { maximumFractionDigits: 6 })}{" "}
-              <span className="text-[13px] font-medium text-slate-400">{selectedAsset}</span>
+              ${usdBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+              <span className="text-[13px] font-medium text-slate-400">USD</span>
             </div>
+            {currentRate > 0 && (
+              <div className="text-[11.5px] text-slate-500 tabular-nums mt-0.5">
+                ≈ {formatCrypto(cryptoBalance)} {selectedAsset}
+              </div>
+            )}
           </div>
           <button
             type="button"
             onClick={setMaxAmount}
-            disabled={currentBalance <= 0}
+            disabled={usdBalance <= 0 || currentRate <= 0}
             className="h-8 px-3 rounded-md text-[11px] font-bold uppercase tracking-wider bg-sky-500/15 border border-sky-500/30 text-sky-300 hover:bg-sky-500/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Max
@@ -322,42 +341,31 @@ export default function WithdrawForm({
           </div>
         )}
 
-        {/* Amount */}
-        <div className="space-y-1.5">
-          <Label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-            Amount
-          </Label>
-          <div className="relative">
-            <Input
-              type="number"
-              step="0.000001"
-              min={minWithdrawal}
-              max={maxWithdrawal ?? undefined}
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-slate-600 h-12 pr-20 text-base font-semibold tabular-nums"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-slate-500 font-medium pointer-events-none">
-              | {selectedAsset}
-            </span>
-          </div>
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-            <span>Min: {minWithdrawal} {selectedAsset}</span>
-            {maxWithdrawal && <span>· Max: {maxWithdrawal} {selectedAsset}</span>}
-            {(feePercent > 0 || feeFixed > 0) && (
-              <span>· Fee: {feePercent > 0 && `${feePercent}%`}{feePercent > 0 && feeFixed > 0 && " + "}{feeFixed > 0 && `${feeFixed} ${selectedAsset}`}</span>
-            )}
-          </div>
-          {amountNum > 0 && (feePercent > 0 || feeFixed > 0) && (
-            <div className="text-[11.5px] text-slate-400 pt-1">
+        {/* Dual amount — USD + crypto with live two-way sync */}
+        <DualAmountInput
+          asset={selectedAsset}
+          rate={currentRate}
+          state={dual}
+          titlePrefix="Withdraw Amount"
+          minUsd={minWithdrawal}
+          maxUsd={maxWithdrawal ?? undefined}
+          rateStale={currentRate <= 0}
+        />
+
+        {/* Fee breakdown */}
+        {usdAmount > 0 && (feePercent > 0 || feeFixed > 0) && (
+          <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2.5 text-[11.5px] text-slate-400 flex items-center justify-between gap-3">
+            <div>
+              Fee <span className="text-slate-300 tabular-nums">${formatUsd(feeUsd)}</span>
+            </div>
+            <div>
               You&apos;ll receive{" "}
-              <span className="text-white font-semibold tabular-nums">
-                {netReceive.toLocaleString("en-US", { maximumFractionDigits: 6 })} {selectedAsset}
+              <span className="text-emerald-300 font-semibold tabular-nums">
+                ${formatUsd(netReceiveUsd)}
               </span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Wallet address */}
         <div className="space-y-1.5">
@@ -456,9 +464,11 @@ export default function WithdrawForm({
         <ConfirmModal
           asset={selectedAsset}
           network={network}
-          amount={amountNum}
-          feeAmount={feeAmount}
-          netReceive={netReceive}
+          usdAmount={usdAmount}
+          cryptoAmount={dual.cryptoNumber}
+          exchangeRate={currentRate}
+          feeUsd={feeUsd}
+          netReceiveUsd={netReceiveUsd}
           address={address.trim()}
           loading={submitting}
           onClose={() => !submitting && setShowConfirm(false)}
@@ -470,7 +480,7 @@ export default function WithdrawForm({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Withdrawal history row
+   Withdrawal history row — USD primary, crypto secondary
 ═══════════════════════════════════════════════════════════════════════ */
 
 function WithdrawalCard({ w }: { w: RecentWithdrawal }) {
@@ -478,18 +488,24 @@ function WithdrawalCard({ w }: { w: RecentWithdrawal }) {
   const meta = STATUS_META[ui];
   const Icon = meta.Icon;
 
+  /* Older records may have only the crypto amount stored in `amount`.
+     If cryptoAmount is null but currency is a known crypto, treat
+     `amount` as the legacy crypto amount for display. */
+  const asset   = w.cryptoSymbol || w.currency;
+  const cryptoAmt = w.cryptoAmount;
+
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] overflow-hidden">
 
       {/* Top row */}
       <div className="flex items-center gap-3 p-4">
-        <AssetIcon asset={w.currency} size={36} />
+        <AssetIcon asset={asset} size={36} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[14px] font-bold text-white">{w.currency}</span>
-            {w.method && (
+            <span className="text-[14px] font-bold text-white">{asset}</span>
+            {(w.cryptoNetwork || w.method) && (
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 border border-white/[0.1] rounded px-1.5 py-0.5">
-                {w.method}
+                {w.cryptoNetwork || w.method}
               </span>
             )}
           </div>
@@ -504,8 +520,13 @@ function WithdrawalCard({ w }: { w: RecentWithdrawal }) {
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-[14px] font-bold text-red-300 tabular-nums">
-            −{w.amount.toLocaleString("en-US", { maximumFractionDigits: 6 })} {w.currency}
+            −${w.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
+          {cryptoAmt !== null && (
+            <div className="text-[10.5px] text-slate-500 tabular-nums mt-0.5">
+              Withdrawn as {formatCrypto(cryptoAmt)} {asset}
+            </div>
+          )}
         </div>
       </div>
 
@@ -545,23 +566,26 @@ function WithdrawalCard({ w }: { w: RecentWithdrawal }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Confirm modal
+   Confirm modal — USD primary, crypto secondary
 ═══════════════════════════════════════════════════════════════════════ */
 
 function ConfirmModal({
-  asset, network, amount, feeAmount, netReceive, address, loading, onClose, onConfirm,
+  asset, network, usdAmount, cryptoAmount, exchangeRate,
+  feeUsd, netReceiveUsd, address, loading, onClose, onConfirm,
 }: {
-  asset:      string;
-  network:    string;
-  amount:     number;
-  feeAmount:  number;
-  netReceive: number;
-  address:    string;
-  loading:    boolean;
-  onClose:    () => void;
-  onConfirm:  () => void;
+  asset:         string;
+  network:       string;
+  usdAmount:     number;
+  cryptoAmount:  number;
+  exchangeRate:  number;
+  feeUsd:        number;
+  netReceiveUsd: number;
+  address:       string;
+  loading:       boolean;
+  onClose:       () => void;
+  onConfirm:     () => void;
 }) {
-  const showFee = feeAmount > 0;
+  const showFee = feeUsd > 0;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
@@ -593,14 +617,25 @@ function ConfirmModal({
 
         <div className="p-5 space-y-3 text-[12.5px]">
           <Row label="Asset"   value={<>{asset}{network ? <span className="text-slate-500"> · {network}</span> : null}</>} />
-          <Row label="Amount"  value={<span className="tabular-nums">{amount.toLocaleString("en-US", { maximumFractionDigits: 6 })} {asset}</span>} />
+          <Row
+            label="Amount"
+            value={
+              <div className="text-right">
+                <div className="tabular-nums font-semibold">${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-[11px] text-slate-500 tabular-nums">
+                  ≈ {formatCrypto(cryptoAmount)} {asset}
+                </div>
+              </div>
+            }
+          />
+          <Row label="Rate" value={<span className="tabular-nums text-slate-300">1 {asset} = ${exchangeRate.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>} />
           {showFee && (
-            <Row label="Fee" value={<span className="tabular-nums">{feeAmount.toLocaleString("en-US", { maximumFractionDigits: 6 })} {asset}</span>} />
+            <Row label="Fee" value={<span className="tabular-nums">${feeUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>} />
           )}
           {showFee && (
             <Row
               label="You will receive"
-              value={<span className="tabular-nums text-emerald-300 font-semibold">{netReceive.toLocaleString("en-US", { maximumFractionDigits: 6 })} {asset}</span>}
+              value={<span className="tabular-nums text-emerald-300 font-semibold">${netReceiveUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
             />
           )}
           <div className="pt-2 border-t border-white/[0.05]">

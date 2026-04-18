@@ -13,10 +13,14 @@ import { requireApprovedKyc } from "@/lib/kyc";
  * before the admin can review it.
  */
 export async function createDepositRequest(data: {
-  currency: string;
-  amount: number;
-  method: string;
-  walletId?: string;
+  currency:      string;
+  amount:        number;                  // USD — primary amount
+  method:        string;
+  walletId?:     string;
+  cryptoAmount?: number;                  // Snapshot: crypto amount at submission
+  cryptoSymbol?: string;                  // e.g. "BTC"
+  cryptoNetwork?: string | null;          // e.g. "TRC20"
+  exchangeRate?: number;                  // USD per 1 unit of cryptoSymbol
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -28,20 +32,28 @@ export async function createDepositRequest(data: {
 
   const request = await db.depositRequest.create({
     data: {
-      userId:   session.user.id,
-      currency: data.currency,
-      amount:   data.amount,
-      method:   data.method,
-      walletId: data.walletId,
+      userId:        session.user.id,
+      currency:      data.currency,
+      amount:        data.amount,                // USD
+      method:        data.method,
+      walletId:      data.walletId,
+      cryptoAmount:  data.cryptoAmount  ?? null,
+      cryptoSymbol:  data.cryptoSymbol  ?? null,
+      cryptoNetwork: data.cryptoNetwork ?? null,
+      exchangeRate:  data.exchangeRate  ?? null,
       // proofUrl + txHash filled in by submitDepositProof
     },
   });
+
+  const cryptoSuffix = data.cryptoAmount && data.cryptoSymbol
+    ? ` (${data.cryptoAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${data.cryptoSymbol})`
+    : "";
 
   await db.notification.create({
     data: {
       userId:  session.user.id,
       title:   "Deposit initiated",
-      message: `Awaiting payment for ${data.amount} ${data.currency}. Upload proof once you've sent the payment.`,
+      message: `Awaiting payment of $${data.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD${cryptoSuffix}. Upload proof once you've sent the payment.`,
       type:    "DEPOSIT",
     },
   });
@@ -81,11 +93,15 @@ export async function submitDepositProof(data: {
     },
   });
 
+  const cryptoSuffix = existing.cryptoAmount !== null && existing.cryptoSymbol
+    ? ` (${Number(existing.cryptoAmount).toLocaleString("en-US", { maximumFractionDigits: 8 })} ${existing.cryptoSymbol})`
+    : "";
+
   await db.notification.create({
     data: {
       userId:  session.user.id,
       title:   "Deposit under review",
-      message: `Your proof for ${Number(existing.amount).toLocaleString()} ${existing.currency} has been submitted and is under review by our team.`,
+      message: `Your proof for $${Number(existing.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD${cryptoSuffix} has been submitted and is under review by our team.`,
       type:    "DEPOSIT",
     },
   });
@@ -171,15 +187,24 @@ export async function getActiveDepositWallets() {
 /**
  * Crypto withdrawal request.
  *
- * `method` stores the network (TRC20, ERC20, BTC, ETH, SOL, BEP20…)
- * so the admin can see it at review time without needing a schema change.
- * `destination` is the user's external wallet address.
+ * The primary `amount` is always USD — debited from the user's USD
+ * wallet on admin approval. We also capture the crypto snapshot
+ * (`cryptoAmount`, `cryptoSymbol`, `cryptoNetwork`, `exchangeRate`)
+ * so the user and admin can see which coin + network + rate was
+ * requested at submission time.
+ *
+ * `method` stores the network (TRC20, ERC20, Bitcoin, etc.) for
+ * backward compatibility with existing admin tooling.
  */
 export async function requestWithdrawal(data: {
-  currency:    string;
-  amount:      number;
-  method:      string;      // Network label, e.g. "TRC20", "ERC20", "BTC"
-  destination: string;      // External wallet address
+  currency:       string;     // Crypto symbol, e.g. "BTC"
+  amount:         number;     // USD — primary amount
+  method:         string;     // Network label
+  destination:    string;     // External wallet address
+  cryptoAmount?:  number;
+  cryptoSymbol?:  string;
+  cryptoNetwork?: string | null;
+  exchangeRate?:  number;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -196,29 +221,38 @@ export async function requestWithdrawal(data: {
     return { error: "Enter a valid wallet address" };
   }
 
-  const wallet = await db.wallet.findUnique({
-    where: { userId_currency: { userId, currency: data.currency } },
+  // Balance check uses the USD wallet — that's our canonical source of
+  // truth. The crypto snapshot is purely informational.
+  const usdWallet = await db.wallet.findUnique({
+    where: { userId_currency: { userId, currency: "USD" } },
   });
-
-  if (!wallet || Number(wallet.balance) < data.amount) {
-    return { error: "Insufficient balance" };
+  if (!usdWallet || Number(usdWallet.balance) < data.amount) {
+    return { error: "Insufficient USD balance" };
   }
 
   const request = await db.withdrawalRequest.create({
     data: {
       userId,
-      currency:    data.currency,
-      amount:      data.amount,
-      method:      data.method,
-      destination: data.destination.trim(),
+      currency:      data.currency,
+      amount:        data.amount,                    // USD
+      method:        data.method,
+      destination:   data.destination.trim(),
+      cryptoAmount:  data.cryptoAmount  ?? null,
+      cryptoSymbol:  data.cryptoSymbol  ?? data.currency,
+      cryptoNetwork: data.cryptoNetwork ?? null,
+      exchangeRate:  data.exchangeRate  ?? null,
     },
   });
+
+  const cryptoSuffix = data.cryptoAmount && data.cryptoSymbol
+    ? ` (${data.cryptoAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${data.cryptoSymbol})`
+    : "";
 
   await db.notification.create({
     data: {
       userId,
       title:   "Withdrawal submitted",
-      message: `Your withdrawal of ${data.amount} ${data.currency} to ${data.destination.slice(0, 10)}… is pending review.`,
+      message: `Your withdrawal of $${data.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD${cryptoSuffix} is pending review.`,
       type:    "WITHDRAWAL",
     },
   });

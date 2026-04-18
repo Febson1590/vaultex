@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getKycStatusForUser } from "@/lib/kyc";
 import { getActiveDepositWallets } from "@/lib/actions/deposits";
 import { getFinancialLimits } from "@/lib/limits";
+import { getCryptoRates } from "@/lib/rates";
 import DepositForm from "./_deposit-form";
 import type { Metadata } from "next";
 
@@ -14,7 +15,7 @@ export default async function DepositPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [kycStatus, walletsRaw, limits, recentRaw] = await Promise.all([
+  const [kycStatus, walletsRaw, limits, recentRaw, rates] = await Promise.all([
     getKycStatusForUser(userId),
     getActiveDepositWallets(),
     getFinancialLimits(),
@@ -25,6 +26,7 @@ export default async function DepositPage() {
       orderBy: { createdAt: "desc" },
       take:    10,
     }),
+    getCryptoRates(),
   ]);
 
   const wallets = walletsRaw.map((w) => ({
@@ -38,17 +40,21 @@ export default async function DepositPage() {
   }));
 
   const recent = recentRaw.map((r) => ({
-    id:          r.id,
-    currency:    r.currency,
-    amount:      Number(r.amount),
-    method:      r.method,
-    status:      r.status,             // PENDING | APPROVED | REJECTED | PROCESSING
-    proofUrl:    r.proofUrl,
-    txHash:      r.txHash,
-    walletId:    r.walletId,
-    adminNotes:  r.adminNotes,
-    createdAt:   r.createdAt.toISOString(),
-    processedAt: r.processedAt?.toISOString() ?? null,
+    id:            r.id,
+    currency:      r.currency,
+    amount:        Number(r.amount),           // USD
+    method:        r.method,
+    status:        r.status,                   // PENDING | APPROVED | REJECTED | PROCESSING
+    proofUrl:      r.proofUrl,
+    txHash:        r.txHash,
+    walletId:      r.walletId,
+    adminNotes:    r.adminNotes,
+    cryptoAmount:  r.cryptoAmount  !== null ? Number(r.cryptoAmount)  : null,
+    cryptoSymbol:  r.cryptoSymbol,
+    cryptoNetwork: r.cryptoNetwork,
+    exchangeRate:  r.exchangeRate  !== null ? Number(r.exchangeRate)  : null,
+    createdAt:     r.createdAt.toISOString(),
+    processedAt:   r.processedAt?.toISOString() ?? null,
   }));
 
   return (
@@ -58,6 +64,7 @@ export default async function DepositPage() {
       minDeposit={limits.minDeposit}
       maxDeposit={limits.maxDeposit}
       recent={recent}
+      initialRates={rates}
     />
   );
 }
