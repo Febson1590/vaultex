@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { generateWalletAddress } from "@/lib/utils";
-import { notifyUser, APP_URL } from "@/lib/notifications";
+import { notifyUser, APP_URL, type EmailSummaryCard } from "@/lib/notifications";
 
 async function requireAdmin() {
   const session = await auth();
@@ -203,6 +203,23 @@ export async function processDepositRequest(id: string, action: "APPROVE" | "REJ
     ? `Your deposit of ${usdStr}${cryptoStr ? ` (paid with ${cryptoStr})` : ""} has been approved and credited to your wallet.`
     : `Your deposit request has been rejected. ${notes || "Contact support for details."}`;
 
+  /* Build the email summary card — only when we have an email address
+     to send to. USD is the primary, crypto is the secondary. */
+  const summaryCard: EmailSummaryCard | undefined = user?.email
+    ? {
+        title:       "Transaction Summary",
+        status:      action === "APPROVE" ? "Completed" : "Rejected",
+        statusColor: action === "APPROVE" ? "success" : "warning",
+        primary:     { label: "Amount", value: usdStr },
+        secondary:   cryptoStr ? { label: "Crypto", value: cryptoStr } : undefined,
+        rows: [
+          { label: "Type",    value: "Deposit" },
+          ...(cryptoSymbol ? [{ label: "Asset", value: `${cryptoSymbol}${deposit.cryptoNetwork ? ` · ${deposit.cryptoNetwork}` : ""}` }] : []),
+          { label: "Reference", value: id.slice(0, 10).toUpperCase(), mono: true },
+        ],
+      }
+    : undefined;
+
   await notifyUser({
     userId: deposit.userId,
     title: notifTitle,
@@ -218,18 +235,14 @@ export async function processDepositRequest(id: string, action: "APPROVE" | "REJ
           heading: action === "APPROVE" ? "Deposit Approved" : "Deposit Update",
           body: action === "APPROVE"
             ? [
-                `Your deposit of ${usdStr} has been approved and credited to your wallet.`,
-                ...(cryptoStr
-                  ? [`Payment asset: ${cryptoSymbol}${deposit.cryptoNetwork ? ` · ${deposit.cryptoNetwork}` : ""}`,
-                     `Submitted crypto amount: ${cryptoStr}`]
-                  : []),
-                "You can now use these funds to trade or invest.",
+                "Your deposit has been approved and credited to your wallet. You can now use these funds to trade or invest.",
               ]
             : [
-                `Your deposit request for ${usdStr}${cryptoStr ? ` (${cryptoStr})` : ""} was not approved.`,
+                `Your deposit request${cryptoStr ? ` (${cryptoStr})` : ""} was not approved.`,
                 `Reason: ${notes}`,
                 "If you believe this is an error, please contact our support team.",
               ],
+          summaryCard,
           ...(action === "APPROVE"
             ? { cta: { label: "Go to Dashboard", url: `${APP_URL}/dashboard` } }
             : {}),
@@ -303,6 +316,29 @@ export async function processWithdrawalRequest(id: string, action: "APPROVE" | "
     ? `Your withdrawal of ${usdStr}${cryptoStr ? ` (withdrawn as ${cryptoStr})` : ""} has been approved.`
     : `Your withdrawal request has been rejected. ${notes || "Contact support for details."}`;
 
+  /** Shortened destination address for the summary card row. */
+  const destShort = withdrawal.destination
+    ? withdrawal.destination.length > 16
+      ? `${withdrawal.destination.slice(0, 8)}…${withdrawal.destination.slice(-6)}`
+      : withdrawal.destination
+    : "—";
+
+  const summaryCard: EmailSummaryCard | undefined = user?.email
+    ? {
+        title:       "Transaction Summary",
+        status:      action === "APPROVE" ? "Processing" : "Rejected",
+        statusColor: action === "APPROVE" ? "success" : "warning",
+        primary:     { label: "Amount", value: usdStr },
+        secondary:   cryptoStr ? { label: "Crypto", value: cryptoStr } : undefined,
+        rows: [
+          { label: "Type",        value: "Withdrawal" },
+          ...(cryptoSymbol ? [{ label: "Asset", value: `${cryptoSymbol}${network ? ` · ${network}` : ""}` }] : []),
+          ...(withdrawal.destination ? [{ label: "Destination", value: destShort, mono: true }] : []),
+          { label: "Reference",   value: id.slice(0, 10).toUpperCase(), mono: true },
+        ],
+      }
+    : undefined;
+
   await notifyUser({
     userId: withdrawal.userId,
     title: notifTitle,
@@ -318,18 +354,14 @@ export async function processWithdrawalRequest(id: string, action: "APPROVE" | "
           heading: action === "APPROVE" ? "Withdrawal Approved" : "Withdrawal Update",
           body: action === "APPROVE"
             ? [
-                `Your withdrawal of ${usdStr} has been approved and is being processed.`,
-                ...(cryptoStr
-                  ? [`Payout asset: ${cryptoSymbol}${network ? ` · ${network}` : ""}`,
-                     `Withdrawn crypto amount: ${cryptoStr}`]
-                  : []),
-                `The funds will be sent to your ${network} destination.`,
+                "Your withdrawal has been approved and is being processed. The funds will be sent to your wallet shortly.",
               ]
             : [
-                `Your withdrawal request for ${usdStr}${cryptoStr ? ` (${cryptoStr})` : ""} was not approved.`,
+                `Your withdrawal request${cryptoStr ? ` (${cryptoStr})` : ""} was not approved.`,
                 `Reason: ${notes}`,
                 "If you believe this is an error, please contact our support team.",
               ],
+          summaryCard,
           ...(action === "APPROVE"
             ? { cta: { label: "View Transactions", url: `${APP_URL}/dashboard` } }
             : {}),

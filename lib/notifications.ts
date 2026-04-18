@@ -15,13 +15,145 @@ const LOGO_URL = `${APP_URL}/vaultex-logo.svg`;
 // card, accent bar) from the OTP verification email, but replaces the OTP
 // block with heading, message paragraphs, and an optional CTA button.
 
+/** Optional transaction-summary card rendered between the message body and
+ *  the CTA. Used by deposit and withdrawal approval emails so users get a
+ *  scannable summary of amount / asset / destination / status at a glance. */
+export interface EmailSummaryCard {
+  title?: string;                       // Defaults to "Transaction Summary"
+  /** Primary big-number value, e.g. "$12,500.00 USD" */
+  primary: { label: string; value: string };
+  /** Secondary smaller value, e.g. "0.125 BTC" */
+  secondary?: { label: string; value: string };
+  /** Bullet rows shown under the primary value. */
+  rows?: Array<{ label: string; value: string; mono?: boolean }>;
+  /** Optional status pill colour. */
+  statusColor?: "success" | "neutral" | "warning";
+  status?: string;
+}
+
+function buildSummaryCardHtml(card: EmailSummaryCard): string {
+  const title = card.title ?? "Transaction Summary";
+  const statusPalette = {
+    success: { bg: "#0d2e20", border: "#166534", color: "#4ade80" },
+    neutral: { bg: "#1a2540", border: "#1e4a6e", color: "#7dd3fc" },
+    warning: { bg: "#3a2a12", border: "#92400e", color: "#fbbf24" },
+  }[card.statusColor ?? "success"];
+
+  const statusPill = card.status
+    ? `
+      <tr>
+        <td align="right" style="padding:0 0 8px 0;">
+          <span style="
+            display:inline-block;
+            background-color:${statusPalette.bg} !important;
+            color:${statusPalette.color} !important;
+            border:1px solid ${statusPalette.border};
+            border-radius:999px;
+            font-size:10.5px;
+            font-weight:700;
+            letter-spacing:0.08em;
+            text-transform:uppercase;
+            padding:4px 10px;
+          ">${card.status}</span>
+        </td>
+      </tr>`
+    : "";
+
+  const rowsHtml = (card.rows ?? [])
+    .map(
+      (r) => `
+      <tr>
+        <td style="padding:8px 0;border-top:1px solid #1a3550;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="
+                font-size:11px;
+                font-weight:600;
+                letter-spacing:0.08em;
+                text-transform:uppercase;
+                color:#64748b !important;
+              ">${r.label}</td>
+              <td align="right" style="
+                font-size:12.5px;
+                color:#e2e8f0 !important;
+                font-family:${r.mono ? "'SFMono-Regular',Menlo,Consolas,monospace" : "inherit"};
+                word-break:break-all;
+              ">${r.value}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>`,
+    )
+    .join("");
+
+  const secondaryHtml = card.secondary
+    ? `
+      <p style="
+        margin:4px 0 0 0;
+        font-size:12.5px;
+        color:#94a3b8 !important;
+        text-align:center;
+      ">${card.secondary.value}</p>`
+    : "";
+
+  return `
+    <!-- Transaction summary card -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 24px 0;">
+      <tr>
+        <td style="
+          background-color:#0a1828 !important;
+          border:1px solid #1a3550;
+          border-radius:12px;
+          padding:18px 20px;
+        ">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            ${statusPill}
+            <tr>
+              <td align="center" style="padding-bottom:6px;">
+                <div style="
+                  font-size:11px;
+                  font-weight:600;
+                  letter-spacing:0.12em;
+                  text-transform:uppercase;
+                  color:#64748b !important;
+                ">${title}</div>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding-bottom:10px;">
+                <div style="
+                  font-size:11px;
+                  font-weight:600;
+                  letter-spacing:0.08em;
+                  text-transform:uppercase;
+                  color:#94a3b8 !important;
+                  margin-bottom:2px;
+                ">${card.primary.label}</div>
+                <div style="
+                  font-size:26px;
+                  font-weight:700;
+                  color:#ffffff !important;
+                  letter-spacing:-0.5px;
+                  line-height:1.15;
+                ">${card.primary.value}</div>
+                ${secondaryHtml}
+              </td>
+            </tr>
+            ${rowsHtml}
+          </table>
+        </td>
+      </tr>
+    </table>`;
+}
+
 function buildNotificationEmail(opts: {
   name: string;
   heading: string;
   body: string[];
   cta?: { label: string; url: string };
+  summaryCard?: EmailSummaryCard;
 }): string {
-  const { name, heading, body, cta } = opts;
+  const { name, heading, body, cta, summaryCard } = opts;
 
   const paragraphs = body
     .map(
@@ -35,6 +167,8 @@ function buildNotificationEmail(opts: {
       ">${p}</p>`
     )
     .join("");
+
+  const cardBlock = summaryCard ? buildSummaryCardHtml(summaryCard) : "";
 
   const ctaBlock = cta
     ? `
@@ -183,6 +317,8 @@ function buildNotificationEmail(opts: {
                     <!-- Message paragraphs -->
                     ${paragraphs}
 
+                    ${cardBlock}
+
                     ${ctaBlock}
 
                     <!-- Divider -->
@@ -260,20 +396,33 @@ export async function sendNotificationEmail(opts: {
   heading: string;
   body: string[];
   cta?: { label: string; url: string };
+  summaryCard?: EmailSummaryCard;
 }): Promise<string> {
   const tag = "[sendNotificationEmail]";
-  const { to, name, subject, heading, body, cta } = opts;
+  const { to, name, subject, heading, body, cta, summaryCard } = opts;
 
   const from = process.env.EMAIL_FROM || "Vaultex Market <no-reply@vaultexmarket.com>";
 
   console.log(`${tag} to: ${to} | subject: ${subject}`);
 
-  const html = buildNotificationEmail({ name, heading, body, cta });
+  const html = buildNotificationEmail({ name, heading, body, cta, summaryCard });
+
+  /* Plain-text mirror of the HTML: primary value + rows after the body. */
+  const cardText = summaryCard
+    ? [
+        "",
+        `── ${summaryCard.title ?? "Transaction Summary"} ──`,
+        `${summaryCard.primary.label}: ${summaryCard.primary.value}`,
+        ...(summaryCard.secondary ? [summaryCard.secondary.value] : []),
+        ...(summaryCard.rows ?? []).map((r) => `${r.label}: ${r.value}`),
+      ]
+    : [];
 
   const text = [
     `Hi ${name},`,
     "",
     ...body,
+    ...cardText,
     "",
     ...(cta ? [`${cta.label}: ${cta.url}`, ""] : []),
     "— Vaultex Market",
@@ -308,6 +457,7 @@ export async function notifyUser(opts: {
     heading: string;
     body: string[];
     cta?: { label: string; url: string };
+    summaryCard?: EmailSummaryCard;
   };
 }) {
   const { userId, title, message, type, email } = opts;
