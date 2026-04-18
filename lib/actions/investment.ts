@@ -621,21 +621,13 @@ interface SeededPreset {
 }
 
 /**
- * Build a DiceBear "notionists" illustrated-portrait URL for a seeded trader.
- * Uses the trader's name as the deterministic seed so every re-generation
- * returns the exact same portrait for the same trader. The backgroundColor
- * list rotates through three on-brand shades so the 10 portraits feel
- * varied rather than uniform.
- *
- * DiceBear Notionists is CC0 — no attribution required and safe for
- * commercial use. Never meant to resemble any specific real person; it's
- * a generated illustration keyed off the name string.
+ * True if the given avatar URL points at the (now-removed) DiceBear
+ * portrait generator. Used during seeding to clear those auto-generated
+ * URLs so the initials fallback renders until the admin uploads a real
+ * photo via Edit → Trader Photo.
  */
-function buildSeededAvatarUrl(name: string): string {
-  const seed = encodeURIComponent(name);
-  // navy · sky · slate — darker variants so white text/badges on top stay legible
-  const bg   = "0d1b2e,0ea5e9,1e3a8a,0f2a3d";
-  return `https://api.dicebear.com/7.x/notionists/svg?seed=${seed}&backgroundColor=${bg}&radius=50`;
+function isDicebearAvatarUrl(url: string | null): boolean {
+  return !!url && url.includes("api.dicebear.com");
 }
 
 /*
@@ -840,22 +832,25 @@ export async function adminSeedDefaultCopyTraders() {
     }
 
     /* Create / refresh presets.
-       - New preset           → create with DiceBear portrait
-       - Exists with null avatar AND isSeeded → upgrade to DiceBear portrait
-                                                (skip otherwise, so we never
-                                                blow away an admin-uploaded
-                                                photo or a custom trader). */
-    let avatarUpgraded = 0;
+       - New preset                              → create with null avatar
+                                                  (initials fallback renders
+                                                  until admin uploads a photo)
+       - Exists AND isSeeded AND DiceBear avatar → clear avatar to null so
+                                                  the initials fallback shows
+                                                  and admin can upload a real
+                                                  photo (or leave it)
+       - Anything else                           → skip (preserve admin edits
+                                                  and admin-uploaded photos) */
+    let avatarsCleared = 0;
     for (const preset of SEEDED_TRADERS) {
-      const existing   = await db.copyTrader.findFirst({ where: { name: preset.name } });
-      const avatarUrl  = buildSeededAvatarUrl(preset.name);
+      const existing = await db.copyTrader.findFirst({ where: { name: preset.name } });
 
       if (!existing) {
         const stats = makeStatsFor(preset);
         await db.copyTrader.create({
           data: {
             name:      preset.name,
-            avatarUrl,                    // illustrated portrait
+            avatarUrl: null,              // initials fallback; admin uploads later
             isSeeded:  true,
             isActive:  true,
             ...stats,
@@ -865,12 +860,12 @@ export async function adminSeedDefaultCopyTraders() {
         continue;
       }
 
-      if (existing.isSeeded && !existing.avatarUrl) {
+      if (existing.isSeeded && isDicebearAvatarUrl(existing.avatarUrl)) {
         await db.copyTrader.update({
           where: { id: existing.id },
-          data:  { avatarUrl },
+          data:  { avatarUrl: null },
         });
-        avatarUpgraded++;
+        avatarsCleared++;
         continue;
       }
 
@@ -879,7 +874,7 @@ export async function adminSeedDefaultCopyTraders() {
 
     revalidatePath("/admin/copy-traders");
     revalidatePath("/dashboard/copy-trading");
-    return { success: true, created, skipped, removed, avatarUpgraded };
+    return { success: true, created, skipped, removed, avatarsCleared };
   } catch (e: any) {
     console.error("[adminSeedDefaultCopyTraders]", e);
     return { error: e?.message ?? "Failed to seed traders" };
