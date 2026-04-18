@@ -24,8 +24,14 @@ export async function getAvailableTraders() {
   if (!session?.user?.id) return [];
   return db.copyTrader.findMany({
     where: { isActive: true },
-    orderBy: { totalROI: "desc" },
+    orderBy: { performance30d: "desc" },
   });
+}
+
+export async function getCopyTraderById(id: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  return db.copyTrader.findUnique({ where: { id } });
 }
 
 // ─── User: start an investment plan ─────────────────────────────────────
@@ -45,6 +51,9 @@ export async function userStartInvestment(data: {
   if (!plan || !plan.isActive) return { error: "Plan not found or inactive" };
   if (data.amount < Number(plan.minAmount)) {
     return { error: `Minimum investment is $${Number(plan.minAmount).toLocaleString()}` };
+  }
+  if (plan.maxAmount !== null && data.amount > Number(plan.maxAmount)) {
+    return { error: `Maximum investment for this plan is $${Number(plan.maxAmount).toLocaleString()}` };
   }
 
   const existing = await db.userInvestment.findUnique({ where: { userId } });
@@ -130,6 +139,9 @@ export async function userStartCopyTrade(data: {
   if (!trader || !trader.isActive) return { error: "Trader not found or inactive" };
   if (data.amount < Number(trader.minCopyAmount)) {
     return { error: `Minimum copy amount is $${Number(trader.minCopyAmount).toLocaleString()}` };
+  }
+  if (trader.maxCopyAmount !== null && data.amount > Number(trader.maxCopyAmount)) {
+    return { error: `Maximum copy amount is $${Number(trader.maxCopyAmount).toLocaleString()}` };
   }
 
   const existing = await db.userCopyTrade.findFirst({
@@ -294,31 +306,48 @@ export async function adminCreatePlan(data: {
   name: string;
   description?: string;
   minAmount: number;
+  maxAmount?: number | null;
   minProfit: number;
   maxProfit: number;
   profitInterval: number;
   maxInterval: number;
+  isPopular?: boolean;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  // Only one plan can be flagged as popular — clear others first
+  if (data.isPopular) {
+    await db.investmentPlan.updateMany({ where: { isPopular: true }, data: { isPopular: false } });
+  }
   await db.investmentPlan.create({ data });
   revalidatePath("/admin/investments");
+  revalidatePath("/dashboard/investments");
   return { success: true };
 }
 
 export async function adminUpdatePlan(planId: string, data: Partial<{
-  name: string; description: string; minAmount: number;
+  name: string; description: string; minAmount: number; maxAmount: number | null;
   minProfit: number; maxProfit: number; profitInterval: number;
-  maxInterval: number; isActive: boolean;
+  maxInterval: number; isActive: boolean; isPopular: boolean;
 }>) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  // Only one plan can be flagged as popular — clear others first
+  if (data.isPopular === true) {
+    await db.investmentPlan.updateMany({
+      where: { isPopular: true, NOT: { id: planId } },
+      data: { isPopular: false },
+    });
+  }
   await db.investmentPlan.update({ where: { id: planId }, data });
   revalidatePath("/admin/investments");
+  revalidatePath("/dashboard/investments");
   return { success: true };
 }
 
@@ -412,9 +441,13 @@ export async function adminCancelInvestment(userId: string) {
 // ─── Admin: copy traders ───────────────────────────────────────────────────
 
 export async function adminCreateCopyTrader(data: {
-  name: string; avatarUrl?: string; specialty?: string;
-  winRate: number; totalROI: number; followers: number;
-  minCopyAmount: number; description?: string;
+  name: string; avatarUrl?: string; country?: string;
+  specialty?: string; description?: string;
+  winRate: number; totalROI: number; performance30d?: number;
+  riskLevel?: string; followers: number;
+  totalTrades?: number; successfulTrades?: number;
+  failedTrades?: number; maxDrawdown?: number;
+  minCopyAmount: number; maxCopyAmount?: number | null;
   profitInterval: number; maxInterval: number;
   minProfit: number; maxProfit: number;
 }) {
@@ -434,9 +467,13 @@ export async function adminCreateCopyTrader(data: {
 }
 
 export async function adminUpdateCopyTrader(traderId: string, data: Partial<{
-  name: string; avatarUrl: string; specialty: string;
-  winRate: number; totalROI: number; followers: number;
-  minCopyAmount: number; description: string;
+  name: string; avatarUrl: string; country: string;
+  specialty: string; description: string;
+  winRate: number; totalROI: number; performance30d: number;
+  riskLevel: string; followers: number;
+  totalTrades: number; successfulTrades: number;
+  failedTrades: number; maxDrawdown: number;
+  minCopyAmount: number; maxCopyAmount: number | null;
   profitInterval: number; maxInterval: number;
   minProfit: number; maxProfit: number; isActive: boolean;
 }>) {

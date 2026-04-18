@@ -375,11 +375,13 @@ model InvestmentPlan {
   name             String
   description      String?
   minAmount        Decimal  @default(100) @db.Decimal(20, 2)
+  maxAmount        Decimal? @db.Decimal(20, 2)           // null = unlimited
   minProfit        Decimal  @default(0.5)  @db.Decimal(6, 4)  // e.g. 0.5 = 0.5%
   maxProfit        Decimal  @default(1.5)  @db.Decimal(6, 4)
   profitInterval   Int      @default(60)   // min seconds between profit credits
   maxInterval      Int      @default(60)   // max seconds between profit credits
   isActive         Boolean  @default(true)
+  isPopular        Boolean  @default(false) // show "Most Popular" badge (only one plan should have this)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -416,12 +418,20 @@ model CopyTrader {
   id              String   @id @default(cuid())
   name            String
   avatarUrl       String?
+  country         String?  // ISO alpha-2 code, e.g. "US", "GB" — used for flag
   specialty       String?
+  description     String?
   winRate         Decimal  @default(0) @db.Decimal(5, 2)
   totalROI        Decimal  @default(0) @db.Decimal(8, 2)
+  performance30d  Decimal  @default(0) @db.Decimal(8, 2)  // % return over last 30 days
+  riskLevel       String   @default("MEDIUM")             // LOW | MEDIUM | HIGH
   followers       Int      @default(0)
+  totalTrades     Int      @default(0)
+  successfulTrades Int     @default(0)
+  failedTrades    Int      @default(0)
+  maxDrawdown     Decimal  @default(0) @db.Decimal(6, 2)  // negative % e.g. -8.00
   minCopyAmount   Decimal  @default(100) @db.Decimal(20, 2)
-  description     String?
+  maxCopyAmount   Decimal? @db.Decimal(20, 2)             // null = unlimited
   profitInterval  Int      @default(60)  // min seconds between profit credits
   maxInterval     Int      @default(60)  // max seconds between profit credits
   minProfit       Decimal  @default(0.3) @db.Decimal(6, 4)

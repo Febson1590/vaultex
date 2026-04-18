@@ -12,35 +12,48 @@ export default async function CopyTradingPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [kycStatus, copyTrades, usdWallet] = await Promise.all([
+  const [kycStatus, traders, existingCopies, usdWallet] = await Promise.all([
     getKycStatusForUser(userId),
+    db.copyTrader.findMany({
+      where: { isActive: true },
+      orderBy: { performance30d: "desc" },
+    }),
     db.userCopyTrade.findMany({
-      where: { userId },
-      orderBy: { startedAt: "desc" },
-      include: { trader: { select: { avatarUrl: true } } },
+      where: { userId, status: { not: "STOPPED" } },
+      select: { traderId: true },
     }),
     db.wallet.findFirst({ where: { userId, currency: "USD" } }),
   ]);
 
-  function ser(t: any) {
-    return {
-      id:             t.id,
-      traderName:     t.traderName,
-      traderId:       t.traderId,
-      avatarUrl:      t.trader?.avatarUrl ?? null,
-      amount:         Number(t.amount),
-      totalEarned:    Number(t.totalEarned),
-      minProfit:      Number(t.minProfit),
-      maxProfit:      Number(t.maxProfit),
-      profitInterval: t.profitInterval,
-      maxInterval:    t.maxInterval ?? t.profitInterval,
-      status:         t.status,
-    };
-  }
+  const activeTraderIds = new Set(existingCopies.map((c) => c.traderId));
 
-  const activeTrades  = copyTrades.filter(t => t.status !== "STOPPED").map(ser);
-  const stoppedTrades = copyTrades.filter(t => t.status === "STOPPED").map(ser);
-  const usdBalance    = usdWallet ? Number(usdWallet.balance) : 0;
+  const serialized = traders.map((t) => ({
+    id:              t.id,
+    name:            t.name,
+    avatarUrl:       t.avatarUrl,
+    country:         t.country,
+    specialty:       t.specialty,
+    winRate:         Number(t.winRate),
+    performance30d:  Number(t.performance30d),
+    totalROI:        Number(t.totalROI),
+    followers:       t.followers,
+    riskLevel:       t.riskLevel,
+    minCopyAmount:   Number(t.minCopyAmount),
+    maxCopyAmount:   t.maxCopyAmount !== null ? Number(t.maxCopyAmount) : null,
+    minProfit:       Number(t.minProfit),
+    maxProfit:       Number(t.maxProfit),
+    profitInterval:  t.profitInterval,
+    maxInterval:     t.maxInterval,
+    alreadyCopying:  activeTraderIds.has(t.id),
+  }));
 
-  return <CopyTradingClient activeTrades={activeTrades} stoppedTrades={stoppedTrades} usdBalance={usdBalance} kycStatus={kycStatus} />;
+  const usdBalance = usdWallet ? Number(usdWallet.balance) : 0;
+
+  return (
+    <CopyTradingClient
+      traders={serialized}
+      usdBalance={usdBalance}
+      kycStatus={kycStatus}
+    />
+  );
 }

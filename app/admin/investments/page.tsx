@@ -19,9 +19,11 @@ interface UserInvestment {
   status: string; startedAt: string; user: { name: string | null; email: string };
 }
 interface Plan {
-  id: string; name: string; description: string | null; minAmount: number;
+  id: string; name: string; description: string | null;
+  minAmount: number; maxAmount: number | null;
   minProfit: number; maxProfit: number; profitInterval: number; maxInterval: number;
-  isActive: boolean; _count: { userInvestments: number };
+  isActive: boolean; isPopular: boolean;
+  _count: { userInvestments: number };
 }
 interface UserOption { id: string; name: string | null; email: string }
 
@@ -42,20 +44,25 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
   const [form, setForm] = useState({
     name: plan?.name ?? "", description: plan?.description ?? "",
     minAmount: String(plan?.minAmount ?? 100),
+    maxAmount: plan?.maxAmount !== null && plan?.maxAmount !== undefined ? String(plan.maxAmount) : "",
     minProfit: String(plan?.minProfit ?? 0.5), maxProfit: String(plan?.maxProfit ?? 1.5),
     profitInterval: String(plan?.profitInterval ?? 60), maxInterval: String(plan?.maxInterval ?? 60),
+    isPopular: plan?.isPopular ?? false,
   });
   const [loading, setLoading] = useState(false);
-  function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
+  function set(k: string, v: string | boolean) { setForm(f => ({ ...f, [k]: v })); }
 
   async function submit() {
     if (!form.name.trim()) { toast.error("Name required"); return; }
     setLoading(true);
+    const maxAmountParsed = form.maxAmount.trim() ? parseFloat(form.maxAmount) : null;
     const payload = {
       name: form.name.trim(), description: form.description || undefined,
       minAmount: parseFloat(form.minAmount),
+      maxAmount: maxAmountParsed,
       minProfit: parseFloat(form.minProfit), maxProfit: parseFloat(form.maxProfit),
       profitInterval: parseInt(form.profitInterval), maxInterval: parseInt(form.maxInterval),
+      isPopular: form.isPopular,
     };
     const r = plan ? await adminUpdatePlan(plan.id, payload) : await adminCreatePlan(payload);
     setLoading(false);
@@ -71,7 +78,10 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
         <div className="space-y-4">
           <div><label className={labelCls}>Plan Name</label><input className={inputCls + " mt-1"} value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Growth Plan" /></div>
           <div><label className={labelCls}>Description (optional)</label><input className={inputCls + " mt-1"} value={form.description} onChange={e => set("description", e.target.value)} placeholder="Short description…" /></div>
-          <div><label className={labelCls}>Min Amount (USD)</label><input type="number" className={inputCls + " mt-1"} value={form.minAmount} onChange={e => set("minAmount", e.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className={labelCls}>Min Amount (USD)</label><input type="number" className={inputCls + " mt-1"} value={form.minAmount} onChange={e => set("minAmount", e.target.value)} /></div>
+            <div><label className={labelCls}>Max Amount (USD) <span className="text-slate-600">— optional</span></label><input type="number" className={inputCls + " mt-1"} value={form.maxAmount} onChange={e => set("maxAmount", e.target.value)} placeholder="Leave empty for no cap" /></div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className={labelCls}>Min Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.minProfit} onChange={e => set("minProfit", e.target.value)} /></div>
             <div><label className={labelCls}>Max Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} /></div>
@@ -81,6 +91,20 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
             <div><label className={labelCls}>Max Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.maxInterval} onChange={e => set("maxInterval", e.target.value)} /></div>
           </div>
           <p className="text-[11px] text-slate-500">Profit fires at a random time between Min and Max interval.</p>
+
+          {/* Most Popular toggle */}
+          <label className="flex items-center gap-2 cursor-pointer mt-2">
+            <input
+              type="checkbox"
+              checked={form.isPopular}
+              onChange={(e) => set("isPopular", e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-white/5 text-sky-500 focus:ring-sky-500 focus:ring-offset-0"
+            />
+            <span className="text-xs text-slate-300">
+              Mark as <strong className="text-sky-400">Most Popular</strong>{" "}
+              <span className="text-slate-500">(only one plan can hold this badge)</span>
+            </span>
+          </label>
         </div>
         <div className="flex gap-2 mt-6">
           <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose}>Cancel</Button>
@@ -342,7 +366,7 @@ export default function AdminInvestmentsPage() {
               <table className="w-full premium-table">
                 <thead>
                   <tr className="border-b border-white/5">
-                    {["Plan","Min Amount","Profit Range","Interval","Users","Status","Actions"].map(h => (
+                    {["Plan","Range","Profit Range","Interval","Users","Status","Actions"].map(h => (
                       <th key={h} className="text-left text-xs font-medium text-slate-500 px-4 py-3 uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -351,10 +375,20 @@ export default function AdminInvestmentsPage() {
                   {plans.map(plan => (
                     <tr key={plan.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
                       <td className="px-4 py-3">
-                        <div className="text-sm font-bold text-white">{plan.name}</div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="text-sm font-bold text-white">{plan.name}</div>
+                          {plan.isPopular && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                              POPULAR
+                            </span>
+                          )}
+                        </div>
                         {plan.description && <div className="text-xs text-slate-500 mt-0.5 max-w-[180px] truncate">{plan.description}</div>}
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-white">{fmt(plan.minAmount)}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-white whitespace-nowrap">
+                        {fmt(plan.minAmount)}
+                        {plan.maxAmount !== null && <span className="text-slate-500"> – {fmt(plan.maxAmount)}</span>}
+                      </td>
                       <td className="px-4 py-3 text-sm text-emerald-400 whitespace-nowrap">{plan.minProfit}%–{plan.maxProfit}%</td>
                       <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{plan.profitInterval}s–{plan.maxInterval}s</td>
                       <td className="px-4 py-3 text-xs text-white font-semibold">{plan._count.userInvestments}</td>

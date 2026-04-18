@@ -14,9 +14,14 @@ import {
 } from "@/lib/actions/investment";
 
 interface CopyTrader {
-  id: string; name: string; avatarUrl: string | null; specialty: string | null;
-  winRate: number; totalROI: number; followers: number; minCopyAmount: number;
-  profitInterval: number; maxInterval: number; minProfit: number; maxProfit: number;
+  id: string; name: string; avatarUrl: string | null;
+  country: string | null; specialty: string | null; description: string | null;
+  winRate: number; totalROI: number; performance30d: number;
+  riskLevel: string; followers: number;
+  totalTrades: number; successfulTrades: number; failedTrades: number; maxDrawdown: number;
+  minCopyAmount: number; maxCopyAmount: number | null;
+  profitInterval: number; maxInterval: number;
+  minProfit: number; maxProfit: number;
   isActive: boolean; userCopyTrades: { id: string }[];
 }
 interface CopyTrade {
@@ -69,16 +74,25 @@ function TraderModal({ trader, onClose, onSuccess }: {
   trader?: CopyTrader; onClose: () => void; onSuccess: () => void;
 }) {
   const [form, setForm] = useState({
-    name:           trader?.name ?? "",
-    specialty:      trader?.specialty ?? "",
-    winRate:        String(trader?.winRate ?? 85),
-    totalROI:       String(trader?.totalROI ?? 120),
-    followers:      String(trader?.followers ?? 1200),
-    minCopyAmount:  String(trader?.minCopyAmount ?? 100),
-    profitInterval: String(trader?.profitInterval ?? 60),
-    maxInterval:    String(trader?.maxInterval ?? 60),
-    minProfit:      String(trader?.minProfit ?? 0.3),
-    maxProfit:      String(trader?.maxProfit ?? 1.2),
+    name:             trader?.name ?? "",
+    country:          trader?.country ?? "",
+    specialty:        trader?.specialty ?? "",
+    description:      trader?.description ?? "",
+    winRate:          String(trader?.winRate ?? 85),
+    totalROI:         String(trader?.totalROI ?? 120),
+    performance30d:   String(trader?.performance30d ?? 12),
+    riskLevel:        trader?.riskLevel ?? "MEDIUM",
+    followers:        String(trader?.followers ?? 1200),
+    totalTrades:      String(trader?.totalTrades ?? 120),
+    successfulTrades: String(trader?.successfulTrades ?? 95),
+    failedTrades:     String(trader?.failedTrades ?? 25),
+    maxDrawdown:      String(trader?.maxDrawdown ?? -8),
+    minCopyAmount:    String(trader?.minCopyAmount ?? 100),
+    maxCopyAmount:    trader?.maxCopyAmount !== null && trader?.maxCopyAmount !== undefined ? String(trader.maxCopyAmount) : "",
+    profitInterval:   String(trader?.profitInterval ?? 60),
+    maxInterval:      String(trader?.maxInterval ?? 60),
+    minProfit:        String(trader?.minProfit ?? 0.3),
+    maxProfit:        String(trader?.maxProfit ?? 1.2),
   });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(trader?.avatarUrl ?? null);
   const [imgLoading, setImgLoading] = useState(false);
@@ -107,18 +121,28 @@ function TraderModal({ trader, onClose, onSuccess }: {
     if (!form.name.trim()) { toast.error("Trader name is required"); return; }
     setLoading(true);
     try {
+      const maxCopyParsed = form.maxCopyAmount.trim() ? parseFloat(form.maxCopyAmount) : null;
       const payload = {
-        name:           form.name.trim(),
-        avatarUrl:      avatarUrl ?? undefined,
-        specialty:      form.specialty || undefined,
-        winRate:        parseFloat(form.winRate)    || 0,
-        totalROI:       parseFloat(form.totalROI)   || 0,
-        followers:      parseInt(form.followers)    || 0,
-        minCopyAmount:  parseFloat(form.minCopyAmount) || 0,
-        profitInterval: parseInt(form.profitInterval) || 60,
-        maxInterval:    parseInt(form.maxInterval)    || 60,
-        minProfit:      parseFloat(form.minProfit)  || 0,
-        maxProfit:      parseFloat(form.maxProfit)  || 0,
+        name:             form.name.trim(),
+        avatarUrl:        avatarUrl ?? undefined,
+        country:          form.country.trim().toUpperCase() || undefined,
+        specialty:        form.specialty || undefined,
+        description:      form.description || undefined,
+        winRate:          parseFloat(form.winRate)         || 0,
+        totalROI:         parseFloat(form.totalROI)        || 0,
+        performance30d:  parseFloat(form.performance30d)   || 0,
+        riskLevel:        form.riskLevel || "MEDIUM",
+        followers:        parseInt(form.followers)         || 0,
+        totalTrades:      parseInt(form.totalTrades)       || 0,
+        successfulTrades: parseInt(form.successfulTrades)  || 0,
+        failedTrades:     parseInt(form.failedTrades)      || 0,
+        maxDrawdown:      parseFloat(form.maxDrawdown)     || 0,
+        minCopyAmount:    parseFloat(form.minCopyAmount)   || 0,
+        maxCopyAmount:    maxCopyParsed,
+        profitInterval:   parseInt(form.profitInterval)    || 60,
+        maxInterval:      parseInt(form.maxInterval)       || 60,
+        minProfit:        parseFloat(form.minProfit)       || 0,
+        maxProfit:        parseFloat(form.maxProfit)       || 0,
       };
       const r = trader
         ? await adminUpdateCopyTrader(trader.id, payload)
@@ -205,38 +229,102 @@ function TraderModal({ trader, onClose, onSuccess }: {
             </div>
           </div>
 
-          {/* Specialty */}
+          {/* Country + Specialty */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Country code</label>
+              <input
+                className={inputCls + " mt-1 uppercase"}
+                value={form.country}
+                onChange={e => set("country", e.target.value.slice(0, 2).toUpperCase())}
+                placeholder="US, GB, DE…"
+                maxLength={2}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Specialty</label>
+              <input
+                className={inputCls + " mt-1"}
+                value={form.specialty}
+                onChange={e => set("specialty", e.target.value)}
+                placeholder="e.g. BTC/ETH Scalping"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
           <div>
-            <label className={labelCls}>Specialty</label>
+            <label className={labelCls}>Description</label>
             <input
               className={inputCls + " mt-1"}
-              value={form.specialty}
-              onChange={e => set("specialty", e.target.value)}
-              placeholder="e.g. BTC/ETH Scalping"
+              value={form.description}
+              onChange={e => set("description", e.target.value)}
+              placeholder="Short bio shown on trader page"
             />
           </div>
 
-          {/* Win Rate / ROI */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* 30d performance / Win Rate / Risk level */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className={labelCls}>Win Rate (%)</label>
+              <label className={labelCls}>30-day %</label>
+              <input type="number" step="0.1" className={inputCls + " mt-1"} value={form.performance30d} onChange={e => set("performance30d", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Win rate (%)</label>
               <input type="number" className={inputCls + " mt-1"} value={form.winRate} onChange={e => set("winRate", e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>Total ROI (%)</label>
-              <input type="number" className={inputCls + " mt-1"} value={form.totalROI} onChange={e => set("totalROI", e.target.value)} />
+              <label className={labelCls}>Risk</label>
+              <select value={form.riskLevel} onChange={e => set("riskLevel", e.target.value)}
+                className={inputCls + " mt-1"}>
+                <option value="LOW" className="bg-[#0d1e3a]">Low</option>
+                <option value="MEDIUM" className="bg-[#0d1e3a]">Medium</option>
+                <option value="HIGH" className="bg-[#0d1e3a]">High</option>
+              </select>
             </div>
           </div>
 
-          {/* Followers / Min Copy */}
+          {/* Followers + Total ROI */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Followers</label>
               <input type="number" className={inputCls + " mt-1"} value={form.followers} onChange={e => set("followers", e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>Min Copy (USD)</label>
+              <label className={labelCls}>Total ROI (%)</label>
+              <input type="number" step="0.1" className={inputCls + " mt-1"} value={form.totalROI} onChange={e => set("totalROI", e.target.value)} />
+            </div>
+          </div>
+
+          {/* Trading stats: total / successful / failed / drawdown */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Total trades</label>
+              <input type="number" className={inputCls + " mt-1"} value={form.totalTrades} onChange={e => set("totalTrades", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Successful</label>
+              <input type="number" className={inputCls + " mt-1"} value={form.successfulTrades} onChange={e => set("successfulTrades", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Failed</label>
+              <input type="number" className={inputCls + " mt-1"} value={form.failedTrades} onChange={e => set("failedTrades", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Max drawdown (%)</label>
+              <input type="number" step="0.1" className={inputCls + " mt-1"} value={form.maxDrawdown} onChange={e => set("maxDrawdown", e.target.value)} />
+            </div>
+          </div>
+
+          {/* Copy limits */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Min copy (USD)</label>
               <input type="number" className={inputCls + " mt-1"} value={form.minCopyAmount} onChange={e => set("minCopyAmount", e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Max copy (USD) <span className="text-slate-600">— optional</span></label>
+              <input type="number" className={inputCls + " mt-1"} value={form.maxCopyAmount} onChange={e => set("maxCopyAmount", e.target.value)} placeholder="Leave empty for no cap" />
             </div>
           </div>
 
