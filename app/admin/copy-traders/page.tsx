@@ -628,9 +628,11 @@ export default function AdminCopyTradersPage() {
   async function handleSeedDefaults() {
     if (seeding) return;
     const proceed = confirm(
-      "Seed 10 default copy traders?\n\n" +
-      "Existing traders are left untouched — only missing names get created. " +
-      "Seeded traders can be edited or deleted afterwards like any other trader.",
+      "Seed the 10 default copy traders?\n\n" +
+      "This creates the current default list (famous investors such as Warren Buffett, " +
+      "George Soros, Ray Dalio…). Stale seeded rows from earlier versions of this list " +
+      "are removed automatically — but only if no one is actively copying them. " +
+      "Manually edited traders and custom traders you created yourself are never touched.",
     );
     if (!proceed) return;
     setSeeding(true);
@@ -641,10 +643,12 @@ export default function AdminCopyTradersPage() {
       } else if ("success" in r) {
         const created = r.created ?? 0;
         const skipped = r.skipped ?? 0;
-        toast.success(
-          `Seeded ${created} new trader${created === 1 ? "" : "s"}` +
-            (skipped > 0 ? ` · ${skipped} already existed` : ""),
-        );
+        const removed = (r as { removed?: number }).removed ?? 0;
+        const parts: string[] = [];
+        if (created > 0) parts.push(`${created} added`);
+        if (skipped > 0) parts.push(`${skipped} already existed`);
+        if (removed > 0) parts.push(`${removed} stale removed`);
+        toast.success(parts.length ? `Default traders synced · ${parts.join(" · ")}` : "Default traders are up to date");
         load();
       }
     } catch (err: any) {
