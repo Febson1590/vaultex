@@ -11,7 +11,7 @@ import {
   adminCreateCopyTrader, adminUpdateCopyTrader, adminDeleteCopyTrader,
   adminAssignCopyTrade, adminStopCopyTrade,
   adminGetAllCopyTraders, adminGetAllCopyTrades, adminGetAllUsers,
-  adminSeedDefaultCopyTraders,
+  adminDeleteAllSeededCopyTraders,
 } from "@/lib/actions/investment";
 import { COUNTRIES_SORTED, flagEmoji } from "@/lib/countries";
 
@@ -75,6 +75,10 @@ function compressImage(file: File): Promise<string> {
 function TraderModal({ trader, onClose, onSuccess }: {
   trader?: CopyTrader; onClose: () => void; onSuccess: () => void;
 }) {
+  /* Only the essentials. `totalTrades`, `successfulTrades`, `failedTrades`,
+     `maxDrawdown`, `maxCopyAmount` are still in the DB schema and reach the
+     user-facing detail page, but aren't exposed here — schema defaults
+     (0 / null) apply on create and admin edits preserve what's already set. */
   const [form, setForm] = useState({
     name:             trader?.name ?? "",
     country:          trader?.country ?? "",
@@ -85,12 +89,7 @@ function TraderModal({ trader, onClose, onSuccess }: {
     performance30d:   String(trader?.performance30d ?? 12),
     riskLevel:        trader?.riskLevel ?? "MEDIUM",
     followers:        String(trader?.followers ?? 1200),
-    totalTrades:      String(trader?.totalTrades ?? 120),
-    successfulTrades: String(trader?.successfulTrades ?? 95),
-    failedTrades:     String(trader?.failedTrades ?? 25),
-    maxDrawdown:      String(trader?.maxDrawdown ?? -8),
     minCopyAmount:    String(trader?.minCopyAmount ?? 100),
-    maxCopyAmount:    trader?.maxCopyAmount !== null && trader?.maxCopyAmount !== undefined ? String(trader.maxCopyAmount) : "",
     profitInterval:   String(trader?.profitInterval ?? 60),
     maxInterval:      String(trader?.maxInterval ?? 60),
     minProfit:        String(trader?.minProfit ?? 0.3),
@@ -123,28 +122,22 @@ function TraderModal({ trader, onClose, onSuccess }: {
     if (!form.name.trim()) { toast.error("Trader name is required"); return; }
     setLoading(true);
     try {
-      const maxCopyParsed = form.maxCopyAmount.trim() ? parseFloat(form.maxCopyAmount) : null;
       const payload = {
         name:             form.name.trim(),
         avatarUrl:        avatarUrl ?? undefined,
         country:          form.country.trim().toUpperCase() || undefined,
         specialty:        form.specialty || undefined,
         description:      form.description || undefined,
-        winRate:          parseFloat(form.winRate)         || 0,
-        totalROI:         parseFloat(form.totalROI)        || 0,
-        performance30d:  parseFloat(form.performance30d)   || 0,
+        winRate:          parseFloat(form.winRate)       || 0,
+        totalROI:         parseFloat(form.totalROI)      || 0,
+        performance30d:   parseFloat(form.performance30d) || 0,
         riskLevel:        form.riskLevel || "MEDIUM",
-        followers:        parseInt(form.followers)         || 0,
-        totalTrades:      parseInt(form.totalTrades)       || 0,
-        successfulTrades: parseInt(form.successfulTrades)  || 0,
-        failedTrades:     parseInt(form.failedTrades)      || 0,
-        maxDrawdown:      parseFloat(form.maxDrawdown)     || 0,
-        minCopyAmount:    parseFloat(form.minCopyAmount)   || 0,
-        maxCopyAmount:    maxCopyParsed,
-        profitInterval:   parseInt(form.profitInterval)    || 60,
-        maxInterval:      parseInt(form.maxInterval)       || 60,
-        minProfit:        parseFloat(form.minProfit)       || 0,
-        maxProfit:        parseFloat(form.maxProfit)       || 0,
+        followers:        parseInt(form.followers)       || 0,
+        minCopyAmount:    parseFloat(form.minCopyAmount) || 0,
+        profitInterval:   parseInt(form.profitInterval)  || 60,
+        maxInterval:      parseInt(form.maxInterval)     || 60,
+        minProfit:        parseFloat(form.minProfit)     || 0,
+        maxProfit:        parseFloat(form.maxProfit)     || 0,
       };
       const r = trader
         ? await adminUpdateCopyTrader(trader.id, payload)
@@ -312,36 +305,10 @@ function TraderModal({ trader, onClose, onSuccess }: {
             </div>
           </div>
 
-          {/* Trading stats: total / successful / failed / drawdown */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Total trades</label>
-              <input type="number" className={inputCls + " mt-1"} value={form.totalTrades} onChange={e => set("totalTrades", e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Successful</label>
-              <input type="number" className={inputCls + " mt-1"} value={form.successfulTrades} onChange={e => set("successfulTrades", e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Failed</label>
-              <input type="number" className={inputCls + " mt-1"} value={form.failedTrades} onChange={e => set("failedTrades", e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Max drawdown (%)</label>
-              <input type="number" step="0.1" className={inputCls + " mt-1"} value={form.maxDrawdown} onChange={e => set("maxDrawdown", e.target.value)} />
-            </div>
-          </div>
-
-          {/* Copy limits */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Min copy (USD)</label>
-              <input type="number" className={inputCls + " mt-1"} value={form.minCopyAmount} onChange={e => set("minCopyAmount", e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Max copy (USD) <span className="text-slate-600">— optional</span></label>
-              <input type="number" className={inputCls + " mt-1"} value={form.maxCopyAmount} onChange={e => set("maxCopyAmount", e.target.value)} placeholder="Leave empty for no cap" />
-            </div>
+          {/* Min copy */}
+          <div>
+            <label className={labelCls}>Min copy (USD)</label>
+            <input type="number" className={inputCls + " mt-1"} value={form.minCopyAmount} onChange={e => set("minCopyAmount", e.target.value)} />
           </div>
 
           {/* Profit Range */}
@@ -561,7 +528,7 @@ export default function AdminCopyTradersPage() {
   const [deleteBusy,   setDeleteBusy]   = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
-  const [seeding,    setSeeding]    = useState(false);
+  const [removingSeeded, setRemovingSeeded] = useState(false);
   const [tab, setTab] = useState<"traders" | "assignments">("traders");
 
   async function load() {
@@ -625,38 +592,38 @@ export default function AdminCopyTradersPage() {
     }
   }
 
-  async function handleSeedDefaults() {
-    if (seeding) return;
+  async function handleRemoveSeeded() {
+    if (removingSeeded) return;
     const proceed = confirm(
-      "Seed the 10 default copy traders?\n\n" +
-      "This creates the current default list (famous investors such as Warren Buffett, " +
-      "George Soros, Ray Dalio…). Stale seeded rows from earlier versions of this list " +
-      "are removed automatically — but only if no one is actively copying them. " +
-      "Manually edited traders and custom traders you created yourself are never touched.",
+      "Remove all default / seeded copy traders?\n\n" +
+      "This deletes any trader that was previously auto-created by the old seed " +
+      "button. Traders you created yourself are never touched. Traders currently " +
+      "being copied by a user are skipped — stop those copy trades first if you " +
+      "also want to remove them.",
     );
     if (!proceed) return;
-    setSeeding(true);
+    setRemovingSeeded(true);
     try {
-      const r = await adminSeedDefaultCopyTraders();
+      const r = await adminDeleteAllSeededCopyTraders();
       if ("error" in r && r.error) {
         toast.error(r.error);
       } else if ("success" in r) {
-        const created        = r.created ?? 0;
-        const skipped        = r.skipped ?? 0;
-        const removed        = (r as { removed?: number }).removed ?? 0;
-        const avatarsCleared = (r as { avatarsCleared?: number }).avatarsCleared ?? 0;
-        const parts: string[] = [];
-        if (created > 0)        parts.push(`${created} added`);
-        if (avatarsCleared > 0) parts.push(`${avatarsCleared} portraits cleared`);
-        if (skipped > 0)        parts.push(`${skipped} already set up`);
-        if (removed > 0)        parts.push(`${removed} stale removed`);
-        toast.success(parts.length ? `Default traders synced · ${parts.join(" · ")}` : "Default traders are up to date");
+        const removed = r.removed ?? 0;
+        const blocked = r.blocked ?? 0;
+        if (removed === 0 && blocked === 0) {
+          toast.success("No default traders to remove");
+        } else {
+          const parts: string[] = [];
+          if (removed > 0) parts.push(`${removed} removed`);
+          if (blocked > 0) parts.push(`${blocked} skipped (active copies)`);
+          toast.success(`Default traders cleaned up · ${parts.join(" · ")}`);
+        }
         load();
       }
     } catch (err: any) {
-      toast.error(err?.message ?? "Seeding failed");
+      toast.error(err?.message ?? "Cleanup failed");
     } finally {
-      setSeeding(false);
+      setRemovingSeeded(false);
     }
   }
 
@@ -671,18 +638,20 @@ export default function AdminCopyTradersPage() {
           <p className="text-sm text-slate-500 mt-0.5">Manage traders and user copy assignments</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button
-            onClick={handleSeedDefaults}
-            disabled={seeding}
-            variant="outline"
-            className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10 text-sm h-9 px-4"
-            title="Create 10 pre-configured default traders (skips names that already exist)"
-          >
-            {seeding
-              ? <Loader2 size={14} className="mr-1.5 animate-spin" />
-              : <Sparkles size={14} className="mr-1.5" />}
-            Seed 10 Defaults
-          </Button>
+          {traders.some((t) => t.isSeeded) && (
+            <Button
+              onClick={handleRemoveSeeded}
+              disabled={removingSeeded}
+              variant="outline"
+              className="border-red-500/30 text-red-300 hover:bg-red-500/10 text-sm h-9 px-4"
+              title="Delete any trader that was previously auto-created by the default seed"
+            >
+              {removingSeeded
+                ? <Loader2 size={14} className="mr-1.5 animate-spin" />
+                : <Trash2 size={14} className="mr-1.5" />}
+              Remove Default Traders
+            </Button>
+          )}
           <Button
             onClick={() => setShowAssign(true)}
             variant="outline"
