@@ -641,13 +641,15 @@ export default function AdminCopyTradersPage() {
       if ("error" in r && r.error) {
         toast.error(r.error);
       } else if ("success" in r) {
-        const created = r.created ?? 0;
-        const skipped = r.skipped ?? 0;
-        const removed = (r as { removed?: number }).removed ?? 0;
+        const created        = r.created ?? 0;
+        const skipped        = r.skipped ?? 0;
+        const removed        = (r as { removed?: number }).removed ?? 0;
+        const avatarUpgraded = (r as { avatarUpgraded?: number }).avatarUpgraded ?? 0;
         const parts: string[] = [];
-        if (created > 0) parts.push(`${created} added`);
-        if (skipped > 0) parts.push(`${skipped} already existed`);
-        if (removed > 0) parts.push(`${removed} stale removed`);
+        if (created > 0)        parts.push(`${created} added`);
+        if (avatarUpgraded > 0) parts.push(`${avatarUpgraded} portraits added`);
+        if (skipped > 0)        parts.push(`${skipped} already set up`);
+        if (removed > 0)        parts.push(`${removed} stale removed`);
         toast.success(parts.length ? `Default traders synced · ${parts.join(" · ")}` : "Default traders are up to date");
         load();
       }

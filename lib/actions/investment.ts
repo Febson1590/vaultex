@@ -620,6 +620,24 @@ interface SeededPreset {
   riskLevel:   "LOW" | "MEDIUM" | "HIGH";
 }
 
+/**
+ * Build a DiceBear "notionists" illustrated-portrait URL for a seeded trader.
+ * Uses the trader's name as the deterministic seed so every re-generation
+ * returns the exact same portrait for the same trader. The backgroundColor
+ * list rotates through three on-brand shades so the 10 portraits feel
+ * varied rather than uniform.
+ *
+ * DiceBear Notionists is CC0 — no attribution required and safe for
+ * commercial use. Never meant to resemble any specific real person; it's
+ * a generated illustration keyed off the name string.
+ */
+function buildSeededAvatarUrl(name: string): string {
+  const seed = encodeURIComponent(name);
+  // navy · sky · slate — darker variants so white text/badges on top stay legible
+  const bg   = "0d1b2e,0ea5e9,1e3a8a,0f2a3d";
+  return `https://api.dicebear.com/7.x/notionists/svg?seed=${seed}&backgroundColor=${bg}&radius=50`;
+}
+
 /*
  * The default seed list is flavoured after ten globally recognised
  * investors/traders so the demo feels realistic. Stats are still
@@ -821,28 +839,47 @@ export async function adminSeedDefaultCopyTraders() {
       removed++;
     }
 
-    /* Create any presets that don't already exist. Existing rows (even
-       manually edited ones) are left untouched. */
+    /* Create / refresh presets.
+       - New preset           → create with DiceBear portrait
+       - Exists with null avatar AND isSeeded → upgrade to DiceBear portrait
+                                                (skip otherwise, so we never
+                                                blow away an admin-uploaded
+                                                photo or a custom trader). */
+    let avatarUpgraded = 0;
     for (const preset of SEEDED_TRADERS) {
-      const existing = await db.copyTrader.findFirst({ where: { name: preset.name } });
-      if (existing) { skipped++; continue; }
+      const existing   = await db.copyTrader.findFirst({ where: { name: preset.name } });
+      const avatarUrl  = buildSeededAvatarUrl(preset.name);
 
-      const stats = makeStatsFor(preset);
-      await db.copyTrader.create({
-        data: {
-          name:             preset.name,
-          avatarUrl:        null,                // initials fallback already renders a branded identity
-          isSeeded:         true,
-          isActive:         true,
-          ...stats,
-        },
-      });
-      created++;
+      if (!existing) {
+        const stats = makeStatsFor(preset);
+        await db.copyTrader.create({
+          data: {
+            name:      preset.name,
+            avatarUrl,                    // illustrated portrait
+            isSeeded:  true,
+            isActive:  true,
+            ...stats,
+          },
+        });
+        created++;
+        continue;
+      }
+
+      if (existing.isSeeded && !existing.avatarUrl) {
+        await db.copyTrader.update({
+          where: { id: existing.id },
+          data:  { avatarUrl },
+        });
+        avatarUpgraded++;
+        continue;
+      }
+
+      skipped++;
     }
 
     revalidatePath("/admin/copy-traders");
     revalidatePath("/dashboard/copy-trading");
-    return { success: true, created, skipped, removed };
+    return { success: true, created, skipped, removed, avatarUpgraded };
   } catch (e: any) {
     console.error("[adminSeedDefaultCopyTraders]", e);
     return { error: e?.message ?? "Failed to seed traders" };
