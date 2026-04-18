@@ -194,7 +194,7 @@ export function DualAmountInput({
   minUsd,
   maxUsd,
   titlePrefix = "Amount",
-  helperText = "You can enter either USD or crypto amount. Values update automatically.",
+  helperText = "You can enter either the USD amount or the crypto amount — the other field stays in sync.",
   rateStale = false,
 }: Props) {
   return (
@@ -258,7 +258,6 @@ export function DualAmountInput({
                 : "—"}
             </span>
           </span>
-          <span className="text-slate-600">· updates automatically</span>
         </div>
         <div className="text-[11px] text-slate-500 text-right">
           {minUsd !== undefined && <span>Min: ${minUsd}</span>}

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine,
   ShieldCheck, TrendingUp, History, HeadphonesIcon, Bell, Copy, Wallet,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/admin/deposits",        label: "Deposits",           icon: ArrowDownToLine },
   { href: "/admin/deposit-wallets", label: "Deposit Wallets",    icon: Wallet },
   { href: "/admin/withdrawals",     label: "Withdrawals",        icon: ArrowUpFromLine },
+  { href: "/admin/limits",          label: "Limits",             icon: SlidersHorizontal },
   { href: "/admin/verification",    label: "KYC / Verification", icon: ShieldCheck },
   { href: "/admin/transactions",    label: "Transactions",       icon: History },
   { href: "/admin/support",         label: "Support",            icon: HeadphonesIcon },

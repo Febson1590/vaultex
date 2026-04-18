@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { generateWalletAddress } from "@/lib/utils";
 import { notifyUser, APP_URL, type EmailSummaryCard } from "@/lib/notifications";
+import { getFinancialLimits, updateFinancialLimits, type FinancialLimits } from "@/lib/limits";
 
 async function requireAdmin() {
   const session = await auth();
@@ -548,4 +549,59 @@ export async function toggleDepositWallet(id: string, isActive: boolean) {
   await db.depositWallet.update({ where: { id }, data: { isActive } });
   revalidatePath("/admin/deposits");
   return { success: true };
+}
+
+// ─── Financial limits (deposit/withdrawal minima + fees) ─────────────────────
+// Thin admin wrapper over lib/limits.ts so the Admin → Limits page can read
+// and write the same SiteConfig keys used by the user-facing deposit and
+// withdrawal forms.
+
+export async function adminGetFinancialLimits() {
+  await requireAdmin();
+  try {
+    const limits = await getFinancialLimits();
+    return { success: true as const, limits };
+  } catch (e) {
+    console.error("[adminGetFinancialLimits]", e);
+    return { error: e instanceof Error ? e.message : "Failed to load limits" };
+  }
+}
+
+export async function adminUpdateFinancialLimits(limits: Partial<FinancialLimits>) {
+  const adminId = await requireAdmin();
+
+  // Sanity-check numeric fields so the form can't persist junk.
+  const numericKeys = [
+    "minDeposit",
+    "maxDeposit",
+    "minWithdrawal",
+    "maxWithdrawal",
+    "withdrawalFeePercent",
+    "withdrawalFeeFixed",
+  ] as const;
+  for (const k of numericKeys) {
+    const v = limits[k];
+    if (v === undefined || v === null) continue;
+    if (typeof v !== "number" || !isFinite(v) || v < 0) {
+      return { error: `${k} must be a non-negative number` };
+    }
+  }
+  if (limits.minDeposit !== undefined && limits.maxDeposit != null && limits.minDeposit > limits.maxDeposit) {
+    return { error: "Minimum deposit cannot exceed maximum deposit" };
+  }
+  if (limits.minWithdrawal !== undefined && limits.maxWithdrawal != null && limits.minWithdrawal > limits.maxWithdrawal) {
+    return { error: "Minimum withdrawal cannot exceed maximum withdrawal" };
+  }
+
+  try {
+    await updateFinancialLimits(limits);
+    await logAction(adminId, "UPDATE_LIMITS", undefined, `Updated financial limits`);
+    revalidatePath("/admin/limits");
+    revalidatePath("/dashboard/deposit");
+    revalidatePath("/dashboard/withdraw");
+    return { success: true as const };
+  } catch (e) {
+    console.error("[adminUpdateFinancialLimits]", e);
+    return { error: e instanceof Error ? e.message : "Failed to update limits" };
+  }
 }
