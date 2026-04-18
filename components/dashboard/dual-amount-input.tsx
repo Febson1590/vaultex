@@ -194,7 +194,7 @@ export function DualAmountInput({
   minUsd,
   maxUsd,
   titlePrefix = "Amount",
-  helperText = "You can enter either the USD amount or the crypto amount — the other field stays in sync.",
+  helperText = "Enter your amount in USD or crypto — values update automatically.",
   rateStale = false,
 }: Props) {
   return (

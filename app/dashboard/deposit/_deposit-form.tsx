@@ -14,7 +14,7 @@ import {
 import {
   Loader2, CheckCircle2, Copy, Check, AlertTriangle, Upload,
   FileImage, X, ArrowLeft, Clock, Hourglass, XCircle,
-  Trash2,
+  Trash2, Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
@@ -367,6 +367,9 @@ export default function DepositForm({
                 "I've Sent the Payment"
               )}
             </Button>
+
+            {/* Next Steps helper block */}
+            <NextStepsBlock />
           </>
         ) : (
           <UnavailableState asset={selectedAsset} />
@@ -393,6 +396,41 @@ export default function DepositForm({
       {/* ── Footer note ──────────────────────────────────────────── */}
       <p className="text-[12px] text-slate-500 leading-relaxed px-2">
         Please note that deposits require confirmations on the blockchain and are subject to manual review.
+      </p>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   "Next Steps" helper — shown under the CTA to guide first-time users
+═══════════════════════════════════════════════════════════════════════ */
+
+function NextStepsBlock() {
+  const steps = [
+    "Send your crypto to the wallet address above",
+    "Click \u201CI\u2019ve Sent the Payment\u201D",
+    "Upload your proof from \u201CPending Deposits\u201D below",
+  ];
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3.5">
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <Info size={12} className="text-sky-400" />
+        <span className="text-[11px] font-bold text-white uppercase tracking-widest">
+          Next Steps
+        </span>
+      </div>
+      <ol className="space-y-2">
+        {steps.map((step, i) => (
+          <li key={i} className="flex items-start gap-2.5 text-[12.5px] text-slate-300 leading-relaxed">
+            <span className="flex-shrink-0 mt-0.5 w-4 h-4 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[10px] font-bold flex items-center justify-center">
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="text-[11.5px] text-slate-500 mt-3 pt-2.5 border-t border-white/[0.05] leading-relaxed">
+        Your deposit will be reviewed once proof is submitted.
       </p>
     </div>
   );
