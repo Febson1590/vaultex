@@ -23,11 +23,13 @@ import type { KycStatus } from "@/lib/kyc";
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
 interface DepositWallet {
-  id:      string;
-  asset:   string;
-  network: string | null;
-  address: string;
-  label:   string;
+  id:           string;
+  asset:        string;
+  network:      string | null;
+  address:      string;
+  label:        string;
+  minDeposit:   number | null;
+  instructions: string | null;
 }
 
 interface RecentDeposit {
@@ -127,6 +129,11 @@ function AssetIcon({ asset, size = 32 }: { asset: string; size?: number }) {
    Main component
 ═══════════════════════════════════════════════════════════════════════ */
 
+/* Default asset menu — always visible so the user sees we support these
+   cryptos even before an admin has configured a wallet for them. If the
+   admin has configured an unexpected asset we also include it. */
+const DEFAULT_ASSETS = ["BTC", "ETH", "USDT", "BNB", "SOL"];
+
 export default function DepositForm({
   kycStatus   = "approved",
   wallets     = [],
@@ -136,9 +143,13 @@ export default function DepositForm({
 }: Props) {
   const isRestricted = kycStatus !== "approved";
 
+  /* Build the full asset list = defaults + any extra admin-configured assets. */
+  const configuredAssets = Array.from(new Set(wallets.map((w) => w.asset)));
+  const assetMenu = Array.from(new Set([...DEFAULT_ASSETS, ...configuredAssets]));
+
   /* ── New-deposit state ──────────────────────────────────────────── */
   const [selectedAsset, setSelectedAsset] = useState<string>(
-    wallets[0]?.asset ?? "BTC",
+    configuredAssets[0] ?? DEFAULT_ASSETS[0],
   );
   const [amount, setAmount]   = useState("");
   const [copied, setCopied]   = useState(false);
@@ -149,6 +160,10 @@ export default function DepositForm({
      If an admin has configured multiple wallets for the same asset
      (e.g. USDT TRC20 + USDT ERC20), we just pick the first one. */
   const activeWallet = wallets.find((w) => w.asset === selectedAsset) ?? null;
+
+  /* Effective minimum — prefer the per-wallet minimum if the admin set one. */
+  const effectiveMin =
+    activeWallet?.minDeposit != null ? activeWallet.minDeposit : minDeposit;
 
   /* ── Copy wallet address ──────────────────────────────────────── */
   function copyAddress() {
@@ -165,7 +180,7 @@ export default function DepositForm({
     if (!activeWallet) { setError("Select a cryptocurrency"); return; }
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) { setError("Enter a valid amount"); return; }
-    if (amt < minDeposit)  { setError(`Minimum deposit is $${minDeposit}`); return; }
+    if (amt < effectiveMin)  { setError(`Minimum deposit is $${effectiveMin}`); return; }
     if (maxDeposit && amt > maxDeposit) { setError(`Maximum deposit is $${maxDeposit}`); return; }
 
     setCreating(true);
@@ -191,11 +206,6 @@ export default function DepositForm({
     }
   }
 
-  /* ── Get the set of unique assets we have wallets for ─────────── */
-  const availableAssets = Array.from(
-    new Set(wallets.map((w) => w.asset))
-  );
-
   /* ── Render ───────────────────────────────────────────────────── */
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-16">
@@ -219,82 +229,90 @@ export default function DepositForm({
       {isRestricted && <KycBanner kycStatus={kycStatus} />}
 
       {/* ── Create-deposit card ──────────────────────────────────── */}
-      {availableAssets.length === 0 ? (
-        <Card className="glass-card border-0 rounded-2xl p-6">
-          <div className="text-sm text-slate-400 text-center py-6">
-            No deposit wallets are currently configured. Please contact support.
-          </div>
-        </Card>
-      ) : (
-        <Card className="glass-card border-0 rounded-2xl p-5 sm:p-6 space-y-5">
+      <Card className="glass-card border-0 rounded-2xl p-5 sm:p-6 space-y-5">
 
-          {/* Asset selector — horizontal chips */}
-          <div className="space-y-2">
-            <Label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-              Select Cryptocurrency
-            </Label>
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
-              {availableAssets.map((asset) => {
-                const isActive = selectedAsset === asset;
-                return (
-                  <button
-                    key={asset}
-                    type="button"
-                    onClick={() => setSelectedAsset(asset)}
-                    className={`
-                      flex-shrink-0 flex items-center gap-2 h-11 px-4 rounded-xl border transition-all
-                      ${isActive
-                        ? "border-sky-500/50 bg-sky-500/[0.08] shadow-[0_0_0_1px_rgba(14,165,233,0.2)]"
-                        : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]"}
-                    `}
-                  >
-                    <AssetIcon asset={asset} size={26} />
-                    <span className={`text-[13px] font-semibold ${isActive ? "text-white" : "text-slate-300"}`}>
-                      {asset}
+        {/* Asset selector — horizontal chips. Shows the full default set
+            even when some are unavailable so the user can see what's
+            supported and get a polished "unavailable" state below. */}
+        <div className="space-y-2">
+          <Label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+            Select Cryptocurrency
+          </Label>
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+            {assetMenu.map((asset) => {
+              const isActive = selectedAsset === asset;
+              const hasWallet = wallets.some((w) => w.asset === asset);
+              return (
+                <button
+                  key={asset}
+                  type="button"
+                  onClick={() => { setSelectedAsset(asset); setError(""); }}
+                  className={`
+                    flex-shrink-0 flex items-center gap-2 h-11 px-4 rounded-xl border transition-all
+                    ${isActive
+                      ? "border-sky-500/50 bg-sky-500/[0.08] shadow-[0_0_0_1px_rgba(14,165,233,0.2)]"
+                      : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.05]"}
+                  `}
+                >
+                  <AssetIcon asset={asset} size={26} />
+                  <span className={`text-[13px] font-semibold ${isActive ? "text-white" : "text-slate-300"}`}>
+                    {asset}
+                  </span>
+                  {!hasWallet && (
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-500 border border-white/10 rounded px-1 py-0.5 ml-0.5">
+                      Soon
                     </span>
-                  </button>
-                );
-              })}
-            </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
+        </div>
 
-          {error && (
-            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5">
-              <AlertTriangle size={13} className="flex-shrink-0" /> {error}
-            </div>
-          )}
+        {/* Per-asset branch: either the full form, or an "Unavailable" state. */}
+        {activeWallet ? (
+          <>
+            {error && (
+              <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5">
+                <AlertTriangle size={13} className="flex-shrink-0" /> {error}
+              </div>
+            )}
 
-          {/* Amount */}
-          <div className="space-y-1.5">
-            <Label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
-              Amount to Deposit
-            </Label>
-            <div className="relative">
-              <Input
-                type="number"
-                step="0.01"
-                min={minDeposit}
-                max={maxDeposit ?? undefined}
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-slate-600 h-12 pr-16 text-base font-semibold tabular-nums"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-slate-500 font-medium pointer-events-none">
-                | USD
-              </span>
+            {/* Amount */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                Amount to Deposit
+              </Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={effectiveMin}
+                  max={maxDeposit ?? undefined}
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-slate-600 h-12 pr-16 text-base font-semibold tabular-nums"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] text-slate-500 font-medium pointer-events-none">
+                  | USD
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <span>Min: {effectiveMin} USD</span>
+                {maxDeposit && <span>· Max: {maxDeposit} USD</span>}
+              </div>
             </div>
-            <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-              <span>Min: {minDeposit} USD</span>
-              {maxDeposit && <span>· Max: {maxDeposit} USD</span>}
-            </div>
-          </div>
 
-          {/* Wallet address */}
-          {activeWallet && (
+            {/* Wallet address */}
             <div className="space-y-1.5">
               <Label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
                 {activeWallet.asset} Deposit Address
+                {activeWallet.network && (
+                  <span className="text-slate-500 ml-2 normal-case tracking-normal font-medium">
+                    · {activeWallet.network}
+                  </span>
+                )}
               </Label>
               <div className="flex items-stretch gap-2">
                 <div className="flex-1 flex items-center px-4 bg-white/[0.03] border border-white/[0.08] rounded-lg min-w-0">
@@ -320,24 +338,33 @@ export default function DepositForm({
                 </span>
               </div>
             </div>
-          )}
 
-          {/* CTA — I've Sent the Payment */}
-          <Button
-            onClick={handleCreateDeposit}
-            disabled={creating || isRestricted || !activeWallet}
-            className="w-full h-12 bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[14px]"
-          >
-            {creating ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>
-            ) : isRestricted ? (
-              "Verification Required"
-            ) : (
-              "I've Sent the Payment"
+            {/* Optional admin instructions */}
+            {activeWallet.instructions && (
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/[0.05] px-3 py-2.5 text-[12px] text-slate-300 leading-relaxed whitespace-pre-wrap">
+                {activeWallet.instructions}
+              </div>
             )}
-          </Button>
-        </Card>
-      )}
+
+            {/* CTA — I've Sent the Payment */}
+            <Button
+              onClick={handleCreateDeposit}
+              disabled={creating || isRestricted}
+              className="w-full h-12 bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[14px]"
+            >
+              {creating ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>
+              ) : isRestricted ? (
+                "Verification Required"
+              ) : (
+                "I've Sent the Payment"
+              )}
+            </Button>
+          </>
+        ) : (
+          <UnavailableState asset={selectedAsset} />
+        )}
+      </Card>
 
       {/* ── Recent deposits list ─────────────────────────────────── */}
       {recent.length > 0 && (
@@ -360,6 +387,37 @@ export default function DepositForm({
       <p className="text-[12px] text-slate-500 leading-relaxed px-2">
         Please note that deposits require confirmations on the blockchain and are subject to manual review.
       </p>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Unavailable state — shown when the selected asset has no active wallet
+═══════════════════════════════════════════════════════════════════════ */
+
+function UnavailableState({ asset }: { asset: string }) {
+  return (
+    <div className="py-8 px-4 text-center space-y-4">
+      <div className="mx-auto w-16 h-16 flex items-center justify-center">
+        <AssetIcon asset={asset} size={64} />
+      </div>
+      <div>
+        <h3 className="text-[15px] font-bold text-white">
+          {asset} Deposits Unavailable
+        </h3>
+        <p className="text-[12.5px] text-slate-400 mt-1.5 leading-relaxed max-w-sm mx-auto">
+          Deposits for this cryptocurrency are currently unavailable.
+          Please try another option or contact support.
+        </p>
+      </div>
+      <div>
+        <Link
+          href="/dashboard/support"
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] text-[12.5px] font-semibold text-slate-200 transition-colors"
+        >
+          Contact Support
+        </Link>
+      </div>
     </div>
   );
 }

@@ -28,11 +28,13 @@ export default async function DepositPage() {
   ]);
 
   const wallets = walletsRaw.map((w) => ({
-    id:      w.id,
-    asset:   w.asset,
-    network: w.network,
-    address: w.address,
-    label:   w.label,
+    id:           w.id,
+    asset:        w.asset,
+    network:      w.network,
+    address:      w.address,
+    label:        w.label,
+    minDeposit:   w.minDeposit !== null ? Number(w.minDeposit) : null,
+    instructions: w.instructions,
   }));
 
   const recent = recentRaw.map((r) => ({

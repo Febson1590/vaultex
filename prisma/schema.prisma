@@ -241,14 +241,16 @@ model DepositRequest {
 
 // ─── Admin-controlled deposit wallets ─────────────────────
 model DepositWallet {
-  id        String   @id @default(cuid())
-  asset     String
-  network   String?
-  address   String
-  label     String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  asset        String
+  network      String?
+  address      String
+  label        String
+  minDeposit   Decimal? @db.Decimal(20, 8)   // per-wallet minimum (USD)
+  instructions String?                       // optional admin note shown to user
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("deposit_wallets")
 }
