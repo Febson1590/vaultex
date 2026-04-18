@@ -168,11 +168,18 @@ export async function getActiveDepositWallets() {
   });
 }
 
+/**
+ * Crypto withdrawal request.
+ *
+ * `method` stores the network (TRC20, ERC20, BTC, ETH, SOL, BEP20…)
+ * so the admin can see it at review time without needing a schema change.
+ * `destination` is the user's external wallet address.
+ */
 export async function requestWithdrawal(data: {
-  currency: string;
-  amount: number;
-  method: string;
-  destination?: string;
+  currency:    string;
+  amount:      number;
+  method:      string;      // Network label, e.g. "TRC20", "ERC20", "BTC"
+  destination: string;      // External wallet address
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -181,6 +188,13 @@ export async function requestWithdrawal(data: {
 
   const kycError = await requireApprovedKyc(userId);
   if (kycError) return kycError;
+
+  if (!data.amount || data.amount <= 0) {
+    return { error: "Enter a valid amount" };
+  }
+  if (!data.destination || data.destination.trim().length < 6) {
+    return { error: "Enter a valid wallet address" };
+  }
 
   const wallet = await db.wallet.findUnique({
     where: { userId_currency: { userId, currency: data.currency } },
@@ -193,19 +207,19 @@ export async function requestWithdrawal(data: {
   const request = await db.withdrawalRequest.create({
     data: {
       userId,
-      currency: data.currency,
-      amount: data.amount,
-      method: data.method,
-      destination: data.destination,
+      currency:    data.currency,
+      amount:      data.amount,
+      method:      data.method,
+      destination: data.destination.trim(),
     },
   });
 
   await db.notification.create({
     data: {
       userId,
-      title: "Withdrawal Request Submitted",
-      message: `Your withdrawal request for ${data.amount} ${data.currency} has been submitted and is pending review.`,
-      type: "WITHDRAWAL",
+      title:   "Withdrawal submitted",
+      message: `Your withdrawal of ${data.amount} ${data.currency} to ${data.destination.slice(0, 10)}… is pending review.`,
+      type:    "WITHDRAWAL",
     },
   });
 
