@@ -8,7 +8,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Hosted assets ───────────────────────────────────────────────────────────
 export const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultex-six.vercel.app";
-const LOGO_URL = `${APP_URL}/vaultex-logo.svg`;
+// Icon-only PNG used in emails. Self-contained visual (hexagon + chart on
+// navy) — works on any email client background and can't be broken by dark-
+// mode colour inversion the way the app's SVG wordmark can be.
+const EMAIL_LOGO_URL = `${APP_URL}/vaultex-logo-email.png`;
 
 // ─── HTML template for notification emails ───────────────────────────────────
 // Reuses the exact same dark template styling (colors, fonts, logo, footer,
@@ -250,16 +253,41 @@ function buildNotificationEmail(opts: {
         <!-- Container card — max 580px -->
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;">
 
-          <!-- ─── HEADER (small logo on dark page) ────────────────────── -->
+          <!-- ─── HEADER (brand bar: icon + wordmark, rendered side-by-side) ─── -->
           <tr>
             <td align="center" bgcolor="${BG_PAGE}" style="padding:8px 0 28px 0;background-color:${BG_PAGE} !important;">
-              <img
-                src="${LOGO_URL}"
-                alt="Vaultex Market"
-                width="140"
-                height="39"
-                style="display:block;border:0;width:140px;height:39px;outline:none;-ms-interpolation-mode:bicubic;"
-              />
+              <table cellpadding="0" cellspacing="0" border="0" align="center">
+                <tr>
+                  <td valign="middle" bgcolor="${BG_PAGE}" style="background-color:${BG_PAGE} !important;padding-right:12px;">
+                    <img
+                      src="${EMAIL_LOGO_URL}"
+                      alt="Vaultex"
+                      width="40"
+                      height="40"
+                      style="display:block;border:0;width:40px;height:40px;outline:none;-ms-interpolation-mode:bicubic;"
+                    />
+                  </td>
+                  <td valign="middle" bgcolor="${BG_PAGE}" style="background-color:${BG_PAGE} !important;">
+                    <div style="
+                      font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+                      font-size:16px;
+                      font-weight:700;
+                      color:${TEXT_WHITE} !important;
+                      letter-spacing:2px;
+                      line-height:1;
+                    ">VAULTEX</div>
+                    <div style="
+                      font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+                      font-size:9px;
+                      font-weight:500;
+                      color:${ACCENT} !important;
+                      letter-spacing:4px;
+                      line-height:1;
+                      margin-top:4px;
+                    ">MARKET</div>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -284,18 +312,19 @@ function buildNotificationEmail(opts: {
                 <tr>
                   <td bgcolor="${BG_CARD}" style="padding:40px 40px 36px 40px;background-color:${BG_CARD} !important;">
 
-                    <!-- Large logo inside the card (replaces the old bell icon).
-                         The td itself is explicitly dark so the logo's white
-                         text stays visible even in light-mode clients. -->
-                    <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 28px auto;">
+                    <!-- Large brand icon inside the card (replaces the old
+                         empty bell-icon badge). Self-contained hexagon PNG
+                         — its own dark navy background means it always looks
+                         correct regardless of what the client does. -->
+                    <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 24px auto;">
                       <tr>
-                        <td bgcolor="${BG_CARD}" align="center" style="background-color:${BG_CARD} !important;padding:4px;">
+                        <td bgcolor="${BG_CARD}" align="center" style="background-color:${BG_CARD} !important;">
                           <img
-                            src="${LOGO_URL}"
+                            src="${EMAIL_LOGO_URL}"
                             alt="Vaultex Market"
-                            width="200"
-                            height="55"
-                            style="display:block;border:0;width:200px;height:55px;outline:none;-ms-interpolation-mode:bicubic;"
+                            width="88"
+                            height="88"
+                            style="display:block;border:0;width:88px;height:88px;outline:none;-ms-interpolation-mode:bicubic;"
                           />
                         </td>
                       </tr>
