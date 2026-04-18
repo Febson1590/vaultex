@@ -340,6 +340,44 @@
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* ─── Google Translate — hide default UI ──────────────────
+   We use our own brand-styled dropdown (see components/language-switcher.tsx).
+   Google's script tries to inject a banner at the top of <body> and push
+   content down with an inline `top:40px` on <body>. Suppress all of it so
+   the site looks unchanged when translation is active. */
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf { display: none !important; }
+body { top: 0 !important; }
+body > .skiptranslate { display: none !important; }
+.goog-tooltip,
+.goog-tooltip:hover { display: none !important; }
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+/* Google adds a `notranslate` font on the whole page mid-translation —
+   neutralize it so our brand font keeps rendering. */
+font[style*="vertical-align: inherit"] { font: inherit !important; }
+
+/* ─── Language Switcher — hardened fixed positioning ──────
+   iOS Safari + momentum scrolling + any ancestor with transform /
+   backdrop-filter / filter can cause `position: fixed` to jitter or drop
+   out of its anchor. We pin it explicitly with !important, force a GPU
+   compositing layer with translateZ(0), and use safe-area insets so the
+   switcher doesn't slide under the iPhone home bar. `contain: layout`
+   isolates it from any ancestor layout changes so re-renders elsewhere
+   never push it around. */
+.language-switcher-fixed {
+  position: fixed !important;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 60;
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout;
+}
+
 /* ─── Border divider ─────────────────────────────── */
 .section-divider {
   height: 1px;
