@@ -5,12 +5,128 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireApprovedKyc } from "@/lib/kyc";
 
-export async function requestDeposit(data: {
+/**
+ * Step 1 of the deposit flow: user has clicked "I've Sent the Payment".
+ *
+ * Creates a DepositRequest with `proofUrl: null` — this is the
+ * "Awaiting Payment" state. The user still needs to upload proof
+ * before the admin can review it.
+ */
+export async function createDepositRequest(data: {
   currency: string;
   amount: number;
   method: string;
+  walletId?: string;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  const kycError = await requireApprovedKyc(session.user.id);
+  if (kycError) return kycError;
+
+  if (!data.amount || data.amount <= 0) return { error: "Enter a valid amount" };
+
+  const request = await db.depositRequest.create({
+    data: {
+      userId:   session.user.id,
+      currency: data.currency,
+      amount:   data.amount,
+      method:   data.method,
+      walletId: data.walletId,
+      // proofUrl + txHash filled in by submitDepositProof
+    },
+  });
+
+  await db.notification.create({
+    data: {
+      userId:  session.user.id,
+      title:   "Deposit initiated",
+      message: `Awaiting payment for ${data.amount} ${data.currency}. Upload proof once you've sent the payment.`,
+      type:    "DEPOSIT",
+    },
+  });
+
+  revalidatePath("/dashboard/deposit");
+  return { success: true, requestId: request.id };
+}
+
+/**
+ * Step 2 of the deposit flow: user has uploaded proof of payment.
+ *
+ * Fills in `proofUrl` + optional `txHash` on an existing Awaiting-Payment
+ * record. The UI now reads the deposit as "Under Review" because proofUrl
+ * is no longer null.
+ */
+export async function submitDepositProof(data: {
+  requestId: string;
+  proofUrl:  string;
+  txHash?:   string;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  const existing = await db.depositRequest.findUnique({ where: { id: data.requestId } });
+  if (!existing) return { error: "Deposit request not found" };
+  if (existing.userId !== session.user.id) return { error: "Not your deposit" };
+  if (existing.status !== "PENDING") {
+    return { error: "This deposit has already been reviewed" };
+  }
+  if (!data.proofUrl) return { error: "Proof file is required" };
+
+  await db.depositRequest.update({
+    where: { id: data.requestId },
+    data: {
+      proofUrl: data.proofUrl,
+      txHash:   data.txHash,
+    },
+  });
+
+  await db.notification.create({
+    data: {
+      userId:  session.user.id,
+      title:   "Deposit under review",
+      message: `Your proof for ${Number(existing.amount).toLocaleString()} ${existing.currency} has been submitted and is under review by our team.`,
+      type:    "DEPOSIT",
+    },
+  });
+
+  revalidatePath("/dashboard/deposit");
+  return { success: true };
+}
+
+/**
+ * Let the user cancel an Awaiting-Payment deposit they haven't uploaded
+ * proof for yet (e.g. they changed their mind about sending). Cannot
+ * cancel once proof is uploaded — that requires admin review.
+ */
+export async function cancelDepositRequest(requestId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+
+  const existing = await db.depositRequest.findUnique({ where: { id: requestId } });
+  if (!existing) return { error: "Deposit request not found" };
+  if (existing.userId !== session.user.id) return { error: "Not your deposit" };
+  if (existing.status !== "PENDING") return { error: "This deposit has already been reviewed" };
+  if (existing.proofUrl) return { error: "Proof already uploaded — contact support to cancel" };
+
+  await db.depositRequest.delete({ where: { id: requestId } });
+  revalidatePath("/dashboard/deposit");
+  return { success: true };
+}
+
+/**
+ * Legacy entry point — some code (admin tools, old tests) may still call
+ * requestDeposit directly with a full payload. Kept as a one-shot flow that
+ * goes straight to Under Review when proofUrl is supplied.
+ *
+ * @deprecated Prefer createDepositRequest + submitDepositProof.
+ */
+export async function requestDeposit(data: {
+  currency: string;
+  amount:   number;
+  method:   string;
   proofUrl?: string;
-  txHash?: string;
+  txHash?:   string;
   walletId?: string;
 }) {
   const session = await auth();
@@ -21,22 +137,22 @@ export async function requestDeposit(data: {
 
   const request = await db.depositRequest.create({
     data: {
-      userId: session.user.id,
+      userId:   session.user.id,
       currency: data.currency,
-      amount: data.amount,
-      method: data.method,
+      amount:   data.amount,
+      method:   data.method,
       proofUrl: data.proofUrl,
-      txHash: data.txHash,
+      txHash:   data.txHash,
       walletId: data.walletId,
     },
   });
 
   await db.notification.create({
     data: {
-      userId: session.user.id,
-      title: "Deposit Request Submitted",
-      message: `Your deposit request for ${data.amount} ${data.currency} has been submitted and is pending review.`,
-      type: "DEPOSIT",
+      userId:  session.user.id,
+      title:   "Deposit submitted",
+      message: `Your deposit request for ${data.amount} ${data.currency} has been submitted.`,
+      type:    "DEPOSIT",
     },
   });
 
