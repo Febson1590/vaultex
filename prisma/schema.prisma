@@ -439,6 +439,7 @@ model CopyTrader {
   minProfit       Decimal  @default(0.3) @db.Decimal(6, 4)
   maxProfit       Decimal  @default(1.2) @db.Decimal(6, 4)
   isActive        Boolean  @default(true)
+  isSeeded        Boolean  @default(false)               // true if auto-created by the default-seed action
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

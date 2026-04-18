@@ -598,3 +598,218 @@ export async function adminGetAllUsers() {
     orderBy: { createdAt: "desc" },
   });
 }
+
+// ─── Admin: seed 10 default copy traders ───────────────────────────────────
+//
+// Inserts a fixed catalogue of 10 realistic copy traders using the exact
+// same field schema as the admin Create Copy Trader form. Values are
+// generated deterministically from each trader's name, so:
+//   - re-running the seed does NOT change any stats
+//   - every trader ends up with its own distinct, realistic profile
+//   - successful + failed always equals totalTrades
+//   - risk level drives profit range + interval speed
+//
+// Traders that already exist (matched by name) are skipped, so admin
+// edits are preserved across re-seeds.
+
+interface SeededPreset {
+  name:        string;
+  country:     string;    // ISO alpha-2
+  specialty:   string;
+  description: string;
+  riskLevel:   "LOW" | "MEDIUM" | "HIGH";
+}
+
+const SEEDED_TRADERS: SeededPreset[] = [
+  {
+    name: "ApexQuant Capital",
+    country: "SG",
+    specialty: "BTC/ETH Scalping",
+    description: "High-frequency quant desk specialising in Bitcoin and Ethereum scalping on top-tier venues.",
+    riskLevel: "MEDIUM",
+  },
+  {
+    name: "NovaTrade Labs",
+    country: "US",
+    specialty: "Altcoin Momentum",
+    description: "Systematic momentum strategies across the top 50 altcoins with tight risk management.",
+    riskLevel: "HIGH",
+  },
+  {
+    name: "Orion Signal Group",
+    country: "GB",
+    specialty: "Trend Following",
+    description: "Multi-timeframe trend-following across BTC, ETH and large-cap majors.",
+    riskLevel: "MEDIUM",
+  },
+  {
+    name: "Vertex Alpha Fund",
+    country: "CH",
+    specialty: "Options Volatility",
+    description: "Delta-hedged options strategies capturing implied-vs-realised volatility spreads.",
+    riskLevel: "LOW",
+  },
+  {
+    name: "LunarEdge Capital",
+    country: "CA",
+    specialty: "Swing Trading",
+    description: "Macro-driven swing trades with a focus on capital preservation and asymmetric upside.",
+    riskLevel: "MEDIUM",
+  },
+  {
+    name: "Zenith Crypto Desk",
+    country: "DE",
+    specialty: "Grid Arbitrage",
+    description: "Market-neutral grid and triangular arbitrage across major centralised exchanges.",
+    riskLevel: "LOW",
+  },
+  {
+    name: "DeltaCore Trading",
+    country: "AE",
+    specialty: "Leveraged Futures",
+    description: "Active perpetual futures desk running directional and mean-reversion setups.",
+    riskLevel: "HIGH",
+  },
+  {
+    name: "PrimeChain Signals",
+    country: "JP",
+    specialty: "Mean Reversion",
+    description: "Statistical mean-reversion on liquid majors, sized by volatility regimes.",
+    riskLevel: "LOW",
+  },
+  {
+    name: "Atlas Quant Group",
+    country: "NL",
+    specialty: "DeFi Yield Strategies",
+    description: "Blends on-chain yield with spot hedging to deliver steady risk-adjusted returns.",
+    riskLevel: "MEDIUM",
+  },
+  {
+    name: "Nebula Trade Systems",
+    country: "AU",
+    specialty: "Multi-Asset Quant",
+    description: "Cross-asset systematic strategies spanning BTC, ETH and select L1/L2 tokens.",
+    riskLevel: "HIGH",
+  },
+];
+
+/**
+ * Cheap deterministic PRNG seeded by a string (xmur3 + mulberry32). Re-running
+ * the same name always produces the same sequence, so seeded stats don't
+ * re-randomise across deploys.
+ */
+function seededRandom(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let state = h >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Derive a full stat block for a preset using its name as RNG seed. */
+function makeStatsFor(preset: SeededPreset) {
+  const rng = seededRandom(preset.name);
+  const pick = (lo: number, hi: number) => lo + rng() * (hi - lo);
+  const pickInt = (lo: number, hi: number) => Math.floor(pick(lo, hi + 1));
+  const round = (n: number, dp = 2) => {
+    const m = 10 ** dp;
+    return Math.round(n * m) / m;
+  };
+
+  // Risk-driven bands — low risk = steadier numbers, high risk = punchier.
+  const bands = {
+    LOW:    { winRate: [72, 82], roi: [40,  90],  p30: [3,   8], drawdown: [-6,  -2],
+              minP: [0.15, 0.35], maxP: [0.6, 1.0],
+              intLo: [90, 150],   intHi: [180, 300] },
+    MEDIUM: { winRate: [78, 88], roi: [80, 180],  p30: [6,  14], drawdown: [-12, -5],
+              minP: [0.3,  0.6],  maxP: [1.0, 1.8],
+              intLo: [60, 120],   intHi: [120, 240] },
+    HIGH:   { winRate: [65, 80], roi: [140, 320], p30: [10, 26], drawdown: [-22, -10],
+              minP: [0.6,  1.2],  maxP: [1.8, 3.2],
+              intLo: [30,  90],   intHi: [90,  180] },
+  }[preset.riskLevel];
+
+  const winRate        = round(pick(bands.winRate[0], bands.winRate[1]));
+  const totalROI       = round(pick(bands.roi[0],     bands.roi[1]));
+  const performance30d = round(pick(bands.p30[0],     bands.p30[1]), 1);
+  const maxDrawdown    = round(pick(bands.drawdown[0], bands.drawdown[1]), 1);
+  const followers      = pickInt(400, 18000);
+  const totalTrades    = pickInt(300, 2400);
+  const successfulTrades = Math.round((winRate / 100) * totalTrades);
+  const failedTrades   = totalTrades - successfulTrades;
+  const minProfitRaw   = round(pick(bands.minP[0], bands.minP[1]), 2);
+  const maxProfitRaw   = round(pick(bands.maxP[0], bands.maxP[1]), 2);
+  const minProfit      = Math.min(minProfitRaw, maxProfitRaw);
+  const maxProfit      = Math.max(minProfitRaw, maxProfitRaw);
+  const profitInterval = pickInt(bands.intLo[0], bands.intLo[1]);
+  const maxIntervalRaw = pickInt(bands.intHi[0], bands.intHi[1]);
+  const maxInterval    = Math.max(profitInterval, maxIntervalRaw);
+  const minCopyAmount  = [100, 200, 250, 500, 1000][pickInt(0, 4)];
+  const maxCopyAmount  = [25000, 50000, 100000, null, null][pickInt(0, 4)];
+
+  return {
+    country:        preset.country,
+    specialty:      preset.specialty,
+    description:    preset.description,
+    riskLevel:      preset.riskLevel,
+    winRate,
+    totalROI,
+    performance30d,
+    followers,
+    totalTrades,
+    successfulTrades,
+    failedTrades,
+    maxDrawdown,
+    minCopyAmount,
+    maxCopyAmount,
+    profitInterval,
+    maxInterval,
+    minProfit,
+    maxProfit,
+  };
+}
+
+export async function adminSeedDefaultCopyTraders() {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  try {
+    let created = 0;
+    let skipped = 0;
+
+    for (const preset of SEEDED_TRADERS) {
+      // Preserve admin edits: skip any trader that already exists by name.
+      const existing = await db.copyTrader.findFirst({ where: { name: preset.name } });
+      if (existing) { skipped++; continue; }
+
+      const stats = makeStatsFor(preset);
+      await db.copyTrader.create({
+        data: {
+          name:             preset.name,
+          avatarUrl:        null,                // initials fallback already renders a branded identity
+          isSeeded:         true,
+          isActive:         true,
+          ...stats,
+        },
+      });
+      created++;
+    }
+
+    revalidatePath("/admin/copy-traders");
+    revalidatePath("/dashboard/copy-trading");
+    return { success: true, created, skipped };
+  } catch (e: any) {
+    console.error("[adminSeedDefaultCopyTraders]", e);
+    return { error: e?.message ?? "Failed to seed traders" };
+  }
+}

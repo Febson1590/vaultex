@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   Loader2, Users, Plus, StopCircle, ChevronDown,
-  UserPlus, Edit2, Trash2, AlertTriangle,
+  UserPlus, Edit2, Trash2, AlertTriangle, Sparkles,
 } from "lucide-react";
 import {
   adminCreateCopyTrader, adminUpdateCopyTrader, adminDeleteCopyTrader,
   adminAssignCopyTrade, adminStopCopyTrade,
   adminGetAllCopyTraders, adminGetAllCopyTrades, adminGetAllUsers,
+  adminSeedDefaultCopyTraders,
 } from "@/lib/actions/investment";
+import { COUNTRIES_SORTED, flagEmoji } from "@/lib/countries";
 
 interface CopyTrader {
   id: string; name: string; avatarUrl: string | null;
@@ -22,7 +24,7 @@ interface CopyTrader {
   minCopyAmount: number; maxCopyAmount: number | null;
   profitInterval: number; maxInterval: number;
   minProfit: number; maxProfit: number;
-  isActive: boolean; userCopyTrades: { id: string }[];
+  isActive: boolean; isSeeded?: boolean; userCopyTrades: { id: string }[];
 }
 interface CopyTrade {
   id: string; traderName: string; amount: number; totalEarned: number;
@@ -232,14 +234,28 @@ function TraderModal({ trader, onClose, onSuccess }: {
           {/* Country + Specialty */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Country code</label>
-              <input
-                className={inputCls + " mt-1 uppercase"}
-                value={form.country}
-                onChange={e => set("country", e.target.value.slice(0, 2).toUpperCase())}
-                placeholder="US, GB, DE…"
-                maxLength={2}
-              />
+              <label className={labelCls}>Country</label>
+              <div className="relative mt-1">
+                <select
+                  value={form.country}
+                  onChange={e => set("country", e.target.value)}
+                  className={inputCls + " appearance-none pr-8"}
+                >
+                  <option value="" className="bg-[#0d1e3a]">— Select a country —</option>
+                  {COUNTRIES_SORTED.map((c) => (
+                    <option key={c.code} value={c.code} className="bg-[#0d1e3a]">
+                      {flagEmoji(c.code)} {c.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+              {form.country && (
+                <div className="mt-1 text-[11px] text-slate-500">
+                  <span className="mr-1">{flagEmoji(form.country)}</span>
+                  Stored as <code className="text-slate-300">{form.country}</code>
+                </div>
+              )}
             </div>
             <div>
               <label className={labelCls}>Specialty</label>
@@ -545,6 +561,7 @@ export default function AdminCopyTradersPage() {
   const [deleteBusy,   setDeleteBusy]   = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [seeding,    setSeeding]    = useState(false);
   const [tab, setTab] = useState<"traders" | "assignments">("traders");
 
   async function load() {
@@ -608,6 +625,35 @@ export default function AdminCopyTradersPage() {
     }
   }
 
+  async function handleSeedDefaults() {
+    if (seeding) return;
+    const proceed = confirm(
+      "Seed 10 default copy traders?\n\n" +
+      "Existing traders are left untouched — only missing names get created. " +
+      "Seeded traders can be edited or deleted afterwards like any other trader.",
+    );
+    if (!proceed) return;
+    setSeeding(true);
+    try {
+      const r = await adminSeedDefaultCopyTraders();
+      if ("error" in r && r.error) {
+        toast.error(r.error);
+      } else if ("success" in r) {
+        const created = r.created ?? 0;
+        const skipped = r.skipped ?? 0;
+        toast.success(
+          `Seeded ${created} new trader${created === 1 ? "" : "s"}` +
+            (skipped > 0 ? ` · ${skipped} already existed` : ""),
+        );
+        load();
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Seeding failed");
+    } finally {
+      setSeeding(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -618,7 +664,19 @@ export default function AdminCopyTradersPage() {
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage traders and user copy assignments</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            onClick={handleSeedDefaults}
+            disabled={seeding}
+            variant="outline"
+            className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10 text-sm h-9 px-4"
+            title="Create 10 pre-configured default traders (skips names that already exist)"
+          >
+            {seeding
+              ? <Loader2 size={14} className="mr-1.5 animate-spin" />
+              : <Sparkles size={14} className="mr-1.5" />}
+            Seed 10 Defaults
+          </Button>
           <Button
             onClick={() => setShowAssign(true)}
             variant="outline"
@@ -710,14 +768,31 @@ export default function AdminCopyTradersPage() {
                               </div>
                             )}
                             <div>
-                              <div className="text-sm font-semibold text-white">{tr.name}</div>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
-                                tr.isActive
-                                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
-                                  : "bg-slate-500/10 border-slate-500/25 text-slate-400"
-                              }`}>
-                                {tr.isActive ? "Active" : "Inactive"}
-                              </span>
+                              <div className="text-sm font-semibold text-white flex items-center gap-1.5">
+                                {tr.name}
+                                {tr.country && (
+                                  <span className="text-[13px] leading-none" title={tr.country}>
+                                    {flagEmoji(tr.country)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                                  tr.isActive
+                                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                                    : "bg-slate-500/10 border-slate-500/25 text-slate-400"
+                                }`}>
+                                  {tr.isActive ? "Active" : "Inactive"}
+                                </span>
+                                {tr.isSeeded && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full border bg-purple-500/10 border-purple-500/25 text-purple-300"
+                                    title="Auto-created by the default-seed action"
+                                  >
+                                    <Sparkles size={8} />
+                                    Seeded
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
