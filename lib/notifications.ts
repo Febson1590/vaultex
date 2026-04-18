@@ -33,10 +33,13 @@ export interface EmailSummaryCard {
 
 function buildSummaryCardHtml(card: EmailSummaryCard): string {
   const title = card.title ?? "Transaction Summary";
+  /* High-contrast badge palettes that read clearly on both light- and
+     dark-mode email clients — background hex stays dark, text stays
+     vivid, and the border is wide enough to survive colour inversion. */
   const statusPalette = {
-    success: { bg: "#0d2e20", border: "#166534", color: "#4ade80" },
-    neutral: { bg: "#1a2540", border: "#1e4a6e", color: "#7dd3fc" },
-    warning: { bg: "#3a2a12", border: "#92400e", color: "#fbbf24" },
+    success: { bg: "#052e1a", border: "#22C55E", color: "#22C55E" },
+    neutral: { bg: "#0b2540", border: "#38bdf8", color: "#38bdf8" },
+    warning: { bg: "#3a2410", border: "#F59E0B", color: "#F59E0B" },
   }[card.statusColor ?? "success"];
 
   const statusPill = card.status
@@ -63,7 +66,7 @@ function buildSummaryCardHtml(card: EmailSummaryCard): string {
     .map(
       (r) => `
       <tr>
-        <td style="padding:8px 0;border-top:1px solid #1a3550;">
+        <td style="padding:10px 0;border-top:1px solid #1F2937;">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td style="
@@ -71,11 +74,11 @@ function buildSummaryCardHtml(card: EmailSummaryCard): string {
                 font-weight:600;
                 letter-spacing:0.08em;
                 text-transform:uppercase;
-                color:#64748b !important;
+                color:#9CA3AF !important;
               ">${r.label}</td>
               <td align="right" style="
                 font-size:12.5px;
-                color:#e2e8f0 !important;
+                color:#FFFFFF !important;
                 font-family:${r.mono ? "'SFMono-Regular',Menlo,Consolas,monospace" : "inherit"};
                 word-break:break-all;
               ">${r.value}</td>
@@ -90,8 +93,8 @@ function buildSummaryCardHtml(card: EmailSummaryCard): string {
     ? `
       <p style="
         margin:4px 0 0 0;
-        font-size:12.5px;
-        color:#94a3b8 !important;
+        font-size:13px;
+        color:#9CA3AF !important;
         text-align:center;
       ">${card.secondary.value}</p>`
     : "";
@@ -100,11 +103,11 @@ function buildSummaryCardHtml(card: EmailSummaryCard): string {
     <!-- Transaction summary card -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 24px 0;">
       <tr>
-        <td style="
-          background-color:#0a1828 !important;
-          border:1px solid #1a3550;
+        <td bgcolor="#0B1220" style="
+          background-color:#0B1220 !important;
+          border:1px solid #1F2937;
           border-radius:12px;
-          padding:18px 20px;
+          padding:20px 22px;
         ">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             ${statusPill}
@@ -115,24 +118,24 @@ function buildSummaryCardHtml(card: EmailSummaryCard): string {
                   font-weight:600;
                   letter-spacing:0.12em;
                   text-transform:uppercase;
-                  color:#64748b !important;
+                  color:#9CA3AF !important;
                 ">${title}</div>
               </td>
             </tr>
             <tr>
-              <td align="center" style="padding-bottom:10px;">
+              <td align="center" style="padding-bottom:12px;">
                 <div style="
                   font-size:11px;
                   font-weight:600;
                   letter-spacing:0.08em;
                   text-transform:uppercase;
-                  color:#94a3b8 !important;
+                  color:#9CA3AF !important;
                   margin-bottom:2px;
                 ">${card.primary.label}</div>
                 <div style="
-                  font-size:26px;
+                  font-size:28px;
                   font-weight:700;
-                  color:#ffffff !important;
+                  color:#FFFFFF !important;
                   letter-spacing:-0.5px;
                   line-height:1.15;
                 ">${card.primary.value}</div>
@@ -192,6 +195,17 @@ function buildNotificationEmail(opts: {
       </table>`
     : "";
 
+  /* Palette — unified across light + dark mode clients. All key
+     backgrounds use explicit `bgcolor` attributes (not just CSS)
+     because Gmail, Outlook, and iOS Mail all strip / override CSS
+     differently. `bgcolor` is respected everywhere. */
+  const BG_PAGE    = "#0B1220";   // deep navy page background
+  const BG_CARD    = "#111827";   // card surface (slightly lighter)
+  const BORDER     = "#1F2937";   // subtle borders + dividers
+  const TEXT_WHITE = "#FFFFFF";
+  const TEXT_MUTED = "#9CA3AF";
+  const ACCENT     = "#0EA5E9";   // sky accent bar
+
   return /* html */ `
 <!DOCTYPE html>
 <html lang="en">
@@ -199,21 +213,21 @@ function buildNotificationEmail(opts: {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="supported-color-schemes" content="light dark" />
+  <meta name="color-scheme" content="dark only" />
+  <meta name="supported-color-schemes" content="dark only" />
   <title>${heading}</title>
   <style>
-    :root { color-scheme: light dark; }
+    /* Force dark palette regardless of the client's user preference.
+       Gmail / iOS Mail / Outlook Web all honour these when paired
+       with the bgcolor attributes below. */
+    :root { color-scheme: dark; }
+    body, table, td { color: ${TEXT_WHITE} !important; }
+    a { color: ${ACCENT} !important; }
+    /* Gmail dark-mode quirk: without this, it sometimes auto-inverts
+       already-dark backgrounds into near-white. */
+    u + .body .gmail-dark-safe { background-color: ${BG_PAGE} !important; }
     @media (prefers-color-scheme: dark) {
-      body, table, td {
-        background-color: #0b1e2d !important;
-        color: #ffffff !important;
-      }
-      .em-card-td       { background-color: #0d1b2e !important; border-color: #1e4a6e !important; }
-      .em-content-td    { background-color: #0d1b2e !important; }
-      .em-badge-td      { background-color: #0f2a3d !important; border-color: #1e4a6e !important; }
-      .em-divider-td    { background-color: #1a3550 !important; }
-      .em-accent-td     { background-color: #0ea5e9 !important; }
+      body, table, td { background-color: ${BG_PAGE} !important; }
     }
   </style>
   <!--[if mso]>
@@ -226,65 +240,63 @@ function buildNotificationEmail(opts: {
   </noscript>
   <![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#0b1e2d !important;color:#ffffff !important;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<body class="body" bgcolor="${BG_PAGE}" style="margin:0;padding:0;background-color:${BG_PAGE} !important;color:${TEXT_WHITE} !important;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
   <!-- Email wrapper -->
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0b1e2d !important;min-height:100vh;">
+  <table class="gmail-dark-safe" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${BG_PAGE}" style="background-color:${BG_PAGE} !important;min-height:100vh;">
     <tr>
-      <td align="center" style="padding:40px 16px;background-color:#0b1e2d !important;">
+      <td align="center" bgcolor="${BG_PAGE}" style="padding:40px 16px;background-color:${BG_PAGE} !important;">
 
         <!-- Container card — max 580px -->
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;">
 
-          <!-- ─── HEADER ──────────────────────────────────────────────── -->
+          <!-- ─── HEADER (small logo on dark page) ────────────────────── -->
           <tr>
-            <td align="center" style="padding-bottom:32px;background-color:#0b1e2d !important;">
+            <td align="center" bgcolor="${BG_PAGE}" style="padding:8px 0 28px 0;background-color:${BG_PAGE} !important;">
               <img
                 src="${LOGO_URL}"
                 alt="Vaultex Market"
-                width="160"
-                height="44"
-                style="display:block;border:0;width:160px;height:44px;"
+                width="140"
+                height="39"
+                style="display:block;border:0;width:140px;height:39px;outline:none;-ms-interpolation-mode:bicubic;"
               />
             </td>
           </tr>
 
           <!-- ─── CARD ───────────────────────────────────────────────── -->
           <tr>
-            <td class="em-card-td" style="
-              background-color:#0d1b2e !important;
+            <td bgcolor="${BG_CARD}" style="
+              background-color:${BG_CARD} !important;
               border-radius:16px;
-              border:1px solid #1e4a6e !important;
+              border:1px solid ${BORDER};
               overflow:hidden;
             ">
 
               <!-- Card top accent bar -->
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td class="em-accent-td" style="height:3px;background-color:#0ea5e9 !important;border-radius:16px 16px 0 0;"></td>
+                  <td bgcolor="${ACCENT}" style="height:3px;line-height:3px;font-size:0;background-color:${ACCENT} !important;border-radius:16px 16px 0 0;">&nbsp;</td>
                 </tr>
               </table>
 
               <!-- Card content -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${BG_CARD}">
                 <tr>
-                  <td class="em-content-td" style="padding:40px 40px 36px 40px;background-color:#0d1b2e !important;">
+                  <td bgcolor="${BG_CARD}" style="padding:40px 40px 36px 40px;background-color:${BG_CARD} !important;">
 
-                    <!-- Icon badge -->
-                    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px auto;">
+                    <!-- Large logo inside the card (replaces the old bell icon).
+                         The td itself is explicitly dark so the logo's white
+                         text stays visible even in light-mode clients. -->
+                    <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 28px auto;">
                       <tr>
-                        <td class="em-badge-td" align="center" style="
-                          width:56px;height:56px;
-                          background-color:#0f2a3d !important;
-                          border:1px solid #1e4a6e !important;
-                          border-radius:14px;
-                          padding:14px;
-                        ">
-                          <!-- Bell icon (SVG inline) -->
-                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="#0ea5e9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#0f2a3d"/>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="#38bdf8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                          </svg>
+                        <td bgcolor="${BG_CARD}" align="center" style="background-color:${BG_CARD} !important;padding:4px;">
+                          <img
+                            src="${LOGO_URL}"
+                            alt="Vaultex Market"
+                            width="200"
+                            height="55"
+                            style="display:block;border:0;width:200px;height:55px;outline:none;-ms-interpolation-mode:bicubic;"
+                          />
                         </td>
                       </tr>
                     </table>
@@ -294,23 +306,23 @@ function buildNotificationEmail(opts: {
                       margin:0 0 8px 0;
                       font-size:22px;
                       font-weight:700;
-                      color:#ffffff !important;
+                      color:${TEXT_WHITE} !important;
                       text-align:center;
                       letter-spacing:-0.3px;
                     ">${heading}</h1>
 
                     <!-- Greeting -->
                     <p style="
-                      margin:0 0 16px 0;
+                      margin:0 0 20px 0;
                       font-size:15px;
-                      color:#e2e8f0 !important;
+                      color:${TEXT_MUTED} !important;
                       text-align:center;
                     ">Hi ${name},</p>
 
                     <!-- Divider -->
                     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
                       <tr>
-                        <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
+                        <td bgcolor="${BORDER}" style="height:1px;line-height:1px;font-size:0;background-color:${BORDER} !important;">&nbsp;</td>
                       </tr>
                     </table>
 
@@ -321,21 +333,7 @@ function buildNotificationEmail(opts: {
 
                     ${ctaBlock}
 
-                    <!-- Divider -->
-                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:16px;margin-bottom:24px;">
-                      <tr>
-                        <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
-                      </tr>
-                    </table>
-
                   </td>
-                </tr>
-              </table>
-
-              <!-- Card bottom line -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
                 </tr>
               </table>
 
@@ -344,19 +342,19 @@ function buildNotificationEmail(opts: {
 
           <!-- ─── FOOTER ──────────────────────────────────────────────── -->
           <tr>
-            <td style="padding:28px 0 8px 0;background-color:#0b1e2d !important;" align="center">
+            <td bgcolor="${BG_PAGE}" style="padding:28px 0 8px 0;background-color:${BG_PAGE} !important;" align="center">
 
               <!-- Footer divider -->
               <table width="80%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 20px auto;">
                 <tr>
-                  <td class="em-divider-td" style="height:1px;background-color:#1a3550 !important;"></td>
+                  <td bgcolor="${BORDER}" style="height:1px;line-height:1px;font-size:0;background-color:${BORDER} !important;">&nbsp;</td>
                 </tr>
               </table>
 
               <p style="
                 margin:0 0 8px 0;
                 font-size:12px;
-                color:#cbd5e1 !important;
+                color:${TEXT_MUTED} !important;
                 text-align:center;
                 line-height:1.6;
               ">
@@ -366,7 +364,7 @@ function buildNotificationEmail(opts: {
               <p style="
                 margin:0;
                 font-size:11px;
-                color:#94a3b8 !important;
+                color:${TEXT_MUTED} !important;
                 text-align:center;
               ">
                 &copy; ${new Date().getFullYear()} Vaultex Market. All rights reserved.
