@@ -20,17 +20,19 @@ export default async function InvestmentsPage() {
   ]);
 
   const plans = plansRaw.map((p) => ({
-    id:             p.id,
-    name:           p.name,
-    description:    p.description,
-    minAmount:      Number(p.minAmount),
-    maxAmount:      p.maxAmount !== null ? Number(p.maxAmount) : null,
-    minProfit:      Number(p.minProfit),
-    maxProfit:      Number(p.maxProfit),
-    profitInterval: p.profitInterval,
-    maxInterval:    p.maxInterval ?? p.profitInterval,
-    isActive:       p.isActive,
-    isPopular:      p.isPopular,
+    id:              p.id,
+    name:            p.name,
+    description:     p.description,
+    minAmount:       Number(p.minAmount),
+    maxAmount:       p.maxAmount !== null ? Number(p.maxAmount) : null,
+    minProfit:       Number(p.minProfit),
+    maxProfit:       Number(p.maxProfit),
+    minDurationDays: p.minDurationDays ?? null,
+    maxDurationDays: p.maxDurationDays ?? null,
+    profitInterval:  p.profitInterval,
+    maxInterval:     p.maxInterval ?? p.profitInterval,
+    isActive:        p.isActive,
+    isPopular:       p.isPopular,
   }));
 
   const usdBalance = usdWallet ? Number(usdWallet.balance) : 0;

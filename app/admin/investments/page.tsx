@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import {
   Loader2, TrendingUp, Plus, PauseCircle, PlayCircle,
   XCircle, ChevronDown, Pencil, DollarSign, ToggleLeft, ToggleRight,
+  Trash2,
 } from "lucide-react";
 import {
   adminAssignInvestment, adminEditInvestment, adminAddFundsToInvestment,
   adminToggleInvestment, adminCancelInvestment, adminGetAllInvestments,
   adminGetAllUsers, adminGetInvestmentPlans, adminCreatePlan, adminUpdatePlan,
+  adminDeletePlan,
 } from "@/lib/actions/investment";
 
 interface UserInvestment {
@@ -21,7 +23,9 @@ interface UserInvestment {
 interface Plan {
   id: string; name: string; description: string | null;
   minAmount: number; maxAmount: number | null;
-  minProfit: number; maxProfit: number; profitInterval: number; maxInterval: number;
+  minProfit: number; maxProfit: number;
+  minDurationDays: number | null; maxDurationDays: number | null;
+  profitInterval: number; maxInterval: number;
   isActive: boolean; isPopular: boolean;
   _count: { userInvestments: number };
 }
@@ -46,9 +50,12 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     minAmount: String(plan?.minAmount ?? 100),
     maxAmount: plan?.maxAmount !== null && plan?.maxAmount !== undefined ? String(plan.maxAmount) : "",
     minProfit: String(plan?.minProfit ?? 0.5), maxProfit: String(plan?.maxProfit ?? 1.5),
+    minDurationDays: plan?.minDurationDays !== null && plan?.minDurationDays !== undefined ? String(plan.minDurationDays) : "",
+    maxDurationDays: plan?.maxDurationDays !== null && plan?.maxDurationDays !== undefined ? String(plan.maxDurationDays) : "",
     profitInterval: String(plan?.profitInterval ?? 60), maxInterval: String(plan?.maxInterval ?? 60),
     isPopular: plan?.isPopular ?? false,
   });
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
   function set(k: string, v: string | boolean) { setForm(f => ({ ...f, [k]: v })); }
 
@@ -56,11 +63,18 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     if (!form.name.trim()) { toast.error("Name required"); return; }
     setLoading(true);
     const maxAmountParsed = form.maxAmount.trim() ? parseFloat(form.maxAmount) : null;
+    const minDur = form.minDurationDays.trim() ? parseInt(form.minDurationDays) : null;
+    const maxDur = form.maxDurationDays.trim() ? parseInt(form.maxDurationDays) : null;
+    if (minDur !== null && maxDur !== null && maxDur < minDur) {
+      toast.error("Max duration must be ≥ min duration");
+      return;
+    }
     const payload = {
       name: form.name.trim(), description: form.description || undefined,
       minAmount: parseFloat(form.minAmount),
       maxAmount: maxAmountParsed,
       minProfit: parseFloat(form.minProfit), maxProfit: parseFloat(form.maxProfit),
+      minDurationDays: minDur, maxDurationDays: maxDur,
       profitInterval: parseInt(form.profitInterval), maxInterval: parseInt(form.maxInterval),
       isPopular: form.isPopular,
     };
@@ -87,10 +101,28 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
             <div><label className={labelCls}>Max Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Min Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.profitInterval} onChange={e => set("profitInterval", e.target.value)} /></div>
-            <div><label className={labelCls}>Max Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.maxInterval} onChange={e => set("maxInterval", e.target.value)} /></div>
+            <div><label className={labelCls}>Min Duration (days)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.minDurationDays} onChange={e => set("minDurationDays", e.target.value)} placeholder="e.g. 30" /></div>
+            <div><label className={labelCls}>Max Duration (days)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.maxDurationDays} onChange={e => set("maxDurationDays", e.target.value)} placeholder="e.g. 50" /></div>
           </div>
-          <p className="text-[11px] text-slate-500">Profit fires at a random time between Min and Max interval.</p>
+          <p className="text-[11px] text-slate-500">Advertised plan horizon shown on the user-facing plan cards.</p>
+
+          {/* Advanced (cycle cadence in seconds) */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(v => !v)}
+            className="text-[11px] font-semibold text-sky-400 hover:text-sky-300 underline-offset-2 hover:underline self-start"
+          >
+            {showAdvanced ? "Hide advanced" : "Advanced — profit cycle cadence"}
+          </button>
+          {showAdvanced && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className={labelCls}>Min Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.profitInterval} onChange={e => set("profitInterval", e.target.value)} /></div>
+                <div><label className={labelCls}>Max Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.maxInterval} onChange={e => set("maxInterval", e.target.value)} /></div>
+              </div>
+              <p className="text-[11px] text-slate-500">Profit credits fire at a random time between Min and Max interval. Leave at 60s unless you know what you&apos;re doing.</p>
+            </>
+          )}
 
           {/* Most Popular toggle */}
           <label className="flex items-center gap-2 cursor-pointer mt-2">
@@ -261,8 +293,14 @@ export default function AdminInvestmentsPage() {
       adminGetInvestmentPlans(), adminGetAllInvestments(), adminGetAllUsers(),
     ]);
     setPlans(plns.map((p: any) => ({
-      ...p, minAmount: Number(p.minAmount), minProfit: Number(p.minProfit),
-      maxProfit: Number(p.maxProfit), maxInterval: p.maxInterval ?? p.profitInterval,
+      ...p,
+      minAmount:       Number(p.minAmount),
+      maxAmount:       p.maxAmount !== null && p.maxAmount !== undefined ? Number(p.maxAmount) : null,
+      minProfit:       Number(p.minProfit),
+      maxProfit:       Number(p.maxProfit),
+      minDurationDays: p.minDurationDays ?? null,
+      maxDurationDays: p.maxDurationDays ?? null,
+      maxInterval:     p.maxInterval ?? p.profitInterval,
     })));
     setInvestments(invs.map((i: any) => ({
       ...i, amount: Number(i.amount), totalEarned: Number(i.totalEarned),
@@ -280,6 +318,19 @@ export default function AdminInvestmentsPage() {
     const r = await adminUpdatePlan(plan.id, { isActive: !plan.isActive });
     if (r.error) toast.error(r.error);
     else { toast.success(plan.isActive ? "Plan deactivated" : "Plan activated"); load(); }
+    setProcessing(null);
+  }
+
+  async function deletePlan(plan: Plan) {
+    if (plan._count.userInvestments > 0) {
+      toast.error(`Cannot delete — ${plan._count.userInvestments} user investment(s) still reference this plan.`);
+      return;
+    }
+    if (!confirm(`Delete "${plan.name}" permanently? This cannot be undone.`)) return;
+    setProcessing(plan.id);
+    const r = await adminDeletePlan(plan.id);
+    if (r.error) toast.error(r.error);
+    else { toast.success("Plan deleted"); load(); }
     setProcessing(null);
   }
 
@@ -366,7 +417,7 @@ export default function AdminInvestmentsPage() {
               <table className="w-full premium-table">
                 <thead>
                   <tr className="border-b border-white/5">
-                    {["Plan","Range","Profit Range","Interval","Users","Status","Actions"].map(h => (
+                    {["Plan","Range","Profit Range","Duration","Users","Status","Actions"].map(h => (
                       <th key={h} className="text-left text-xs font-medium text-slate-500 px-4 py-3 uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -390,7 +441,11 @@ export default function AdminInvestmentsPage() {
                         {plan.maxAmount !== null && <span className="text-slate-500"> – {fmt(plan.maxAmount)}</span>}
                       </td>
                       <td className="px-4 py-3 text-sm text-emerald-400 whitespace-nowrap">{plan.minProfit}%–{plan.maxProfit}%</td>
-                      <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{plan.profitInterval}s–{plan.maxInterval}s</td>
+                      <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                        {plan.minDurationDays !== null && plan.maxDurationDays !== null
+                          ? `${plan.minDurationDays}–${plan.maxDurationDays} days`
+                          : <span className="text-slate-600">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-xs text-white font-semibold">{plan._count.userInvestments}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${plan.isActive ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400" : "bg-slate-500/10 border-slate-500/25 text-slate-400"}`}>
@@ -406,6 +461,12 @@ export default function AdminInvestmentsPage() {
                           <Button size="sm" disabled={processing === plan.id} onClick={() => togglePlan(plan)}
                             className={`h-7 px-2 text-xs border ${plan.isActive ? "bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/20" : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20"}`}>
                             {processing === plan.id ? <Loader2 size={11} className="animate-spin" /> : plan.isActive ? <><ToggleLeft size={11} className="mr-1" />Disable</> : <><ToggleRight size={11} className="mr-1" />Enable</>}
+                          </Button>
+                          <Button size="sm" disabled={processing === plan.id || plan._count.userInvestments > 0}
+                            onClick={() => deletePlan(plan)}
+                            title={plan._count.userInvestments > 0 ? `${plan._count.userInvestments} user investment(s) reference this plan` : "Delete plan"}
+                            className="h-7 px-2 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
+                            {processing === plan.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                           </Button>
                         </div>
                       </td>

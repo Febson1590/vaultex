@@ -309,9 +309,12 @@ export async function adminCreatePlan(data: {
   maxAmount?: number | null;
   minProfit: number;
   maxProfit: number;
+  minDurationDays?: number | null;
+  maxDurationDays?: number | null;
   profitInterval: number;
   maxInterval: number;
   isPopular?: boolean;
+  isActive?: boolean;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -330,8 +333,10 @@ export async function adminCreatePlan(data: {
 
 export async function adminUpdatePlan(planId: string, data: Partial<{
   name: string; description: string; minAmount: number; maxAmount: number | null;
-  minProfit: number; maxProfit: number; profitInterval: number;
-  maxInterval: number; isActive: boolean; isPopular: boolean;
+  minProfit: number; maxProfit: number;
+  minDurationDays: number | null; maxDurationDays: number | null;
+  profitInterval: number; maxInterval: number;
+  isActive: boolean; isPopular: boolean;
 }>) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -346,6 +351,28 @@ export async function adminUpdatePlan(planId: string, data: Partial<{
     });
   }
   await db.investmentPlan.update({ where: { id: planId }, data });
+  revalidatePath("/admin/investments");
+  revalidatePath("/dashboard/investments");
+  return { success: true };
+}
+
+/** Delete a plan.
+ *  Safe-guards: refuse if any UserInvestment still references this plan.
+ *  The admin must cancel/move the investments first. */
+export async function adminDeletePlan(planId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  const inUse = await db.userInvestment.count({ where: { planId } });
+  if (inUse > 0) {
+    return {
+      error: `Cannot delete — ${inUse} active user investment${inUse === 1 ? "" : "s"} still reference this plan. Cancel or reassign them first.`,
+    };
+  }
+
+  await db.investmentPlan.delete({ where: { id: planId } });
   revalidatePath("/admin/investments");
   revalidatePath("/dashboard/investments");
   return { success: true };

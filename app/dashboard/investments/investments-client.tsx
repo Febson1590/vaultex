@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, Sparkles, Loader2, ArrowDownToLine,
-  AlertTriangle,
+  ArrowLeft, Loader2, ArrowDownToLine,
+  AlertTriangle, CheckCircle2, Sparkles, Calendar,
 } from "lucide-react";
 import { userStartInvestment } from "@/lib/actions/investment";
 import { formatCurrency } from "@/lib/utils";
@@ -17,17 +17,19 @@ import type { KycStatus } from "@/lib/kyc";
 /* ─── Types ────────────────────────────────────────────────────────── */
 
 interface Plan {
-  id: string;
-  name: string;
-  description: string | null;
-  minAmount: number;
-  maxAmount: number | null;
-  minProfit: number;
-  maxProfit: number;
-  profitInterval: number;
-  maxInterval: number;
-  isActive: boolean;
-  isPopular: boolean;
+  id:              string;
+  name:            string;
+  description:     string | null;
+  minAmount:       number;
+  maxAmount:       number | null;
+  minProfit:       number;
+  maxProfit:       number;
+  minDurationDays: number | null;
+  maxDurationDays: number | null;
+  profitInterval:  number;
+  maxInterval:     number;
+  isActive:        boolean;
+  isPopular:       boolean;
 }
 
 interface Props {
@@ -38,14 +40,14 @@ interface Props {
 
 /* ─── Helpers ──────────────────────────────────────────────────────── */
 
-function fmtRange(min: number, max: number | null) {
-  if (max === null) return `${formatCurrency(min)}+`;
-  return `${formatCurrency(min)} – ${formatCurrency(max)}`;
+function fmtPct(n: number) {
+  return Number.isInteger(n) ? `${n}.0%` : `${n}%`;
 }
 
-function fmtCycle(min: number, max: number) {
-  if (min === max) return `Every ${min}s`;
-  return `Every ${min}–${max}s`;
+function fmtDuration(min: number | null, max: number | null) {
+  if (min === null || max === null) return null;
+  if (min === max) return `${min} Days`;
+  return `${min}-${max} Days`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -57,17 +59,12 @@ export default function InvestmentsClient({ plans, usdBalance, kycStatus }: Prop
   const isRestricted = kycStatus !== "approved";
 
   const [selectedPlan,  setSelectedPlan]  = useState<Plan | null>(null);
-  /** Plan id currently in its brief "highlighted" state after a click. */
-  const [activePlanId,  setActivePlanId]  = useState<string | null>(null);
 
   function handleSelect(plan: Plan) {
     if (isRestricted) {
       toast.error("Complete identity verification to continue.");
       return;
     }
-    setActivePlanId(plan.id);
-    // Clear the highlight after a short delay regardless of what the modal does
-    setTimeout(() => setActivePlanId(null), 450);
     setSelectedPlan(plan);
   }
 
@@ -83,9 +80,12 @@ export default function InvestmentsClient({ plans, usdBalance, kycStatus }: Prop
           <ArrowLeft size={14} />
           Back
         </button>
-        <h1 className="text-2xl font-bold text-white">Investment Plans</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Choose a plan to start investing.
+        <h1 className="text-[26px] sm:text-[28px] font-black text-white tracking-tight uppercase">
+          Investment Plans
+        </h1>
+        <p className="text-[13.5px] text-slate-400 mt-2 leading-relaxed max-w-lg">
+          Choose an investment plan that fits your goals and risk tolerance.
+          Invest any amount within the plan limits and earn profit daily.
         </p>
       </div>
 
@@ -101,7 +101,6 @@ export default function InvestmentsClient({ plans, usdBalance, kycStatus }: Prop
             <PlanCard
               key={plan.id}
               plan={plan}
-              highlighted={activePlanId === plan.id}
               disabled={isRestricted}
               onSelect={() => handleSelect(plan)}
             />
@@ -117,7 +116,6 @@ export default function InvestmentsClient({ plans, usdBalance, kycStatus }: Prop
           onClose={() => setSelectedPlan(null)}
           onSuccess={() => {
             setSelectedPlan(null);
-            // Navigate back to the dashboard so the user sees their active plan
             router.push("/dashboard");
           }}
         />
@@ -127,87 +125,122 @@ export default function InvestmentsClient({ plans, usdBalance, kycStatus }: Prop
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Plan card
+   Plan card — matches the uploaded mockup
+   - Diagonal "POPULAR" ribbon on the popular plan (top-left)
+   - Plan name + "Starts at $X"
+   - Profit range on the right
+   - Duration row with calendar icon
+   - Invest Now CTA
 ══════════════════════════════════════════════════════════════════════ */
 
 function PlanCard({
-  plan, highlighted, disabled, onSelect,
+  plan, disabled, onSelect,
 }: {
-  plan:         Plan;
-  highlighted:  boolean;
-  disabled:     boolean;
-  onSelect:     () => void;
+  plan:     Plan;
+  disabled: boolean;
+  onSelect: () => void;
 }) {
+  const duration = fmtDuration(plan.minDurationDays, plan.maxDurationDays);
+
   return (
     <div
-      className={`
-        relative rounded-2xl overflow-hidden transition-all duration-200
-        ${highlighted
-          ? "border-sky-400/60 bg-sky-500/[0.05] shadow-lg shadow-sky-500/10"
-          : "border-white/[0.06] hover:border-white/[0.12]"
-        }
-        border
-      `}
-      style={{ background: highlighted ? undefined : "rgba(10,18,34,0.7)" }}
+      className="relative rounded-2xl overflow-hidden border border-white/[0.07] transition-colors hover:border-white/[0.12]"
+      style={{ background: "rgba(10,18,34,0.75)" }}
     >
-      {/* ── Popular badge — ribbon in top-right ─────────────────── */}
+      {/* Diagonal POPULAR ribbon (top-left) */}
       {plan.isPopular && (
         <span
-          className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30"
+          aria-label="Most popular plan"
+          className="absolute top-0 left-0 overflow-hidden pointer-events-none"
+          style={{ width: 110, height: 110 }}
         >
-          <Sparkles size={10} />
-          Most Popular
+          <span
+            className="absolute text-[9px] font-black tracking-[0.18em] text-[#0A1226]"
+            style={{
+              top:          24,
+              left:         -30,
+              width:        140,
+              transform:    "rotate(-45deg)",
+              transformOrigin: "center",
+              textAlign:    "center",
+              background:   "linear-gradient(180deg, #f5c24e 0%, #d99a2b 100%)",
+              padding:      "4px 0",
+              boxShadow:    "0 2px 6px rgba(0,0,0,0.4)",
+            }}
+          >
+            POPULAR
+          </span>
         </span>
       )}
 
-      <div className="p-5 sm:p-6">
+      <div className="p-5 sm:p-6 pl-[76px] sm:pl-[84px]">
+        {/* Top row — name / starts-at  +  profit range */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[20px] sm:text-[22px] font-bold text-white leading-tight">
+              {plan.name}
+            </h3>
+            <div className="text-[13px] text-slate-400 mt-1">
+              Starts at{" "}
+              <span className="text-white font-semibold tabular-nums">
+                {formatCurrency(plan.minAmount)}
+              </span>
+              {plan.maxAmount !== null && (
+                <span className="text-slate-500">
+                  {" "}· up to {formatCurrency(plan.maxAmount)}
+                </span>
+              )}
+            </div>
+          </div>
 
-        {/* Plan name + description */}
-        <h3 className="text-[18px] font-bold text-white leading-tight">{plan.name}</h3>
+          <div className="text-right flex-shrink-0">
+            <div className="text-[15px] sm:text-[17px] font-bold tabular-nums">
+              <span className="text-amber-400">{fmtPct(plan.minProfit)}</span>
+              <span className="text-slate-500 mx-1">–</span>
+              <span className="text-emerald-400">{fmtPct(plan.maxProfit)}</span>
+            </div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mt-0.5">
+              Daily Return
+            </div>
+          </div>
+        </div>
+
+        {/* Optional description */}
         {plan.description && (
-          <p className="text-[12px] text-slate-500 mt-1 leading-relaxed">{plan.description}</p>
+          <p className="text-[12.5px] text-slate-500 mt-3 leading-relaxed">
+            {plan.description}
+          </p>
         )}
 
-        {/* Return rate — the single most prominent number on the card */}
-        <div className="mt-4">
-          <div className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-1">
-            Return rate
+        {/* Divider */}
+        <div className="my-4 border-t border-white/[0.05]" />
+
+        {/* Bottom row — duration  +  Invest Now */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-[13px] text-slate-300 min-w-0">
+            <span
+              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{
+                background: "rgba(14,165,233,0.10)",
+                border:     "1px solid rgba(14,165,233,0.25)",
+              }}
+            >
+              <Calendar size={13} className="text-sky-400" />
+            </span>
+            <span className="text-slate-400">Daily Profit</span>
+            <span className="text-white font-semibold tabular-nums">
+              {duration ?? "—"}
+            </span>
           </div>
-          <div className="text-[22px] sm:text-[24px] font-bold text-emerald-400 tabular-nums">
-            {plan.minProfit}% – {plan.maxProfit}%
-            <span className="text-[12px] text-slate-500 font-normal ml-1.5">per cycle</span>
-          </div>
+
+          <Button
+            onClick={onSelect}
+            disabled={disabled}
+            className="h-10 px-5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[13px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {disabled ? "Verify first" : "Invest Now"}
+          </Button>
         </div>
-
-        {/* Meta grid — min/max + cycle */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <MetaBlock label="Investment range" value={fmtRange(plan.minAmount, plan.maxAmount)} />
-          <MetaBlock label="Cycle speed" value={fmtCycle(plan.profitInterval, plan.maxInterval)} />
-        </div>
-
-        {/* CTA — full-width on mobile */}
-        <Button
-          onClick={onSelect}
-          disabled={disabled}
-          className="w-full mt-5 h-11 bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[13px] disabled:opacity-50"
-        >
-          {disabled ? "Verification Required" : "Select Plan"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ── Small meta-field block used inside plan cards ─────────────────── */
-
-function MetaBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-white/[0.02] border border-white/[0.05] px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-0.5">
-        {label}
-      </div>
-      <div className="text-[13px] font-semibold text-slate-200 tabular-nums">
-        {value}
       </div>
     </div>
   );
@@ -219,15 +252,17 @@ function MetaBlock({ label, value }: { label: string; value: string }) {
 
 function EmptyState() {
   return (
-    <div className="rounded-2xl border border-white/[0.06] p-12 text-center"
-      style={{ background: "rgba(10,18,34,0.7)" }}>
+    <div
+      className="rounded-2xl border border-white/[0.06] p-12 text-center"
+      style={{ background: "rgba(10,18,34,0.7)" }}
+    >
       <div className="w-14 h-14 rounded-2xl bg-sky-500/[0.08] flex items-center justify-center mx-auto mb-4">
         <Sparkles size={22} className="text-sky-400/60" />
       </div>
       <h2 className="text-base font-bold text-white mb-2">No plans available yet</h2>
       <p className="text-[13px] text-slate-500 max-w-sm mx-auto leading-relaxed">
-        Investment plans haven&apos;t been configured by the platform admin yet. Please check back later
-        or contact support for details.
+        Investment plans haven&apos;t been configured by the platform admin yet. Please check
+        back later or contact support for details.
       </p>
       <Link href="/dashboard/support" className="inline-block mt-5">
         <Button variant="outline" className="border-white/10 text-slate-300 hover:text-white h-10 px-5">
@@ -258,6 +293,7 @@ function InvestModal({
   const exceedsMax = plan.maxAmount !== null && val > plan.maxAmount;
   const canAfford = val <= usdBalance;
   const needsDeposit = usdBalance < plan.minAmount;
+  const duration = fmtDuration(plan.minDurationDays, plan.maxDurationDays);
 
   function submit() {
     if (!meetsMin) {
@@ -293,15 +329,22 @@ function InvestModal({
         {/* Header */}
         <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]">
           <h3 className="text-base font-bold text-white">Invest in {plan.name}</h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            {plan.minProfit}% – {plan.maxProfit}% per cycle · {fmtCycle(plan.profitInterval, plan.maxInterval)}
+          <p className="text-[11.5px] text-slate-500 mt-1 leading-relaxed">
+            <span className="text-emerald-400 font-semibold tabular-nums">
+              {fmtPct(plan.minProfit)} – {fmtPct(plan.maxProfit)}
+            </span>{" "}
+            daily return
+            {duration && (
+              <>
+                {" "}·{" "}
+                <span className="text-white font-medium tabular-nums">{duration}</span>
+              </>
+            )}
           </p>
         </div>
 
         {/* Body */}
         <div className="p-5 space-y-4">
-
-          {/* Balance + min */}
           <div className="grid grid-cols-2 gap-2">
             <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08]">
               <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-0.5">Balance</div>
@@ -313,7 +356,6 @@ function InvestModal({
             </div>
           </div>
 
-          {/* Amount input */}
           <div>
             <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Amount (USD)
@@ -343,9 +385,13 @@ function InvestModal({
             {val > 0 && !canAfford && !needsDeposit && (
               <p className="text-[11px] text-red-400 mt-1.5">Insufficient balance</p>
             )}
+            {val > 0 && meetsMin && !exceedsMax && canAfford && (
+              <p className="text-[11px] text-emerald-400 mt-1.5 inline-flex items-center gap-1">
+                <CheckCircle2 size={12} /> Ready to activate
+              </p>
+            )}
           </div>
 
-          {/* Deposit nudge when empty balance */}
           {needsDeposit && (
             <div className="flex items-start gap-2 rounded-lg px-3 py-2.5 bg-yellow-500/[0.05] border border-yellow-500/20">
               <AlertTriangle size={13} className="text-yellow-400 flex-shrink-0 mt-0.5" />

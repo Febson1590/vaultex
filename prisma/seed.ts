@@ -198,6 +198,69 @@ async function main() {
     ],
   });
 
+  // ── Investment Plans ───────────────────────────────────────
+  // These three plans are the canonical defaults shown on the user
+  // Investments page and manageable from the admin panel. Upsert by name
+  // so re-running the seed is idempotent. Admins may edit/delete them later.
+  const planDefaults = [
+    {
+      name:            "Growth Plan",
+      description:     "Best for new investors getting started.",
+      minAmount:       500,
+      maxAmount:       4999,
+      minProfit:       0.5,
+      maxProfit:       1.0,
+      minDurationDays: 30,
+      maxDurationDays: 50,
+      profitInterval:  60,
+      maxInterval:     60,
+      isPopular:       true,
+      isActive:        true,
+    },
+    {
+      name:            "Balanced Plan",
+      description:     "A mid-tier plan for steady growth at higher capital.",
+      minAmount:       5000,
+      maxAmount:       19999,
+      minProfit:       0.8,
+      maxProfit:       1.3,
+      minDurationDays: 25,
+      maxDurationDays: 45,
+      profitInterval:  60,
+      maxInterval:     60,
+      isPopular:       false,
+      isActive:        true,
+    },
+    {
+      name:            "Elite Plan",
+      description:     "Highest-tier allocation with the strongest return band.",
+      minAmount:       20000,
+      maxAmount:       100000,
+      minProfit:       1.0,
+      maxProfit:       1.5,
+      minDurationDays: 20,
+      maxDurationDays: 45,
+      profitInterval:  60,
+      maxInterval:     60,
+      isPopular:       false,
+      isActive:        true,
+    },
+  ] as const;
+
+  // Only one plan may carry the "Most Popular" badge. Clear any existing
+  // flags first so the seed-defined popular plan is the single source of truth.
+  await prisma.investmentPlan.updateMany({ where: { isPopular: true }, data: { isPopular: false } });
+
+  for (const p of planDefaults) {
+    const existing = await prisma.investmentPlan.findFirst({ where: { name: p.name } });
+    if (existing) {
+      await prisma.investmentPlan.update({ where: { id: existing.id }, data: p });
+    } else {
+      await prisma.investmentPlan.create({ data: p });
+    }
+  }
+  console.log(`✅ ${planDefaults.length} investment plans`);
+
   // ── Site Config ────────────────────────────────────────────
   const configs = [
     { key: "site.maintenance", value: "false" },
