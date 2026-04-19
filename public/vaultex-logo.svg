@@ -1,27 +1,50 @@
-<svg width="160" height="44" viewBox="0 0 160 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vaultex Market">
   <defs>
-    <linearGradient id="hex-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#c0c8d8"/>
-      <stop offset="50%" stop-color="#a8b4c8"/>
-      <stop offset="100%" stop-color="#8898b0"/>
+    <linearGradient id="vx-hex-outer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eef2f8"/>
+      <stop offset="45%" stop-color="#b7c2d4"/>
+      <stop offset="100%" stop-color="#6b7896"/>
     </linearGradient>
-    <linearGradient id="bar-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#0ea5e9"/>
+    <linearGradient id="vx-hex-inner" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0c1b3a"/>
+      <stop offset="100%" stop-color="#050b1e"/>
     </linearGradient>
-    <linearGradient id="arrow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+    <linearGradient id="vx-bar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="60%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="vx-arrow" x1="0%" y1="100%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#0ea5e9"/>
+      <stop offset="60%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
     </linearGradient>
+    <filter id="vx-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="vx-soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.4" result="sb"/>
+      <feMerge><feMergeNode in="sb"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
-  <!-- Hexagon icon -->
-  <path d="M22 2L39 12V32L22 42L5 32V12L22 2Z" fill="url(#hex-grad)" fill-opacity="0.15" stroke="url(#hex-grad)" stroke-width="1.5"/>
-  <rect x="12" y="24" width="4" height="8" rx="1" fill="url(#bar-grad)"/>
-  <rect x="18" y="19" width="4" height="13" rx="1" fill="url(#bar-grad)"/>
-  <rect x="24" y="14" width="4" height="18" rx="1" fill="url(#bar-grad)"/>
-  <path d="M14 22 Q22 14 30 12" stroke="url(#arrow-grad)" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M27 10 L30 12 L28 15" stroke="url(#arrow-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <!-- Brand text -->
-  <text x="48" y="26" font-family="'Arial', sans-serif" font-size="17" font-weight="700" fill="white" letter-spacing="2">VAULTEX</text>
-  <text x="49" y="37" font-family="'Arial', sans-serif" font-size="8" font-weight="500" fill="#0ea5e9" letter-spacing="4">MARKET</text>
+
+  <!-- Icon mark (64x64 region) -->
+  <g transform="translate(0,0)">
+    <path d="M32 3 L56 16.5 V47.5 L32 61 L8 47.5 V16.5 Z" fill="url(#vx-hex-outer)"/>
+    <path d="M32 9 L51 20.25 V43.75 L32 55 L13 43.75 V20.25 Z" fill="url(#vx-hex-inner)"/>
+    <g filter="url(#vx-glow)">
+      <rect x="20" y="38" width="5" height="10" rx="1" fill="url(#vx-bar)"/>
+      <rect x="27.5" y="30" width="5" height="18" rx="1" fill="url(#vx-bar)"/>
+      <rect x="35" y="22" width="5" height="26" rx="1" fill="url(#vx-bar)"/>
+    </g>
+    <g filter="url(#vx-soft-glow)">
+      <path d="M15 44 Q30 46 42 34 Q50 26 58 14" stroke="url(#vx-arrow)" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <path d="M51 12 L58 14 L56.5 21" stroke="url(#vx-arrow)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </g>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="76" y="36" font-family="system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif" font-size="22" font-weight="800" fill="white" letter-spacing="3">VAULTEX</text>
+  <text x="77" y="50" font-family="system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif" font-size="9" font-weight="500" fill="#38bdf8" letter-spacing="5">MARKET</text>
 </svg>
