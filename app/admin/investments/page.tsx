@@ -322,15 +322,19 @@ export default function AdminInvestmentsPage() {
   }
 
   async function deletePlan(plan: Plan) {
-    if (plan._count.userInvestments > 0) {
-      toast.error(`Cannot delete — ${plan._count.userInvestments} user investment(s) still reference this plan.`);
-      return;
-    }
-    if (!confirm(`Delete "${plan.name}" permanently? This cannot be undone.`)) return;
+    const inUse = plan._count.userInvestments;
+    const warning = inUse > 0
+      ? `Delete "${plan.name}"?\n\nThis plan is still referenced by ${inUse} user investment${inUse === 1 ? "" : "s"}. Those investments will be kept (with their name, amount and earnings preserved) but will no longer be linked to a plan definition. This cannot be undone.`
+      : `Delete "${plan.name}" permanently? This cannot be undone.`;
+    if (!confirm(warning)) return;
     setProcessing(plan.id);
     const r = await adminDeletePlan(plan.id);
     if (r.error) toast.error(r.error);
-    else { toast.success("Plan deleted"); load(); }
+    else {
+      const d = (r as { detached?: number }).detached ?? 0;
+      toast.success(d > 0 ? `Plan deleted — ${d} user investment${d === 1 ? "" : "s"} detached` : "Plan deleted");
+      load();
+    }
     setProcessing(null);
   }
 
@@ -462,9 +466,11 @@ export default function AdminInvestmentsPage() {
                             className={`h-7 px-2 text-xs border ${plan.isActive ? "bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/20" : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20"}`}>
                             {processing === plan.id ? <Loader2 size={11} className="animate-spin" /> : plan.isActive ? <><ToggleLeft size={11} className="mr-1" />Disable</> : <><ToggleRight size={11} className="mr-1" />Enable</>}
                           </Button>
-                          <Button size="sm" disabled={processing === plan.id || plan._count.userInvestments > 0}
+                          <Button size="sm" disabled={processing === plan.id}
                             onClick={() => deletePlan(plan)}
-                            title={plan._count.userInvestments > 0 ? `${plan._count.userInvestments} user investment(s) reference this plan` : "Delete plan"}
+                            title={plan._count.userInvestments > 0
+                              ? `Delete — ${plan._count.userInvestments} user investment(s) will be detached`
+                              : "Delete plan"}
                             className="h-7 px-2 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
                             {processing === plan.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                           </Button>

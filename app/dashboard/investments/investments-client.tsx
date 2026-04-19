@@ -147,19 +147,20 @@ function PlanCard({
       className="relative rounded-2xl overflow-hidden border border-white/[0.07] transition-colors hover:border-white/[0.12]"
       style={{ background: "rgba(10,18,34,0.75)" }}
     >
-      {/* Diagonal POPULAR ribbon (top-left) */}
+      {/* Diagonal POPULAR ribbon (top-left). Smaller on mobile so it
+          doesn't eat card content. */}
       {plan.isPopular && (
         <span
           aria-label="Most popular plan"
-          className="absolute top-0 left-0 overflow-hidden pointer-events-none"
-          style={{ width: 110, height: 110 }}
+          className="absolute top-0 left-0 overflow-hidden pointer-events-none select-none"
+          style={{ width: 96, height: 96 }}
         >
           <span
-            className="absolute text-[9px] font-black tracking-[0.18em] text-[#0A1226]"
+            className="absolute text-[8.5px] sm:text-[9px] font-black tracking-[0.18em] text-[#0A1226]"
             style={{
-              top:          24,
-              left:         -30,
-              width:        140,
+              top:          22,
+              left:         -32,
+              width:        130,
               transform:    "rotate(-45deg)",
               transformOrigin: "center",
               textAlign:    "center",
@@ -173,37 +174,47 @@ function PlanCard({
         </span>
       )}
 
-      <div className="p-5 sm:p-6 pl-[76px] sm:pl-[84px]">
-        {/* Top row — name / starts-at  +  profit range */}
-        <div className="flex items-start justify-between gap-3">
+      <div
+        className={`px-5 py-5 sm:p-6 ${plan.isPopular ? "pt-10 sm:pt-6 sm:pl-[80px]" : ""}`}
+      >
+        {/* Top row — name / starts-at  +  profit range.
+            Stacks vertically on the smallest screens, side-by-side from sm. */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
-            <h3 className="text-[20px] sm:text-[22px] font-bold text-white leading-tight">
+            <h3 className="text-[19px] sm:text-[22px] font-bold text-white leading-tight truncate">
               {plan.name}
             </h3>
-            <div className="text-[13px] text-slate-400 mt-1">
+            <div className="text-[12.5px] sm:text-[13px] text-slate-400 mt-1">
               Starts at{" "}
               <span className="text-white font-semibold tabular-nums">
                 {formatCurrency(plan.minAmount)}
               </span>
               {plan.maxAmount !== null && (
-                <span className="text-slate-500">
+                <span className="text-slate-500 hidden sm:inline">
                   {" "}· up to {formatCurrency(plan.maxAmount)}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="text-right flex-shrink-0">
-            <div className="text-[15px] sm:text-[17px] font-bold tabular-nums">
+          <div className="sm:text-right flex-shrink-0">
+            <div className="text-[14px] sm:text-[17px] font-bold tabular-nums whitespace-nowrap">
               <span className="text-amber-400">{fmtPct(plan.minProfit)}</span>
               <span className="text-slate-500 mx-1">–</span>
               <span className="text-emerald-400">{fmtPct(plan.maxProfit)}</span>
             </div>
-            <div className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mt-0.5">
+            <div className="text-[9.5px] sm:text-[10px] uppercase tracking-widest text-slate-500 font-semibold mt-0.5">
               Daily Return
             </div>
           </div>
         </div>
+
+        {/* Max amount shown on its own line on mobile */}
+        {plan.maxAmount !== null && (
+          <div className="sm:hidden text-[11.5px] text-slate-500 mt-1">
+            up to {formatCurrency(plan.maxAmount)}
+          </div>
+        )}
 
         {/* Optional description */}
         {plan.description && (
@@ -215,9 +226,10 @@ function PlanCard({
         {/* Divider */}
         <div className="my-4 border-t border-white/[0.05]" />
 
-        {/* Bottom row — duration  +  Invest Now */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[13px] text-slate-300 min-w-0">
+        {/* Bottom row — duration  +  Invest Now.
+            Stacks vertically under 420px; otherwise side-by-side. */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2 text-[12.5px] sm:text-[13px] text-slate-300 min-w-0">
             <span
               className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
               style={{
@@ -227,8 +239,8 @@ function PlanCard({
             >
               <Calendar size={13} className="text-sky-400" />
             </span>
-            <span className="text-slate-400">Daily Profit</span>
-            <span className="text-white font-semibold tabular-nums">
+            <span className="text-slate-400 flex-shrink-0">Daily Profit</span>
+            <span className="text-white font-semibold tabular-nums truncate">
               {duration ?? "—"}
             </span>
           </div>
@@ -236,7 +248,7 @@ function PlanCard({
           <Button
             onClick={onSelect}
             disabled={disabled}
-            className="h-10 px-5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[13px] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-10 px-5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[13px] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
           >
             {disabled ? "Verify first" : "Invest Now"}
           </Button>
