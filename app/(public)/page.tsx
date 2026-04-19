@@ -6,7 +6,7 @@ import {
   ArrowUpRight, ArrowDownRight, LineChart, HeadphonesIcon,
   Activity, ShieldCheck, KeyRound, FileCheck2,
   ChevronRight, LayoutGrid,
-  Sparkles, Users, Bitcoin, Landmark, Coins, Star,
+  Sparkles, Users, Bitcoin, Landmark, Coins,
 } from "lucide-react";
 import { getMarketAssets } from "@/lib/coingecko";
 import { formatCurrency, formatPercent, formatCompact } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { MarketPanel }     from "@/components/public/market-panel";
 import { Sparkline }       from "@/components/public/sparkline";
 import { WatchlistStrip }  from "@/components/public/watchlist-strip";
 import { QuickTrade }      from "@/components/public/quick-trade";
+import { TestimonialsCarousel } from "@/components/public/testimonials-carousel";
 import { PLATFORM } from "@/lib/company";
 
 /* ─── Per-symbol brand color accents ──────────────────────────────────── */
@@ -94,25 +95,24 @@ const coveredMarkets = [
 ];
 
 /* ─── Testimonials ────────────────────────────────────────────────────── */
-const testimonials = [
-  {
-    name: "Marcus Chen",
-    role: "Day Trader · 6 yrs",
-    quote: "The execution feel is what sold me. Orders confirm fast and every fill is logged with a timestamp I can audit later.",
-    avatar: "/landing/avatar-1.png",
-  },
-  {
-    name: "Sofia Navarro",
-    role: "Portfolio Manager",
-    quote: "The chart and order-book view in the dashboard is clean. No banner ads, no noise — just the data I need to make a call.",
-    avatar: "/landing/avatar-2.png",
-  },
-  {
-    name: "Daniel Reeves",
-    role: "Long-Term Investor",
-    quote: "Manual KYC review actually reassured me. I can tell there's a real compliance team behind every funded account.",
-    avatar: "/landing/avatar-3.png",
-  },
+const testimonials: { name: string; quote: string }[] = [
+  { name: "Marcus Chen",        quote: "The execution feel is what sold me. Orders confirm fast and every fill is logged with a timestamp I can audit later." },
+  { name: "Sofia Navarro",      quote: "The chart and order-book view is clean. No banner ads, no noise — just the data I need to make a call." },
+  { name: "Daniel Reeves",      quote: "Manual KYC review actually reassured me. I can tell there's a real compliance team behind every funded account." },
+  { name: "Priya Natarajan",    quote: "I moved over from a larger exchange and the interface feels a generation ahead. Fewer clicks, more signal." },
+  { name: "Ethan Walker",       quote: "Copy-trading here is transparent — I see each mirrored order, each fee, and can step out whenever I want." },
+  { name: "Amina Okafor",       quote: "Their support answered a transfer question within hours. That alone puts them in a different tier." },
+  { name: "Tomasz Krawczyk",    quote: "Limit orders fire reliably and the activity log is exhaustive. My accountant stopped complaining — that's the real review." },
+  { name: "Isabella Moreau",    quote: "The watchlist and quick-trade combo cut my routine from minutes down to seconds. Small thing, huge gain." },
+  { name: "Ken Nakamura",       quote: "Clean candlesticks, no pop-ups, no 'upgrade to pro' nags. It feels like a tool built for people who already trade." },
+  { name: "Olivia Bennett",     quote: "Onboarding was strict — and I'm grateful for it. It's the first brokerage where I felt the security was real, not cosmetic." },
+  { name: "Rafael Duarte",      quote: "Fee transparency is the standout for me. I know exactly what every order costs before I hit confirm." },
+  { name: "Hannah Schmidt",     quote: "The mobile dashboard is shockingly good. I can manage positions on the train without fighting the layout." },
+  { name: "Liam O'Connor",      quote: "Email OTP on every sign-in might sound tedious, but after years of shady platforms it feels like a feature." },
+  { name: "Zara Haque",         quote: "I tried three platforms before this one. Vaultex is the only one I kept — the others had too much clutter and not enough control." },
+  { name: "Victor Almeida",     quote: "Deposits are credited after a real review. It takes a few hours, but I know nothing suspicious slips through." },
+  { name: "Elena Petrova",      quote: "The order book presentation is the cleanest I've seen outside of a pro terminal. Genuinely useful at a glance." },
+  { name: "Jason Park",         quote: "Every trade, every fee, every notification — all in one history view. No more jumping between six tabs to reconcile." },
 ];
 
 /* ─── Featured-in strip (fictional publication wordmarks) ─────────────── */
@@ -643,37 +643,7 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {testimonials.map((t) => (
-              <div key={t.name} className="vx-panel vx-panel-hover p-6 flex flex-col">
-                <div className="flex items-center gap-1 mb-4 text-sky-400">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={13} className="fill-current" />
-                  ))}
-                </div>
-                <p className="text-[13.5px] text-slate-300 leading-relaxed mb-5 flex-1">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
-                  <div className="relative w-11 h-11 rounded-full overflow-hidden flex-shrink-0"
-                    style={{ border: "1px solid rgba(56,189,248,0.25)", background: "#0A1226" }}
-                  >
-                    <Image
-                      src={t.avatar}
-                      alt={t.name}
-                      width={88}
-                      height={88}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-white">{t.name}</div>
-                    <div className="text-[11px] text-slate-500">{t.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <TestimonialsCarousel items={testimonials} perSlide={3} autoplayMs={6500} />
         </div>
       </section>
 
