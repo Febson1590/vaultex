@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Star, Quote } from "lucide-react";
 
 export interface Testimonial {
-  name:  string;
-  quote: string;
+  name:    string;
+  quote:   string;
+  /** 1–5 stars. Defaults to 5. */
+  rating?: number;
 }
 
 interface Props {
@@ -184,11 +186,26 @@ function TestimonialCard({ t }: { t: Testimonial }) {
       />
 
       {/* Rating */}
-      <div className="flex items-center gap-1 mb-4 text-sky-400">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star key={i} size={13} className="fill-current" />
-        ))}
-      </div>
+      {(() => {
+        const r = Math.max(1, Math.min(5, Math.round(t.rating ?? 5)));
+        return (
+          <div
+            className="flex items-center gap-1 mb-4"
+            aria-label={`${r} out of 5 stars`}
+          >
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                size={13}
+                className={i < r ? "text-sky-400 fill-current" : "text-slate-700 fill-current"}
+              />
+            ))}
+            <span className="ml-1.5 text-[10px] font-bold tabular-nums text-slate-500">
+              {r.toFixed(1)}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Quote */}
       <p className="text-[13.5px] text-slate-300 leading-relaxed flex-1 mb-5">

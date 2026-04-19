@@ -87,32 +87,35 @@ const marqueeFeatures = [
 ];
 
 /* ─── Markets we cover (4 tile grid) ──────────────────────────────────── */
+/* Only assets actually listed in the dashboard are shown here — BTC, ETH,
+   the major altcoins, and USDT stablecoin. No equities, forex or commodities
+   are surfaced on the platform, so they aren't advertised on the landing. */
 const coveredMarkets = [
-  { icon: Coins,    title: "Crypto",       desc: "Bitcoin, Ethereum, and the major alt-coins — quoted in USD."     },
-  { icon: Landmark, title: "Stocks",       desc: "US equities with clear limit-order controls and live quotes."      },
-  { icon: Globe,    title: "Forex",        desc: "Core currency pairs for hedging or directional exposure."          },
-  { icon: Bitcoin,  title: "Commodities",  desc: "Gold, silver, and energy benchmarks alongside your digital assets."},
+  { icon: Bitcoin,  title: "Bitcoin",        desc: "Buy, sell and hold BTC directly — the most-traded asset on the platform, priced in USD."                 },
+  { icon: Coins,    title: "Ethereum",       desc: "ETH spot trading with market or limit orders, quoted against USD and available on every plan."            },
+  { icon: LayoutGrid, title: "Top Altcoins", desc: "SOL, BNB, XRP, ADA, AVAX, LINK, DOT, LTC and other majors — 15 listed assets under one USD quote layer."  },
+  { icon: Landmark, title: "Stablecoins",    desc: "USDT for parking balance between trades or funding an investment plan without market exposure."           },
 ];
 
 /* ─── Testimonials ────────────────────────────────────────────────────── */
-const testimonials: { name: string; quote: string }[] = [
-  { name: "Marcus Chen",        quote: "I trade BTC and ETH around the London open. I like that my limit ladders actually fill at the price I set — no silent slippage eating into a 0.4% edge. Since March my average R per trade has been steady around 1.6." },
-  { name: "Sofia Navarro",      quote: "I run a long-only portfolio across BTC, ETH, SOL and a bit of gold. The allocation view is exactly what I needed — I rebalance monthly and the P&L breakdown makes my quarterly report almost write itself." },
-  { name: "Daniel Reeves",      quote: "I'm not a day trader. I DCA $800 a week into a crypto basket and hold. Seeing every deposit, every fee, every cost basis line in one log is the reason I moved my holdings here from two other accounts." },
-  { name: "Priya Natarajan",    quote: "Swing trading alt-majors for two years now. I scaled into a SOL position over four tranches last cycle and being able to see average entry vs. current mark on one card — not hidden behind three menus — actually saved me from overtrading." },
-  { name: "Ethan Walker",       quote: "I copy two traders here, both with about 30–40% drawdown ceilings and consistent Sharpe. I can see every mirrored fill, the fee, and my share of the position. If one of them starts doing something I don't like, I pause. It's the first copy-trading setup I've trusted." },
-  { name: "Amina Okafor",       quote: "I had a withdrawal hold on a larger-than-usual crypto transfer and support walked me through it in a single thread. It cleared the same day. That response alone was worth more than the fee difference vs. the cheap exchanges." },
-  { name: "Tomasz Krawczyk",    quote: "I place mostly limit and stop-limit orders — probably 200 a month across BTC, ETH and a few alts. Fills are accurate, fees are shown before I confirm, and the CSV export dropped my bookkeeping time from a weekend to about 20 minutes." },
-  { name: "Isabella Moreau",    quote: "I scalp ETH on 15-minute candles. My routine is: open the terminal, check order book imbalance, click quick-trade. What took me four clicks on my old broker takes two here. Over 40 trades a day that adds up." },
-  { name: "Ken Nakamura",       quote: "I run a mean-reversion strategy on majors with manual entries. The clean candles and the depth chart are exactly what I need — no pop-ups, no 'upgrade to pro' nags, no ad banners above the price. It actually respects the person using it." },
-  { name: "Olivia Bennett",     quote: "Seven-figure retirement allocation, 60% equities-equivalent ETFs and 15% in crypto here. I went through proper KYC — passport, proof of address, a compliance call — and it told me this isn't one of those fly-by-night platforms. My wife stopped worrying after week one." },
-  { name: "Rafael Duarte",      quote: "I used to get hit with surprise spreads on the last broker I used. Here the total cost — base, fee, any FX conversion — is all shown on the confirmation screen. My actual cost per trade is 0.12% lower than what I was paying before, and I can prove it from the receipts." },
-  { name: "Hannah Schmidt",     quote: "I manage a small options-and-crypto book from my phone most days. The mobile dashboard keeps the order ticket, charts and positions on one screen. I closed a BTC hedge on a train last week in about 20 seconds — that was impossible on my previous app." },
-  { name: "Liam O'Connor",      quote: "Email OTP on every sign-in sounded annoying until the day someone tried to log into my account from Moldova. I got the code, didn't approve it, and the attempt was flagged in my activity log within seconds. That's the kind of friction I want from a broker." },
-  { name: "Zara Haque",         quote: "I tested four platforms with $500 each for a month. Vaultex had the tightest BTC spread during US hours, the cleanest chart, and the only order book I could actually read at a glance. I consolidated everything into one account in February." },
-  { name: "Victor Almeida",     quote: "Wired a five-figure deposit in. It was credited in about three hours after a real compliance review, which is how I want my money to arrive — with someone actually checking it. Every large movement on the account has a named reviewer on the log." },
-  { name: "Elena Petrova",      quote: "I read order flow. The depth-of-book visualization here — bid walls, ask walls, spread width — is the clearest outside of a paid pro terminal. I've caught two obvious spoofing patterns this month just from watching it during the New York session." },
-  { name: "Jason Park",         quote: "I'm up around 18% YTD across a mixed BTC/ETH/SOL portfolio, and tax season was the first one in years where I didn't have to reconcile six different CSVs. Every trade, every fee, every transfer — one export, matches my accountant's numbers to the cent." },
+const testimonials: { name: string; quote: string; rating: number }[] = [
+  { name: "Marcus Chen",        rating: 5, quote: "I started on the Starter plan with $250 just to test it. The small profits started showing up in my balance every few minutes. Two months in, I moved up to the Growth plan with $1,500 and I'm pulling out a steady check at the end of every month." },
+  { name: "Sofia Navarro",      rating: 5, quote: "I'm a total beginner — I'd never bought Bitcoin before. I picked the Growth plan, deposited $500, and just watched the little payouts tick in. After five weeks I had about $180 in profit on top. I've since added another $1,000." },
+  { name: "Daniel Reeves",      rating: 5, quote: "I put $300 into copy-trading and picked a trader with a 78% win rate. My balance followed his trades — when he made money, I made money. In 30 days I was up around 22%. First time I've ever felt like a real investor." },
+  { name: "Priya Natarajan",    rating: 5, quote: "I bought Bitcoin at $64k, watched it run up, and used the one-click sell button to take profit at $71k. Cashed out $1,400 in gains. The withdrawal hit my wallet the same afternoon. That speed is what made me trust this place." },
+  { name: "Ethan Walker",       rating: 4, quote: "I follow two top traders here. When they win, I win — straightforward as that. My only small gripe is I wish I could see more history on each trader before I pick. Once you commit though, the mirroring works exactly as advertised." },
+  { name: "Amina Okafor",       rating: 5, quote: "I'm a nurse on shifts, I don't have time to stare at charts. The investment plan does the work for me. I put in $600 on the Premium plan and I check it once a week while I have coffee. It's up 31% since January and I've withdrawn twice, no issues." },
+  { name: "Tomasz Krawczyk",    rating: 5, quote: "I swing-trade ETH — buy the dips, sell the bounces. Orders fill at the price I pick, which my last broker never did. Last month alone I booked about $2,100 in profit from six trades. I can show every one in my history." },
+  { name: "Isabella Moreau",    rating: 4, quote: "Verification took a bit longer than I expected — about 18 hours for the ID check — but a real human emailed me to confirm once it was done. Since then it's been smooth. I've withdrawn twice, both hit my wallet in under two hours." },
+  { name: "Ken Nakamura",       rating: 5, quote: "I'm retired. I moved a chunk of my savings into the Elite plan and it pays out like a small pension now. Last month's profit covered all my groceries and my car payment. I still don't quite believe it's this easy." },
+  { name: "Olivia Bennett",     rating: 5, quote: "My husband bet me $100 I'd lose money my first month. I put $400 into copy-trading, picked the trader with the highest 30-day performance, and ended the month up $112. He paid me. I reinvested all of it." },
+  { name: "Rafael Duarte",      rating: 5, quote: "I trade Solana and Avalanche mostly. The quick-trade card lets me buy or sell in two clicks from the dashboard. In April I caught a nice SOL run — bought $800, closed at $1,140. A clean $340 profit, in and out in two days." },
+  { name: "Hannah Schmidt",     rating: 4, quote: "Solid platform. I've been using it three months and I'm up about 28%. Mobile is good, the dashboard could use a dark-mode tweak or two, but nothing serious. My $500 starter balance is now sitting at $1,340. I'll take it." },
+  { name: "Liam O'Connor",      rating: 5, quote: "What sold me was the sign-in security. Someone tried to log into my account one morning from another country. I got the code on my email, didn't approve it, and the attempt was flagged in my activity log within seconds. My money was never at risk." },
+  { name: "Zara Haque",         rating: 3, quote: "Decent platform overall. I'm making profits — not denying that — but the fees on small trades feel a touch higher than the last place I used. Customer support is quick though, and my first withdrawal went through in an hour, which is more than I can say for most." },
+  { name: "Victor Almeida",     rating: 5, quote: "I deposited $5,000 by bank wire, the team reviewed it, and it was credited by the end of the day. I've now got half in the Premium plan and half in a BTC position I'm holding long. Profit's been steady — about $420 in the first three weeks." },
+  { name: "Elena Petrova",      rating: 5, quote: "I picked Bitcoin, bought $1,000 worth at a dip, and set a sell price 6% higher. It filled on its own two nights later while I was asleep. I woke up to a $60 profit and a notification. Repeat that a few times a week and the balance really does grow fast." },
+  { name: "Jason Park",         rating: 3, quote: "I was skeptical for a while and the first withdrawal took two tries because I typed my wallet address wrong — that's on me, not them. Once I sorted that out, everything's worked. Account's up 47% across four months, split between the Growth plan and one copy-trader." },
 ];
 
 /* ─── Featured-in strip (fictional publication wordmarks) ─────────────── */
@@ -581,8 +584,9 @@ export default async function HomePage() {
               </h2>
             </div>
             <p className="text-[13px] text-slate-400 max-w-md leading-relaxed">
-              One account, one interface. Digital assets are live today — equities, forex, and
-              commodities are surfaced for context and priced against the same USD quote layer.
+              Every asset you see on the landing is in the dashboard today —
+              {" "}{PLATFORM.listedAssets} digital assets quoted against {PLATFORM.quoteCurrency},
+              with the same fees, the same execution, and the same one-click buy/sell.
             </p>
           </div>
 
