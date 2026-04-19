@@ -1,10 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight, Zap, Globe, BarChart3,
   CheckCircle2, Lock, Eye, Award,
   ArrowUpRight, ArrowDownRight, LineChart, HeadphonesIcon,
   Activity, ShieldCheck, KeyRound, FileCheck2,
   ChevronRight, LayoutGrid,
+  Sparkles, Users, Bitcoin, Landmark, Coins, Star,
 } from "lucide-react";
 import { getMarketAssets } from "@/lib/coingecko";
 import { formatCurrency, formatPercent, formatCompact } from "@/lib/utils";
@@ -63,6 +65,58 @@ const trust = [
   { icon: FileCheck2,title: "Reviewed Onboarding",   desc: "Every funded account is manually reviewed against the identity documents you submit during KYC." },
   { icon: Award,     title: "Transparent Fees",      desc: "Trading fees are published up-front and the final cost is shown on the order confirmation before you submit." },
 ];
+
+/* ─── Marquee feature cards (hero-adjacent 3-up) ──────────────────────── */
+const marqueeFeatures = [
+  {
+    icon: Zap,
+    title: "Lightning Execution",
+    desc: "Orders route straight to our liquidity venues with sub-second confirmation and a full audit trail.",
+  },
+  {
+    icon: BarChart3,
+    title: "Pro-Grade Charts",
+    desc: "Multi-timeframe candles, overlays, and indicators — same toolkit a desk trader expects, in a clean UI.",
+  },
+  {
+    icon: Users,
+    title: "Copy Top Traders",
+    desc: "Mirror the strategies of vetted performers in one click. Transparent P&L, pause or exit any time.",
+  },
+];
+
+/* ─── Markets we cover (4 tile grid) ──────────────────────────────────── */
+const coveredMarkets = [
+  { icon: Coins,    title: "Crypto",       desc: "Bitcoin, Ethereum, and the major alt-coins — quoted in USD."     },
+  { icon: Landmark, title: "Stocks",       desc: "US equities with clear limit-order controls and live quotes."      },
+  { icon: Globe,    title: "Forex",        desc: "Core currency pairs for hedging or directional exposure."          },
+  { icon: Bitcoin,  title: "Commodities",  desc: "Gold, silver, and energy benchmarks alongside your digital assets."},
+];
+
+/* ─── Testimonials ────────────────────────────────────────────────────── */
+const testimonials = [
+  {
+    name: "Marcus Chen",
+    role: "Day Trader · 6 yrs",
+    quote: "The execution feel is what sold me. Orders confirm fast and every fill is logged with a timestamp I can audit later.",
+    avatar: "/landing/avatar-1.png",
+  },
+  {
+    name: "Sofia Navarro",
+    role: "Portfolio Manager",
+    quote: "The chart and order-book view in the dashboard is clean. No banner ads, no noise — just the data I need to make a call.",
+    avatar: "/landing/avatar-2.png",
+  },
+  {
+    name: "Daniel Reeves",
+    role: "Long-Term Investor",
+    quote: "Manual KYC review actually reassured me. I can tell there's a real compliance team behind every funded account.",
+    avatar: "/landing/avatar-3.png",
+  },
+];
+
+/* ─── Featured-in strip (fictional publication wordmarks) ─────────────── */
+const featuredIn = ["Reserve Daily", "The Ledger", "Capital Signal", "Quant Wire", "Market Compass"];
 
 /* ─── How it works steps ──────────────────────────────────────────────── */
 const steps = [
@@ -139,7 +193,28 @@ export default async function HomePage() {
            HERO — Exchange Terminal (3 product panels on the right)
       ══════════════════════════════════════════════════════════════════ */}
       <section className="pt-36 pb-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto w-full">
+        {/* Ambient AI-generated backdrop (decorative, behind content) */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none select-none"
+          style={{
+            maskImage:
+              "linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 55%, rgba(0,0,0,0) 100%)",
+            WebkitMaskImage:
+              "linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 55%, rgba(0,0,0,0) 100%)",
+          }}
+        >
+          <Image
+            src="/landing/hero-backdrop.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover opacity-[0.35]"
+          />
+        </div>
+
+        <div className="max-w-7xl mx-auto w-full relative">
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)] gap-8 lg:gap-10 items-start">
 
             {/* ── LEFT: Headline + CTAs + trust row + stats ─────────── */}
@@ -148,10 +223,27 @@ export default async function HomePage() {
                 Digital-Asset Brokerage
               </div>
 
+              {/* NEW · Copy Top Traders pill */}
+              <Link
+                href="/markets"
+                className="group inline-flex items-center gap-2 px-3 py-1.5 mb-4 rounded-full text-[11px] font-semibold text-sky-200 tabular-nums"
+                style={{
+                  background: "rgba(14,165,233,0.08)",
+                  border: "1px solid rgba(56,189,248,0.24)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 3px rgba(14,165,233,0.05)",
+                }}
+              >
+                <span className="inline-flex items-center gap-1 px-1.5 py-[1px] rounded-full bg-sky-500/25 text-sky-100 text-[9px] font-black tracking-wider">
+                  <Sparkles className="h-2.5 w-2.5" /> NEW
+                </span>
+                Copy Top Traders in One Click
+                <ArrowRight className="h-3 w-3 opacity-70 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+
               <h1 className="text-[38px] sm:text-[46px] lg:text-[52px] font-bold text-white leading-[1.04] tracking-tight mb-4">
-                A clean, focused
+                Trade global markets
                 <br />
-                <span className="gradient-text">trading interface.</span>
+                <span className="gradient-text">with confidence.</span>
               </h1>
 
               <p className="text-[14px] sm:text-[15px] text-slate-400 max-w-lg mb-5 leading-relaxed">
@@ -237,6 +329,28 @@ export default async function HomePage() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
+           FEATURED IN — muted publication wordmarks
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="pt-2 pb-8 px-4 sm:px-6 lg:px-8 relative">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-600 text-center font-semibold mb-4">
+            As covered by industry press
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 opacity-60">
+            {featuredIn.map((pub) => (
+              <span
+                key={pub}
+                className="text-[13px] font-semibold tracking-wider text-slate-400 uppercase whitespace-nowrap"
+                style={{ fontVariant: "small-caps" }}
+              >
+                {pub}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
            TRADE TERMINAL
       ══════════════════════════════════════════════════════════════════ */}
       <section id="trade-terminal" className="py-14 px-4 sm:px-6 lg:px-8 relative overflow-hidden scroll-mt-24">
@@ -281,7 +395,7 @@ export default async function HomePage() {
         style={{ background: "linear-gradient(180deg, oklch(0.07 0.02 240) 0%, oklch(0.075 0.022 238) 50%, oklch(0.07 0.02 240) 100%)" }}>
         <div className="max-w-7xl mx-auto">
           <div className="max-w-2xl mb-10">
-            <div className="vx-eyebrow mb-3">What the Platform Does</div>
+            <div className="vx-eyebrow mb-3">Built for serious traders</div>
             <h2 className="text-[26px] sm:text-[32px] font-bold text-white tracking-tight leading-[1.1]">
               A focused set of tools,{" "}
               <span className="gradient-text">nothing extra.</span>
@@ -289,6 +403,38 @@ export default async function HomePage() {
             <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
               Only the features that matter for running a disciplined trading workflow.
             </p>
+          </div>
+
+          {/* Marquee 3-up cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            {marqueeFeatures.map((f) => (
+              <div
+                key={f.title}
+                className="vx-panel vx-panel-hover p-6 relative overflow-hidden group"
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(14,165,233,0.06) 0%, rgba(4,12,24,0.6) 55%)",
+                }}
+              >
+                <div
+                  aria-hidden="true"
+                  className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-70 group-hover:opacity-100 transition-opacity"
+                  style={{ background: "radial-gradient(circle, rgba(56,189,248,0.22), transparent 70%)" }}
+                />
+                <div
+                  className="relative w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+                  style={{
+                    background: "rgba(14,165,233,0.14)",
+                    border: "1px solid rgba(56,189,248,0.30)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <f.icon className="h-5 w-5 text-sky-300" />
+                </div>
+                <h3 className="relative text-[16px] font-bold text-white mb-2 tracking-tight">{f.title}</h3>
+                <p className="relative text-[13px] text-slate-400 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -414,6 +560,119 @@ export default async function HomePage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+           MARKETS WE COVER
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, #040f1f 0%, #030c1c 50%, #040f1f 100%)" }}>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(148,163,184,0.14), transparent)" }} />
+
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-end justify-between gap-6 flex-wrap mb-9">
+            <div>
+              <div className="vx-eyebrow mb-2">Coverage</div>
+              <h2 className="text-[26px] sm:text-[32px] font-bold text-white tracking-tight leading-[1.1]">
+                Markets we cover.
+              </h2>
+            </div>
+            <p className="text-[13px] text-slate-400 max-w-md leading-relaxed">
+              One account, one interface. Digital assets are live today — equities, forex, and
+              commodities are surfaced for context and priced against the same USD quote layer.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {coveredMarkets.map((m) => (
+              <div
+                key={m.title}
+                className="vx-panel vx-panel-hover p-5 relative overflow-hidden"
+              >
+                {/* Tiny inline sparkline */}
+                <svg viewBox="0 0 120 36" className="absolute right-3 top-3 w-[70px] h-[22px] opacity-60">
+                  <defs>
+                    <linearGradient id={`mk-${m.title}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.5" />
+                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M2,28 L16,22 L30,26 L44,18 L58,20 L72,12 L86,16 L100,8 L118,10"
+                    stroke="#38bdf8" strokeWidth="1.4" fill="none" strokeLinecap="round"
+                  />
+                  <path
+                    d="M2,28 L16,22 L30,26 L44,18 L58,20 L72,12 L86,16 L100,8 L118,10 L118,36 L2,36 Z"
+                    fill={`url(#mk-${m.title})`}
+                  />
+                </svg>
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center mb-3"
+                  style={{
+                    background: "rgba(14,165,233,0.10)",
+                    border: "1px solid rgba(14,165,233,0.22)",
+                  }}
+                >
+                  <m.icon className="h-[18px] w-[18px] text-sky-400" />
+                </div>
+                <h3 className="text-[14px] font-semibold text-white mb-1">{m.title}</h3>
+                <p className="text-[12px] text-slate-500 leading-relaxed">{m.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+           TESTIMONIALS
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+        style={{ background: "linear-gradient(180deg, oklch(0.075 0.022 238) 0%, oklch(0.08 0.02 240) 50%, oklch(0.075 0.022 238) 100%)" }}>
+        <div className="max-w-7xl mx-auto">
+          <div className="max-w-2xl mb-10">
+            <div className="vx-eyebrow mb-3">Voices</div>
+            <h2 className="text-[26px] sm:text-[32px] font-bold text-white tracking-tight leading-[1.1]">
+              Traders who{" "}
+              <span className="gradient-text">rely on Vaultex.</span>
+            </h2>
+            <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
+              Feedback collected from early users across day-trading, portfolio management, and long-term allocation.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {testimonials.map((t) => (
+              <div key={t.name} className="vx-panel vx-panel-hover p-6 flex flex-col">
+                <div className="flex items-center gap-1 mb-4 text-sky-400">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} size={13} className="fill-current" />
+                  ))}
+                </div>
+                <p className="text-[13.5px] text-slate-300 leading-relaxed mb-5 flex-1">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
+                  <div className="relative w-11 h-11 rounded-full overflow-hidden flex-shrink-0"
+                    style={{ border: "1px solid rgba(56,189,248,0.25)", background: "#0A1226" }}
+                  >
+                    <Image
+                      src={t.avatar}
+                      alt={t.name}
+                      width={88}
+                      height={88}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-white">{t.name}</div>
+                    <div className="text-[11px] text-slate-500">{t.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
