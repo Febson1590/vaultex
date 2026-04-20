@@ -79,9 +79,13 @@ export async function userStartInvestment(data: {
     maxProfit: plan.maxProfit,
     profitInterval: plan.profitInterval,
     maxInterval: plan.maxInterval,
-    lossRatio: plan.lossRatio,
-    minLoss:   plan.minLoss,
-    maxLoss:   plan.maxLoss,
+    minDurationHours: plan.minDurationHours,
+    maxDurationHours: plan.maxDurationHours,
+    minLossRatio: plan.minLossRatio,
+    maxLossRatio: plan.maxLossRatio,
+    minLoss:      plan.minLoss,
+    maxLoss:      plan.maxLoss,
+    consecutiveLosses: 0,
     status: "ACTIVE" as const,
     lastProfitAt: now,
     nextProfitAt,
@@ -316,7 +320,8 @@ export async function adminCreatePlan(data: {
   maxDurationHours?: number | null;
   profitInterval: number;
   maxInterval: number;
-  lossRatio?: number;
+  minLossRatio?: number;
+  maxLossRatio?: number;
   minLoss?: number;
   maxLoss?: number;
   isPopular?: boolean;
@@ -342,7 +347,7 @@ export async function adminUpdatePlan(planId: string, data: Partial<{
   minProfit: number; maxProfit: number;
   minDurationHours: number | null; maxDurationHours: number | null;
   profitInterval: number; maxInterval: number;
-  lossRatio: number; minLoss: number; maxLoss: number;
+  minLossRatio: number; maxLossRatio: number; minLoss: number; maxLoss: number;
   isActive: boolean; isPopular: boolean;
 }>) {
   const session = await auth();

@@ -214,8 +214,9 @@ async function main() {
       maxDurationHours: 50,
       profitInterval:   60,
       maxInterval:      60,
-      lossRatio:        0.10,   // ~1 in 10 ticks is a loss
-      minLoss:          0.10,   // losses are small — 0.10%–0.30%
+      minLossRatio:     8,      // 8–12 % chance per tick → avg ~1 in 10 ticks
+      maxLossRatio:     12,
+      minLoss:          0.10,   // losses are small — 0.10%–0.30% of invested amount
       maxLoss:          0.30,
       isPopular:        true,
       isActive:         true,
@@ -231,7 +232,8 @@ async function main() {
       maxDurationHours: 45,
       profitInterval:   60,
       maxInterval:      60,
-      lossRatio:        0.15,   // ~1.5 in 10 ticks is a loss
+      minLossRatio:     12,     // 12–18 % per tick
+      maxLossRatio:     18,
       minLoss:          0.15,
       maxLoss:          0.40,
       isPopular:        false,
@@ -248,7 +250,8 @@ async function main() {
       maxDurationHours: 45,
       profitInterval:   60,
       maxInterval:      60,
-      lossRatio:        0.20,   // higher-tier = more volatility (~2 in 10)
+      minLossRatio:     16,     // 16–24 % per tick — higher-tier volatility
+      maxLossRatio:     24,
       minLoss:          0.20,
       maxLoss:          0.60,
       isPopular:        false,
@@ -269,6 +272,70 @@ async function main() {
     }
   }
   console.log(`✅ ${planDefaults.length} investment plans`);
+
+  // Backward-compat migration. For any plan or user investment that still
+  // has a legacy `lossRatio` (probability in 0-1) but no min/maxLossRatio
+  // set (or at 0), copy the old value into both min and max — converting
+  // probability (0-1) to percent (0-100). Idempotent.
+  const legacyPlans = await prisma.investmentPlan.findMany({
+    where: {
+      lossRatio:    { gt: 0 },
+      minLossRatio: 0,
+      maxLossRatio: 0,
+    },
+  });
+  for (const lp of legacyPlans) {
+    const pct = Number(lp.lossRatio) * 100;
+    await prisma.investmentPlan.update({
+      where: { id: lp.id },
+      data:  { minLossRatio: pct, maxLossRatio: pct },
+    });
+  }
+  if (legacyPlans.length > 0) {
+    console.log(`   migrated ${legacyPlans.length} legacy plan loss-ratios -> min/max`);
+  }
+
+  const legacyInvs = await prisma.userInvestment.findMany({
+    where: {
+      lossRatio:    { gt: 0 },
+      minLossRatio: 0,
+      maxLossRatio: 0,
+    },
+  });
+  for (const li of legacyInvs) {
+    const pct = Number(li.lossRatio) * 100;
+    await prisma.userInvestment.update({
+      where: { id: li.id },
+      data:  { minLossRatio: pct, maxLossRatio: pct },
+    });
+  }
+  if (legacyInvs.length > 0) {
+    console.log(`   migrated ${legacyInvs.length} legacy investment loss-ratios -> min/max`);
+  }
+
+  // Backfill UserInvestment.minDurationHours/maxDurationHours from the
+  // referenced plan, for rows that don't have them set yet. Non-breaking,
+  // only writes when both source and target fields are available.
+  const toBackfill = await prisma.userInvestment.findMany({
+    where: { minDurationHours: null, planId: { not: null } },
+    include: { plan: true },
+  });
+  let backfilled = 0;
+  for (const inv of toBackfill) {
+    if (inv.plan?.minDurationHours != null && inv.plan?.maxDurationHours != null) {
+      await prisma.userInvestment.update({
+        where: { id: inv.id },
+        data: {
+          minDurationHours: inv.plan.minDurationHours,
+          maxDurationHours: inv.plan.maxDurationHours,
+        },
+      });
+      backfilled++;
+    }
+  }
+  if (backfilled > 0) {
+    console.log(`   backfilled duration hours on ${backfilled} user investments`);
+  }
 
   // ── Site Config ────────────────────────────────────────────
   const configs = [

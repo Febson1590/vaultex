@@ -26,7 +26,8 @@ interface Plan {
   minProfit: number; maxProfit: number;
   minDurationHours: number | null; maxDurationHours: number | null;
   profitInterval: number; maxInterval: number;
-  lossRatio: number; minLoss: number; maxLoss: number;
+  minLossRatio: number; maxLossRatio: number;
+  minLoss: number; maxLoss: number;
   isActive: boolean; isPopular: boolean;
   _count: { userInvestments: number };
 }
@@ -47,48 +48,93 @@ const labelCls = "text-xs font-medium text-slate-400 uppercase tracking-wider";
 // ── Plan Modal ────────────────────────────────────────────────────────────────
 function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => void; onSuccess: () => void }) {
   const [form, setForm] = useState({
-    name: plan?.name ?? "", description: plan?.description ?? "",
-    minAmount: String(plan?.minAmount ?? 100),
-    maxAmount: plan?.maxAmount !== null && plan?.maxAmount !== undefined ? String(plan.maxAmount) : "",
-    minProfit: String(plan?.minProfit ?? 0.5), maxProfit: String(plan?.maxProfit ?? 1.5),
+    name:             plan?.name ?? "",
+    description:      plan?.description ?? "",
+    minAmount:        String(plan?.minAmount ?? 100),
+    maxAmount:        plan?.maxAmount !== null && plan?.maxAmount !== undefined ? String(plan.maxAmount) : "",
+    minProfit:        String(plan?.minProfit ?? 0.5),
+    maxProfit:        String(plan?.maxProfit ?? 1.5),
     minDurationHours: plan?.minDurationHours !== null && plan?.minDurationHours !== undefined ? String(plan.minDurationHours) : "",
     maxDurationHours: plan?.maxDurationHours !== null && plan?.maxDurationHours !== undefined ? String(plan.maxDurationHours) : "",
-    profitInterval: String(plan?.profitInterval ?? 60), maxInterval: String(plan?.maxInterval ?? 60),
-    lossRatio: String(plan?.lossRatio ?? 0),
-    minLoss:   String(plan?.minLoss ?? 0),
-    maxLoss:   String(plan?.maxLoss ?? 0),
-    isPopular: plan?.isPopular ?? false,
+    minLossRatio:     String(plan?.minLossRatio ?? 0),
+    maxLossRatio:     String(plan?.maxLossRatio ?? 0),
+    minLoss:          String(plan?.minLoss ?? 0),
+    maxLoss:          String(plan?.maxLoss ?? 0),
+    isPopular:        plan?.isPopular ?? false,
   });
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  function set(k: string, v: string | boolean) { setForm(f => ({ ...f, [k]: v })); }
+  function set(k: keyof typeof form, v: string | boolean) {
+    setForm(f => ({ ...f, [k]: v }));
+    setErrors(e => { const { [k]: _drop, ...rest } = e; return rest; });
+  }
+
+  /** Numeric range check helpers — shared inline validator. */
+  function validate(): { ok: boolean; errs: Record<string, string> } {
+    const errs: Record<string, string> = {};
+    const nonNeg = (s: string) => parseFloat(s) >= 0;
+    const pct01_100 = (s: string) => {
+      const n = parseFloat(s);
+      return !Number.isNaN(n) && n >= 0 && n <= 100;
+    };
+
+    if (!form.name.trim()) errs.name = "Plan name is required";
+
+    if (!nonNeg(form.minAmount)) errs.minAmount = "Must be 0 or more";
+    if (form.maxAmount.trim() && !nonNeg(form.maxAmount)) errs.maxAmount = "Must be 0 or more";
+    if (form.maxAmount.trim() && parseFloat(form.maxAmount) < parseFloat(form.minAmount))
+      errs.maxAmount = "Max must be ≥ min amount";
+
+    if (!nonNeg(form.minProfit)) errs.minProfit = "Must be 0 or more";
+    if (!nonNeg(form.maxProfit)) errs.maxProfit = "Must be 0 or more";
+    if (parseFloat(form.maxProfit) < parseFloat(form.minProfit))
+      errs.maxProfit = "Max must be ≥ min profit";
+
+    if (form.minDurationHours.trim() && !nonNeg(form.minDurationHours))
+      errs.minDurationHours = "Must be 0 or more";
+    if (form.maxDurationHours.trim() && !nonNeg(form.maxDurationHours))
+      errs.maxDurationHours = "Must be 0 or more";
+    if (form.minDurationHours.trim() && form.maxDurationHours.trim() &&
+        parseFloat(form.maxDurationHours) < parseFloat(form.minDurationHours))
+      errs.maxDurationHours = "Max must be ≥ min duration";
+
+    if (!pct01_100(form.minLossRatio)) errs.minLossRatio = "Must be between 0 and 100";
+    if (!pct01_100(form.maxLossRatio)) errs.maxLossRatio = "Must be between 0 and 100";
+    if (!errs.minLossRatio && !errs.maxLossRatio &&
+        parseFloat(form.maxLossRatio) < parseFloat(form.minLossRatio))
+      errs.maxLossRatio = "Max must be ≥ min loss ratio";
+
+    if (!nonNeg(form.minLoss)) errs.minLoss = "Must be 0 or more";
+    if (!nonNeg(form.maxLoss)) errs.maxLoss = "Must be 0 or more";
+    if (parseFloat(form.maxLoss) < parseFloat(form.minLoss))
+      errs.maxLoss = "Max must be ≥ min loss";
+
+    return { ok: Object.keys(errs).length === 0, errs };
+  }
 
   async function submit() {
-    if (!form.name.trim()) { toast.error("Name required"); return; }
+    const { ok, errs } = validate();
+    setErrors(errs);
+    if (!ok) { toast.error("Please fix the highlighted fields"); return; }
+
     setLoading(true);
-    const maxAmountParsed = form.maxAmount.trim() ? parseFloat(form.maxAmount) : null;
-    const minDur = form.minDurationHours.trim() ? parseInt(form.minDurationHours) : null;
-    const maxDur = form.maxDurationHours.trim() ? parseInt(form.maxDurationHours) : null;
-    if (minDur !== null && maxDur !== null && maxDur < minDur) {
-      toast.error("Max duration must be ≥ min duration");
-      return;
-    }
-    const lossRatio = Math.max(0, Math.min(1, parseFloat(form.lossRatio) || 0));
-    const minLoss   = Math.max(0, parseFloat(form.minLoss) || 0);
-    const maxLoss   = Math.max(0, parseFloat(form.maxLoss) || 0);
-    if (maxLoss < minLoss) {
-      toast.error("Max loss must be ≥ min loss");
-      return;
-    }
     const payload = {
-      name: form.name.trim(), description: form.description || undefined,
-      minAmount: parseFloat(form.minAmount),
-      maxAmount: maxAmountParsed,
-      minProfit: parseFloat(form.minProfit), maxProfit: parseFloat(form.maxProfit),
-      minDurationHours: minDur, maxDurationHours: maxDur,
-      profitInterval: parseInt(form.profitInterval), maxInterval: parseInt(form.maxInterval),
-      lossRatio, minLoss, maxLoss,
-      isPopular: form.isPopular,
+      name:             form.name.trim(),
+      description:      form.description || undefined,
+      minAmount:        parseFloat(form.minAmount),
+      maxAmount:        form.maxAmount.trim() ? parseFloat(form.maxAmount) : null,
+      minProfit:        parseFloat(form.minProfit),
+      maxProfit:        parseFloat(form.maxProfit),
+      minDurationHours: form.minDurationHours.trim() ? parseInt(form.minDurationHours) : null,
+      maxDurationHours: form.maxDurationHours.trim() ? parseInt(form.maxDurationHours) : null,
+      // Cadence fields are defaulted server-side (unused by the new hour-based engine).
+      profitInterval:   60,
+      maxInterval:      60,
+      minLossRatio:     parseFloat(form.minLossRatio) || 0,
+      maxLossRatio:     parseFloat(form.maxLossRatio) || 0,
+      minLoss:          parseFloat(form.minLoss)      || 0,
+      maxLoss:          parseFloat(form.maxLoss)      || 0,
+      isPopular:        form.isPopular,
     };
     const r = plan ? await adminUpdatePlan(plan.id, payload) : await adminCreatePlan(payload);
     setLoading(false);
@@ -97,77 +143,139 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     onSuccess(); onClose();
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-bold text-white mb-5">{plan ? "Edit Plan" : "Create Investment Plan"}</h3>
-        <div className="space-y-4">
-          <div><label className={labelCls}>Plan Name</label><input className={inputCls + " mt-1"} value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Growth Plan" /></div>
-          <div><label className={labelCls}>Description (optional)</label><input className={inputCls + " mt-1"} value={form.description} onChange={e => set("description", e.target.value)} placeholder="Short description…" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Min Amount (USD)</label><input type="number" className={inputCls + " mt-1"} value={form.minAmount} onChange={e => set("minAmount", e.target.value)} /></div>
-            <div><label className={labelCls}>Max Amount (USD) <span className="text-slate-600">— optional</span></label><input type="number" className={inputCls + " mt-1"} value={form.maxAmount} onChange={e => set("maxAmount", e.target.value)} placeholder="Leave empty for no cap" /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Min Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.minProfit} onChange={e => set("minProfit", e.target.value)} /></div>
-            <div><label className={labelCls}>Max Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Min Duration (hours)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.minDurationHours} onChange={e => set("minDurationHours", e.target.value)} placeholder="e.g. 30" /></div>
-            <div><label className={labelCls}>Max Duration (hours)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.maxDurationHours} onChange={e => set("maxDurationHours", e.target.value)} placeholder="e.g. 50" /></div>
-          </div>
-          <p className="text-[11px] text-slate-500">Advertised plan horizon (in hours) shown on the user-facing plan cards.</p>
+  /** Inline field error renderer. */
+  const err = (key: string) =>
+    errors[key] ? (
+      <p className="text-[11px] text-red-400 mt-1">{errors[key]}</p>
+    ) : null;
 
-          {/* Loss simulation — fewer losses vs. more profits */}
-          <div className="pt-3 mt-1 border-t border-white/[0.06]">
+  // Mobile-scroll-safe shell:
+  //   - outer: fixed full-screen, scrolls vertically (`overflow-y-auto`),
+  //            aligns top on mobile, centers on sm+ ⇒ tall forms reachable.
+  //   - inner: uses `my-4 sm:my-auto` for breathing room while scrolling.
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-center items-start sm:items-center bg-black/70 backdrop-blur-sm overflow-y-auto p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-card border border-sky-500/20 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl my-4 sm:my-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-white mb-5">
+          {plan ? "Edit Plan" : "Create Investment Plan"}
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <label className={labelCls}>Plan Name</label>
+            <input className={inputCls + " mt-1"} value={form.name}
+              onChange={e => set("name", e.target.value)} placeholder="e.g. Growth Plan" />
+            {err("name")}
+          </div>
+          <div>
+            <label className={labelCls}>Description (optional)</label>
+            <input className={inputCls + " mt-1"} value={form.description}
+              onChange={e => set("description", e.target.value)} placeholder="Short description…" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Min Amount (USD)</label>
+              <input type="number" min={0} className={inputCls + " mt-1"}
+                value={form.minAmount} onChange={e => set("minAmount", e.target.value)} />
+              {err("minAmount")}
+            </div>
+            <div>
+              <label className={labelCls}>Max Amount (USD) <span className="text-slate-600">— optional</span></label>
+              <input type="number" min={0} className={inputCls + " mt-1"}
+                value={form.maxAmount} onChange={e => set("maxAmount", e.target.value)}
+                placeholder="Leave empty for no cap" />
+              {err("maxAmount")}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Min Profit (%)</label>
+              <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
+                value={form.minProfit} onChange={e => set("minProfit", e.target.value)} />
+              {err("minProfit")}
+            </div>
+            <div>
+              <label className={labelCls}>Max Profit (%)</label>
+              <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
+                value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} />
+              {err("maxProfit")}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Min Duration (hours)</label>
+              <input type="number" min={0} className={inputCls + " mt-1"}
+                value={form.minDurationHours} onChange={e => set("minDurationHours", e.target.value)}
+                placeholder="e.g. 30" />
+              {err("minDurationHours")}
+            </div>
+            <div>
+              <label className={labelCls}>Max Duration (hours)</label>
+              <input type="number" min={0} className={inputCls + " mt-1"}
+                value={form.maxDurationHours} onChange={e => set("maxDurationHours", e.target.value)}
+                placeholder="e.g. 50" />
+              {err("maxDurationHours")}
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500 -mt-2">
+            The engine picks a random wait between min and max duration before the next tick.
+          </p>
+
+          {/* Loss simulation — fewer losses, more profits */}
+          <div className="pt-4 mt-1 border-t border-white/[0.06]">
             <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider mb-2">
               Loss simulation
             </div>
-            <div className="grid grid-cols-3 gap-3">
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Loss ratio</label>
-                <input type="number" step="0.01" min={0} max={1} className={inputCls + " mt-1"}
-                  value={form.lossRatio} onChange={e => set("lossRatio", e.target.value)}
-                  placeholder="0.10" />
+                <label className={labelCls}>Min Loss Ratio (%)</label>
+                <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"}
+                  value={form.minLossRatio} onChange={e => set("minLossRatio", e.target.value)}
+                  placeholder="e.g. 8" />
+                {err("minLossRatio")}
               </div>
+              <div>
+                <label className={labelCls}>Max Loss Ratio (%)</label>
+                <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"}
+                  value={form.maxLossRatio} onChange={e => set("maxLossRatio", e.target.value)}
+                  placeholder="e.g. 12" />
+                {err("maxLossRatio")}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
               <div>
                 <label className={labelCls}>Min Loss (%)</label>
                 <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
                   value={form.minLoss} onChange={e => set("minLoss", e.target.value)}
-                  placeholder="0.10" />
+                  placeholder="e.g. 0.10" />
+                {err("minLoss")}
               </div>
               <div>
                 <label className={labelCls}>Max Loss (%)</label>
                 <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
                   value={form.maxLoss} onChange={e => set("maxLoss", e.target.value)}
-                  placeholder="0.30" />
+                  placeholder="e.g. 0.30" />
+                {err("maxLoss")}
               </div>
             </div>
+
             <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
-              <span className="text-amber-400 font-semibold">Ratio</span> is the probability per
-              profit tick that the user records a loss instead of a profit (0 = never, 1 = every tick).
-              Keep it well below 0.5 so more ticks are profits than losses. Loss magnitude is a
-              random % between Min Loss and Max Loss, applied to the invested amount.
+              Each tick the engine picks a random loss-ratio in [<span className="text-amber-400 font-semibold">Min</span>,{" "}
+              <span className="text-amber-400 font-semibold">Max</span>]% and rolls it as the probability of a loss.
+              Keep Max below 50 so profits outnumber losses. Loss magnitude is a random % between Min Loss and Max Loss,
+              applied to the invested amount. Back-to-back losses are capped at 2 in a row.
             </p>
           </div>
-
-          {/* Advanced (cycle cadence in seconds) */}
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(v => !v)}
-            className="text-[11px] font-semibold text-sky-400 hover:text-sky-300 underline-offset-2 hover:underline self-start"
-          >
-            {showAdvanced ? "Hide advanced" : "Advanced — profit cycle cadence"}
-          </button>
-          {showAdvanced && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={labelCls}>Min Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.profitInterval} onChange={e => set("profitInterval", e.target.value)} /></div>
-                <div><label className={labelCls}>Max Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.maxInterval} onChange={e => set("maxInterval", e.target.value)} /></div>
-              </div>
-              <p className="text-[11px] text-slate-500">Profit credits fire at a random time between Min and Max interval. Leave at 60s unless you know what you&apos;re doing.</p>
-            </>
-          )}
 
           {/* Most Popular toggle */}
           <label className="flex items-center gap-2 cursor-pointer mt-2">
@@ -183,10 +291,12 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
             </span>
           </label>
         </div>
+
         <div className="flex gap-2 mt-6">
           <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose}>Cancel</Button>
           <Button className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold" onClick={submit} disabled={loading}>
-            {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : null}{plan ? "Save" : "Create"}
+            {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+            {plan ? "Save" : "Create"}
           </Button>
         </div>
       </div>
@@ -236,7 +346,7 @@ function InvestmentModal({ users, investment, isEdit, onClose, onSuccess }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-center items-start sm:items-center overflow-y-auto p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-bold text-white mb-5">{isEdit ? "Edit Investment" : "Assign Investment"}</h3>
         <div className="space-y-4">
@@ -295,7 +405,7 @@ function AddFundsModal({ investment, onClose, onSuccess }: { investment: UserInv
     toast.success(`${fmt(val)} added`); onSuccess(); onClose();
   }
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-center items-start sm:items-center overflow-y-auto p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
       <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-bold text-white mb-1">Add Funds</h3>
         <p className="text-xs text-slate-500 mb-4">No wallet deduction — directly adds to investment balance.</p>
@@ -339,16 +449,17 @@ export default function AdminInvestmentsPage() {
     ]);
     setPlans(plns.map((p: any) => ({
       ...p,
-      minAmount:       Number(p.minAmount),
-      maxAmount:       p.maxAmount !== null && p.maxAmount !== undefined ? Number(p.maxAmount) : null,
-      minProfit:       Number(p.minProfit),
-      maxProfit:       Number(p.maxProfit),
+      minAmount:        Number(p.minAmount),
+      maxAmount:        p.maxAmount !== null && p.maxAmount !== undefined ? Number(p.maxAmount) : null,
+      minProfit:        Number(p.minProfit),
+      maxProfit:        Number(p.maxProfit),
       minDurationHours: p.minDurationHours ?? null,
       maxDurationHours: p.maxDurationHours ?? null,
-      lossRatio:       Number(p.lossRatio ?? 0),
-      minLoss:         Number(p.minLoss ?? 0),
-      maxLoss:         Number(p.maxLoss ?? 0),
-      maxInterval:     p.maxInterval ?? p.profitInterval,
+      minLossRatio:     Number(p.minLossRatio ?? 0),
+      maxLossRatio:     Number(p.maxLossRatio ?? 0),
+      minLoss:          Number(p.minLoss ?? 0),
+      maxLoss:          Number(p.maxLoss ?? 0),
+      maxInterval:      p.maxInterval ?? p.profitInterval,
     })));
     setInvestments(invs.map((i: any) => ({
       ...i, amount: Number(i.amount), totalEarned: Number(i.totalEarned),

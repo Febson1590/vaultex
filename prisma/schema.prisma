@@ -400,12 +400,16 @@ model InvestmentPlan {
       names here are the source of truth for the unit. */
   minDurationHours Int?     @map("minDurationDays")
   maxDurationHours Int?     @map("maxDurationDays")
-  /** Loss simulation — on each profit-credit tick the job rolls a random
-      number; if it falls below `lossRatio` (0–1) the tick credits a LOSS
-      instead of a profit, sized between `minLoss` and `maxLoss` percent
-      of the invested amount. Keep `lossRatio` below 0.5 so net outcome
-      remains positive over many ticks. Default 0 = never lose. */
+  /** Loss-ratio band. Each tick the engine picks a random value in
+      [minLossRatio, maxLossRatio] (expressed as a **percent**, 0–100),
+      converts it to a probability, and rolls that probability against a
+      uniform random to decide loss vs. profit. Keep maxLossRatio well
+      below 50 so more ticks are profits than losses.
+      `lossRatio` is kept for backward-compatibility with legacy rows
+      and is migrated into the new min/max fields by the seed. */
   lossRatio        Decimal  @default(0) @db.Decimal(5, 4)
+  minLossRatio     Decimal  @default(0) @db.Decimal(6, 4)
+  maxLossRatio     Decimal  @default(0) @db.Decimal(6, 4)
   minLoss          Decimal  @default(0) @db.Decimal(6, 4)
   maxLoss          Decimal  @default(0) @db.Decimal(6, 4)
   isActive         Boolean  @default(true)
@@ -429,13 +433,21 @@ model UserInvestment {
   maxProfit        Decimal          @db.Decimal(6, 4)
   profitInterval   Int              @default(60)
   maxInterval      Int              @default(60)
-  /** Loss simulation snapshot — copied from the parent plan at investment
+  /** Hour-based cadence snapshot (optional — engine falls back to the
+      profitInterval seconds if null). */
+  minDurationHours Int?
+  maxDurationHours Int?
+  /** Loss-simulation snapshot — copied from the parent plan at investment
       start so the user's return profile doesn't drift if the plan is later
-      edited. See InvestmentPlan.lossRatio for semantics. */
-  lossRatio        Decimal          @default(0) @db.Decimal(5, 4)
-  minLoss          Decimal          @default(0) @db.Decimal(6, 4)
-  maxLoss          Decimal          @default(0) @db.Decimal(6, 4)
-  status           InvestmentStatus @default(ACTIVE)
+      edited. `consecutiveLosses` tracks how many losing ticks have fired
+      back-to-back so the engine can cap streaks. */
+  lossRatio          Decimal          @default(0) @db.Decimal(5, 4)
+  minLossRatio       Decimal          @default(0) @db.Decimal(6, 4)
+  maxLossRatio       Decimal          @default(0) @db.Decimal(6, 4)
+  minLoss            Decimal          @default(0) @db.Decimal(6, 4)
+  maxLoss            Decimal          @default(0) @db.Decimal(6, 4)
+  consecutiveLosses  Int              @default(0)
+  status             InvestmentStatus @default(ACTIVE)
   lastProfitAt     DateTime?
   nextProfitAt     DateTime?
   startedAt        DateTime         @default(now())
@@ -524,6 +536,9 @@ model ActivityLog {
   type      ActivityType
   title     String
   amount    Decimal?     @db.Decimal(20, 2)
+  /** For profit/loss ticks: the exact percent applied to the invested
+      amount on this tick (e.g. 0.42 = 0.42%). Null for non-tick activities. */
+  percent   Decimal?     @db.Decimal(7, 4)
   currency  String       @default("USD")
   createdAt DateTime     @default(now())
 

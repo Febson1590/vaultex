@@ -16,51 +16,91 @@ export async function POST(req: NextRequest) {
   const investment = await db.userInvestment.findUnique({ where: { userId } });
 
   if (investment && investment.status === "ACTIVE" && investment.nextProfitAt && investment.nextProfitAt <= now) {
-    // Loss-vs-profit roll. `lossRatio` is between 0 and 1 — if random()
-    // falls below it, this tick is a LOSS instead of a profit. Losses are
-    // less frequent than profits (ratio < 0.5) so net outcome stays positive.
-    const lossRatio = Number(investment.lossRatio ?? 0);
-    const isLoss    = lossRatio > 0 && Math.random() < lossRatio;
+    // ── 1. Pick this tick's loss probability from the configured band.
+    //     minLossRatio / maxLossRatio are percents (0–100). Convert to a
+    //     probability in [0, 1] after picking the band value.
+    const minRatioPct = Number(investment.minLossRatio ?? 0);
+    const maxRatioPct = Number(investment.maxLossRatio ?? 0);
+    const currentRatioPct = maxRatioPct > minRatioPct
+      ? minRatioPct + Math.random() * (maxRatioPct - minRatioPct)
+      : minRatioPct;
+    const lossProbability = Math.max(0, Math.min(1, currentRatioPct / 100));
 
+    // ── 2. Streak guard — after 2 consecutive losses, force a profit.
+    const streakCap = 2;
+    const streakAtCap = (investment.consecutiveLosses ?? 0) >= streakCap;
+    const isLoss = !streakAtCap && lossProbability > 0 && Math.random() < lossProbability;
+
+    // ── 3. Compute delta + the exact percent applied, for history.
     let delta:         number;
+    let percentUsed:   number;   // signed % — negative for loss, positive for profit
     let activityType:  "INVESTMENT_PROFIT" | "INVESTMENT_LOSS";
     let activityTitle: string;
 
     if (isLoss) {
-      const minL = Number(investment.minLoss ?? 0) / 100;
-      const maxL = Number(investment.maxLoss ?? 0) / 100;
-      const rate = minL + Math.random() * (maxL - minL);
-      const loss = Number(investment.amount) * rate;
+      const minL = Number(investment.minLoss ?? 0);
+      const maxL = Number(investment.maxLoss ?? 0);
+      const pct  = minL + Math.random() * (maxL - minL);
+      const loss = Number(investment.amount) * (pct / 100);
       delta         = -(Math.round(loss * 100) / 100);
+      percentUsed   = -Math.round(pct * 10000) / 10000;
       activityType  = "INVESTMENT_LOSS";
-      activityTitle = `${investment.planName} loss recorded`;
+      activityTitle = `${investment.planName} loss (${pct.toFixed(2)}%)`;
     } else {
-      const min = Number(investment.minProfit) / 100;
-      const max = Number(investment.maxProfit) / 100;
-      const rate = min + Math.random() * (max - min);
-      const profit = Number(investment.amount) * rate;
+      const minP   = Number(investment.minProfit);
+      const maxP   = Number(investment.maxProfit);
+      const pct    = minP + Math.random() * (maxP - minP);
+      const profit = Number(investment.amount) * (pct / 100);
       delta         = Math.round(profit * 100) / 100;
+      percentUsed   = Math.round(pct * 10000) / 10000;
       activityType  = "INVESTMENT_PROFIT";
-      activityTitle = `${investment.planName} profit credited`;
+      activityTitle = `${investment.planName} profit (${pct.toFixed(2)}%)`;
     }
 
-    // Random next interval between profitInterval (min) and maxInterval (max)
-    const minSecs = investment.profitInterval;
-    const maxSecs = investment.maxInterval ?? investment.profitInterval;
-    const intervalSecs = minSecs + Math.floor(Math.random() * (maxSecs - minSecs + 1));
-    const nextProfitAt = new Date(now.getTime() + intervalSecs * 1000);
+    // ── 4. Schedule the next tick in HOURS, using the plan's duration band.
+    //     Fallback to the legacy second-based interval if duration isn't set
+    //     (keeps older plans ticking without admin intervention).
+    const minHours = investment.minDurationHours ?? null;
+    const maxHours = investment.maxDurationHours ?? null;
+    let nextDelayMs: number;
+    if (minHours !== null && maxHours !== null && maxHours >= minHours) {
+      const hours = minHours + Math.random() * (maxHours - minHours);
+      nextDelayMs = Math.round(hours * 3600 * 1000);
+    } else {
+      const minSecs = investment.profitInterval;
+      const maxSecs = investment.maxInterval ?? investment.profitInterval;
+      const intervalSecs = minSecs + Math.floor(Math.random() * (maxSecs - minSecs + 1));
+      nextDelayMs = intervalSecs * 1000;
+    }
+    const nextProfitAt = new Date(now.getTime() + nextDelayMs);
+
+    // ── 5. Persist atomically. Update the streak counter so the guard
+    //     stays accurate across ticks.
+    const nextStreak = isLoss ? (investment.consecutiveLosses ?? 0) + 1 : 0;
 
     await db.$transaction([
       db.userInvestment.update({
         where: { userId },
-        data: { totalEarned: { increment: delta }, lastProfitAt: now, nextProfitAt },
+        data:  {
+          totalEarned:       { increment: delta },
+          lastProfitAt:      now,
+          nextProfitAt,
+          consecutiveLosses: nextStreak,
+        },
       }),
       db.wallet.updateMany({
         where: { userId, currency: "USD" },
-        data: { balance: { increment: delta } },
+        data:  { balance: { increment: delta } },
       }),
       db.activityLog.create({
-        data: { userId, type: activityType, title: activityTitle, amount: delta, currency: "USD" },
+        data: {
+          userId,
+          type:     activityType,
+          title:    activityTitle,
+          amount:   delta,
+          percent:  percentUsed,
+          currency: "USD",
+        },
       }),
     ]);
 
