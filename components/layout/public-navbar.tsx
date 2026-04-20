@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
-import { Menu, X, ChevronRight } from "lucide-react";
+import { Menu, X, ChevronRight, Globe } from "lucide-react";
+import { LanguageMenuDialog } from "@/components/language-switcher";
 
 const navLinks = [
   { href: "/markets",         label: "Markets"  },
@@ -17,6 +18,7 @@ const navLinks = [
 export function PublicNavbar() {
   const [scrolled,   setScrolled]   = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [langOpen,   setLangOpen]   = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -67,6 +69,14 @@ export function PublicNavbar() {
 
           {/* ── Right: auth CTAs ─────────────────────────────────── */}
           <div className="hidden md:flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Change language"
+              onClick={() => setLangOpen(true)}
+              className="h-9 w-9 inline-flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.05] rounded-md transition-colors"
+            >
+              <Globe size={16} />
+            </button>
             <Link
               href="/login"
               className="h-9 px-4 inline-flex items-center text-[13px] font-medium text-slate-300 hover:text-white rounded-md transition-colors"
@@ -118,6 +128,14 @@ export function PublicNavbar() {
               );
             })}
             <div className="pt-3 mt-3 border-t border-white/[0.06] flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => { setMobileOpen(false); setLangOpen(true); }}
+                className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-md text-[14px] font-medium text-slate-300 hover:text-white border border-white/[0.08] hover:border-white/[0.16] transition-colors"
+              >
+                <Globe size={15} />
+                Language
+              </button>
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}
@@ -136,6 +154,9 @@ export function PublicNavbar() {
           </div>
         </div>
       )}
+
+      {/* Global language dialog — shared by desktop globe + mobile drawer. */}
+      <LanguageMenuDialog open={langOpen} onOpenChange={setLangOpen} />
     </header>
   );
 }

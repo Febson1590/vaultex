@@ -368,30 +368,10 @@ font[style*="vertical-align: inherit"] { font: inherit !important; }
    switcher doesn't slide under the iPhone home bar. `contain: layout`
    isolates it from any ancestor layout changes so re-renders elsewhere
    never push it around. */
-/* Centered bottom-anchored chip.
-   - Anchored strictly to the viewport bottom (with iOS safe-area inset).
-   - Horizontally centered via left:50% + translateX(-50%).
-   - Never allowed to float upward: no `top`, no `translateY`, no parent
-     transform can hijack it because it's a direct child of <body>.
-   - z-index 60 is above all page chrome but below `Toaster` (z-100). */
-.language-switcher-fixed {
-  position: fixed !important;
-  left: 50%;
-  bottom: max(1rem, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 60;
-  will-change: auto;
-}
-
-/* Reserve vertical space at the bottom of any scrolling container that
-   opts in, so the fixed language chip doesn't overlap the last rows of
-   long content (e.g. dashboard "Recent Activity"). Uses safe-area inset
-   on iOS so the reserved space hugs the home bar. Applied to the
-   dashboard and admin `<main>` only — public pages have their own
-   footer which provides natural bottom spacing. */
-.pb-lang-switcher {
-  padding-bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
-}
+/* The language selector is no longer a floating chip — it lives inside
+   the avatar dropdown (dashboard) and as a globe icon in the public
+   navbar. The `.language-switcher-fixed` and `.pb-lang-switcher` classes
+   that reserved space for the old chip are intentionally removed. */
 
 /* ─── Border divider ─────────────────────────────── */
 .section-divider {

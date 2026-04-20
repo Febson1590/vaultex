@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Menu, ChevronDown } from "lucide-react";
+import { Bell, Menu, ChevronDown, Globe } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -11,6 +11,7 @@ import { logoutUser } from "@/lib/actions/auth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { getStatusBg } from "@/lib/utils";
+import { LanguageMenuDialog } from "@/components/language-switcher";
 
 interface DashboardHeaderProps {
   user: {
@@ -24,6 +25,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [langOpen,  setLangOpen]  = useState(false);
   const pathname = usePathname();
 
   // Close the drawer whenever the route changes (failsafe for any navigation)
@@ -107,6 +109,17 @@ export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps)
             <DropdownMenuItem render={<Link href="/dashboard/settings" />} className="hover:bg-white/5 cursor-pointer text-slate-300">
               Settings
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                // Keep the dropdown's close behaviour but open our dialog
+                // immediately after — no need to preventDefault.
+                setLangOpen(true);
+              }}
+              className="hover:bg-white/5 cursor-pointer text-slate-300"
+            >
+              <Globe className="h-3.5 w-3.5 mr-2 text-sky-400" />
+              Language
+            </DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/dashboard/support" />} className="hover:bg-white/5 cursor-pointer text-slate-300">
               Support
             </DropdownMenuItem>
@@ -124,6 +137,9 @@ export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps)
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Global language dialog — controlled from the avatar menu. */}
+      <LanguageMenuDialog open={langOpen} onOpenChange={setLangOpen} />
     </header>
   );
 }
