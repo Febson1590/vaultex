@@ -69,7 +69,13 @@ export async function buildBalanceChart(
       where: {
         userId,
         currency: "USD",
-        type: { in: [ActivityType.INVESTMENT_PROFIT, ActivityType.COPY_TRADE_PROFIT] },
+        type: {
+          in: [
+            ActivityType.INVESTMENT_PROFIT,
+            ActivityType.COPY_TRADE_PROFIT,
+            ActivityType.INVESTMENT_LOSS,
+          ],
+        },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -97,21 +103,38 @@ export async function buildBalanceChart(
         delta = -amount;
         break;
 
-      case TransactionType.ADJUSTMENT:
-        // Admin wallet updates write the operation in the description:
-        // "admin subtract: …" / "admin balance adjustment: SUBTRACT …" → debit
-        // "admin add: …" / "admin set: …" → credit
-        delta = desc.includes("subtract") ? -amount : amount;
+      case TransactionType.ADJUSTMENT: {
+        // ADJUSTMENT is used for both admin wallet edits and for
+        // user-initiated debits that move money from the wallet into an
+        // investment / copy-trade / plan upgrade. Descriptions we know
+        // to mean "money left the wallet" (negative delta):
+        //   "admin subtract: …"
+        //   "admin balance adjustment: SUBTRACT …"
+        //   "Investment in <plan>"
+        //   "Copy trading <trader>"
+        //   "Upgrade top-up to <plan>"
+        const debitMarkers = [
+          "subtract",
+          "investment in ",
+          "copy trading",
+          "upgrade top-up",
+        ];
+        const isDebit = debitMarkers.some((m) => desc.includes(m));
+        delta = isDebit ? -amount : amount;
         break;
+      }
     }
 
     if (delta !== 0) events.push({ ts: tx.createdAt, delta });
   }
 
   for (const log of activityLogs) {
-    if (log.amount !== null && Number(log.amount) > 0) {
-      events.push({ ts: log.createdAt, delta: Number(log.amount) });
-    }
+    if (log.amount === null) continue;
+    // Profit rows store a positive amount; INVESTMENT_LOSS stores a
+    // negative amount. Either way the stored amount IS the signed delta
+    // applied to the wallet at tick time.
+    const raw = Number(log.amount);
+    if (raw !== 0) events.push({ ts: log.createdAt, delta: raw });
   }
 
   // Sort newest-first (already sorted by DB query, but merge may reorder)

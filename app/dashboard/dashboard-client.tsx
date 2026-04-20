@@ -626,18 +626,42 @@ export default function DashboardClient({
           </div>
         </div>
 
-        {/* Mini chart inside the same card */}
-        {chartData.length > 1 && chartData.some(d => d.value > 0) ? (
-          <div className="h-36 sm:h-40 px-2 pb-3">
-            <PortfolioChartWrapper refreshKey={chartRefreshKey} initial={chartData} />
-          </div>
-        ) : (
-          <div className="px-5 pb-5 pt-1">
-            <p className="text-[11px] text-slate-600">
-              Balance history chart will appear after your first confirmed deposit.
-            </p>
-          </div>
-        )}
+        {/* Mini chart inside the same card.
+            Visibility is driven by whether the user has ANY financial
+            history — not by the current available balance. A user with
+            past deposits whose balance is now 0 (e.g. because it's all
+            invested) still sees the chart. Only brand-new users with no
+            history see the empty-state message. */}
+        {(() => {
+          const hasFinancialHistory =
+            chartData.length > 1 ||
+            activity.length > 0 ||
+            investment !== null ||
+            activeCopyTrades.length > 0 ||
+            usdBalance > 0 ||
+            totalPortfolio > 0 ||
+            totalEarned > 0;
+
+          if (chartData.length > 1) {
+            return (
+              <div className="h-36 sm:h-40 px-2 pb-3">
+                <PortfolioChartWrapper refreshKey={chartRefreshKey} initial={chartData} />
+              </div>
+            );
+          }
+          if (hasFinancialHistory) {
+            // Has real history but the chart series isn't long enough to
+            // render yet — keep the card clean (no misleading empty state).
+            return null;
+          }
+          return (
+            <div className="px-5 pb-5 pt-1">
+              <p className="text-[11px] text-slate-600">
+                Balance history chart will appear after your first confirmed deposit.
+              </p>
+            </div>
+          );
+        })()}
       </Card>
 
       {/* ── 3. QUICK ACTIONS ROW ─────────────────────────────── */}
