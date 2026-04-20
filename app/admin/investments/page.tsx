@@ -26,6 +26,7 @@ interface Plan {
   minProfit: number; maxProfit: number;
   minDurationHours: number | null; maxDurationHours: number | null;
   profitInterval: number; maxInterval: number;
+  lossRatio: number; minLoss: number; maxLoss: number;
   isActive: boolean; isPopular: boolean;
   _count: { userInvestments: number };
 }
@@ -53,6 +54,9 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     minDurationHours: plan?.minDurationHours !== null && plan?.minDurationHours !== undefined ? String(plan.minDurationHours) : "",
     maxDurationHours: plan?.maxDurationHours !== null && plan?.maxDurationHours !== undefined ? String(plan.maxDurationHours) : "",
     profitInterval: String(plan?.profitInterval ?? 60), maxInterval: String(plan?.maxInterval ?? 60),
+    lossRatio: String(plan?.lossRatio ?? 0),
+    minLoss:   String(plan?.minLoss ?? 0),
+    maxLoss:   String(plan?.maxLoss ?? 0),
     isPopular: plan?.isPopular ?? false,
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -69,6 +73,13 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
       toast.error("Max duration must be ≥ min duration");
       return;
     }
+    const lossRatio = Math.max(0, Math.min(1, parseFloat(form.lossRatio) || 0));
+    const minLoss   = Math.max(0, parseFloat(form.minLoss) || 0);
+    const maxLoss   = Math.max(0, parseFloat(form.maxLoss) || 0);
+    if (maxLoss < minLoss) {
+      toast.error("Max loss must be ≥ min loss");
+      return;
+    }
     const payload = {
       name: form.name.trim(), description: form.description || undefined,
       minAmount: parseFloat(form.minAmount),
@@ -76,6 +87,7 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
       minProfit: parseFloat(form.minProfit), maxProfit: parseFloat(form.maxProfit),
       minDurationHours: minDur, maxDurationHours: maxDur,
       profitInterval: parseInt(form.profitInterval), maxInterval: parseInt(form.maxInterval),
+      lossRatio, minLoss, maxLoss,
       isPopular: form.isPopular,
     };
     const r = plan ? await adminUpdatePlan(plan.id, payload) : await adminCreatePlan(payload);
@@ -105,6 +117,39 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
             <div><label className={labelCls}>Max Duration (hours)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.maxDurationHours} onChange={e => set("maxDurationHours", e.target.value)} placeholder="e.g. 50" /></div>
           </div>
           <p className="text-[11px] text-slate-500">Advertised plan horizon (in hours) shown on the user-facing plan cards.</p>
+
+          {/* Loss simulation — fewer losses vs. more profits */}
+          <div className="pt-3 mt-1 border-t border-white/[0.06]">
+            <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider mb-2">
+              Loss simulation
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Loss ratio</label>
+                <input type="number" step="0.01" min={0} max={1} className={inputCls + " mt-1"}
+                  value={form.lossRatio} onChange={e => set("lossRatio", e.target.value)}
+                  placeholder="0.10" />
+              </div>
+              <div>
+                <label className={labelCls}>Min Loss (%)</label>
+                <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
+                  value={form.minLoss} onChange={e => set("minLoss", e.target.value)}
+                  placeholder="0.10" />
+              </div>
+              <div>
+                <label className={labelCls}>Max Loss (%)</label>
+                <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
+                  value={form.maxLoss} onChange={e => set("maxLoss", e.target.value)}
+                  placeholder="0.30" />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+              <span className="text-amber-400 font-semibold">Ratio</span> is the probability per
+              profit tick that the user records a loss instead of a profit (0 = never, 1 = every tick).
+              Keep it well below 0.5 so more ticks are profits than losses. Loss magnitude is a
+              random % between Min Loss and Max Loss, applied to the invested amount.
+            </p>
+          </div>
 
           {/* Advanced (cycle cadence in seconds) */}
           <button
@@ -300,6 +345,9 @@ export default function AdminInvestmentsPage() {
       maxProfit:       Number(p.maxProfit),
       minDurationHours: p.minDurationHours ?? null,
       maxDurationHours: p.maxDurationHours ?? null,
+      lossRatio:       Number(p.lossRatio ?? 0),
+      minLoss:         Number(p.minLoss ?? 0),
+      maxLoss:         Number(p.maxLoss ?? 0),
       maxInterval:     p.maxInterval ?? p.profitInterval,
     })));
     setInvestments(invs.map((i: any) => ({

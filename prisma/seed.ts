@@ -214,6 +214,9 @@ async function main() {
       maxDurationHours: 50,
       profitInterval:   60,
       maxInterval:      60,
+      lossRatio:        0.10,   // ~1 in 10 ticks is a loss
+      minLoss:          0.10,   // losses are small — 0.10%–0.30%
+      maxLoss:          0.30,
       isPopular:        true,
       isActive:         true,
     },
@@ -228,6 +231,9 @@ async function main() {
       maxDurationHours: 45,
       profitInterval:   60,
       maxInterval:      60,
+      lossRatio:        0.15,   // ~1.5 in 10 ticks is a loss
+      minLoss:          0.15,
+      maxLoss:          0.40,
       isPopular:        false,
       isActive:         true,
     },
@@ -242,6 +248,9 @@ async function main() {
       maxDurationHours: 45,
       profitInterval:   60,
       maxInterval:      60,
+      lossRatio:        0.20,   // higher-tier = more volatility (~2 in 10)
+      minLoss:          0.20,
+      maxLoss:          0.60,
       isPopular:        false,
       isActive:         true,
     },

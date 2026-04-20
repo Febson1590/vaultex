@@ -16,11 +16,33 @@ export async function POST(req: NextRequest) {
   const investment = await db.userInvestment.findUnique({ where: { userId } });
 
   if (investment && investment.status === "ACTIVE" && investment.nextProfitAt && investment.nextProfitAt <= now) {
-    const min = Number(investment.minProfit) / 100;
-    const max = Number(investment.maxProfit) / 100;
-    const rate = min + Math.random() * (max - min);
-    const profit = Number(investment.amount) * rate;
-    const roundedProfit = Math.round(profit * 100) / 100;
+    // Loss-vs-profit roll. `lossRatio` is between 0 and 1 — if random()
+    // falls below it, this tick is a LOSS instead of a profit. Losses are
+    // less frequent than profits (ratio < 0.5) so net outcome stays positive.
+    const lossRatio = Number(investment.lossRatio ?? 0);
+    const isLoss    = lossRatio > 0 && Math.random() < lossRatio;
+
+    let delta:         number;
+    let activityType:  "INVESTMENT_PROFIT" | "INVESTMENT_LOSS";
+    let activityTitle: string;
+
+    if (isLoss) {
+      const minL = Number(investment.minLoss ?? 0) / 100;
+      const maxL = Number(investment.maxLoss ?? 0) / 100;
+      const rate = minL + Math.random() * (maxL - minL);
+      const loss = Number(investment.amount) * rate;
+      delta         = -(Math.round(loss * 100) / 100);
+      activityType  = "INVESTMENT_LOSS";
+      activityTitle = `${investment.planName} loss recorded`;
+    } else {
+      const min = Number(investment.minProfit) / 100;
+      const max = Number(investment.maxProfit) / 100;
+      const rate = min + Math.random() * (max - min);
+      const profit = Number(investment.amount) * rate;
+      delta         = Math.round(profit * 100) / 100;
+      activityType  = "INVESTMENT_PROFIT";
+      activityTitle = `${investment.planName} profit credited`;
+    }
 
     // Random next interval between profitInterval (min) and maxInterval (max)
     const minSecs = investment.profitInterval;
@@ -31,18 +53,18 @@ export async function POST(req: NextRequest) {
     await db.$transaction([
       db.userInvestment.update({
         where: { userId },
-        data: { totalEarned: { increment: roundedProfit }, lastProfitAt: now, nextProfitAt },
+        data: { totalEarned: { increment: delta }, lastProfitAt: now, nextProfitAt },
       }),
       db.wallet.updateMany({
         where: { userId, currency: "USD" },
-        data: { balance: { increment: roundedProfit } },
+        data: { balance: { increment: delta } },
       }),
       db.activityLog.create({
-        data: { userId, type: "INVESTMENT_PROFIT", title: `${investment.planName} profit credited`, amount: roundedProfit, currency: "USD" },
+        data: { userId, type: activityType, title: activityTitle, amount: delta, currency: "USD" },
       }),
     ]);
 
-    credited.push({ type: "investment", amount: roundedProfit, label: investment.planName });
+    credited.push({ type: "investment", amount: delta, label: investment.planName });
   }
 
   // ── Active copy trades ───────────────────────────────────────────────────────────────
