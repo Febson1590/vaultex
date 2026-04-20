@@ -66,9 +66,16 @@ export async function userStartInvestment(data: {
     return { error: "Insufficient USD balance" };
   }
 
+  // Hour-based scheduling. A plan MUST define a duration band — admin
+  // form validation enforces this. If a legacy plan somehow lacks one,
+  // default to 1–3 hours so the engine never slips into seconds.
   const now = new Date();
-  const intervalSecs = Number(plan.profitInterval);
-  const nextProfitAt = new Date(now.getTime() + intervalSecs * 1000);
+  const minH = plan.minDurationHours ?? 1;
+  const maxH = plan.maxDurationHours ?? Math.max(3, minH);
+  const firstTickHours = maxH > minH
+    ? minH + Math.random() * (maxH - minH)
+    : minH;
+  const nextProfitAt = new Date(now.getTime() + Math.round(firstTickHours * 3600 * 1000));
 
   const invData = {
     planId: plan.id,
@@ -253,6 +260,176 @@ export async function addInvestmentFunds(amount: number) {
   } catch (_) { /* non-blocking */ }
 
   revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// ─── User: list upgrade-eligible plans for the current investment ───────
+
+/** Plans are ranked by minAmount. Returns only plans strictly above the
+ *  user's current active investment plan (by minAmount), so the Upgrade
+ *  flow never shows the current or a lower tier. Both seeded and
+ *  admin-created custom plans participate. */
+export async function getUpgradePlans() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const userId = session.user.id;
+
+  const investment = await db.userInvestment.findUnique({ where: { userId } });
+  if (!investment) return [];
+
+  // Find the current plan's minAmount. If the plan was deleted (planId
+  // dangling), treat the snapshot investment amount as the baseline so
+  // the user still gets a list of plans above their active size.
+  let currentMin = Number(investment.amount);
+  if (investment.planId) {
+    const current = await db.investmentPlan.findUnique({ where: { id: investment.planId } });
+    if (current) currentMin = Number(current.minAmount);
+  }
+
+  return db.investmentPlan.findMany({
+    where: {
+      isActive: true,
+      minAmount: { gt: currentMin },
+    },
+    orderBy: { minAmount: "asc" },
+  });
+}
+
+// ─── User: upgrade to a higher plan ──────────────────────────────────────
+
+/** Moves the active investment onto a higher-tier plan. Funding source is
+ *  strictly the user's USD (deposit) wallet — never existing profit. The
+ *  rule: currentInvestedAmount + topUp >= targetPlan.minAmount. On success
+ *  the investment's plan snapshot (profit band, loss band, duration band,
+ *  plan name, planId) is replaced with the target plan's config, and the
+ *  next tick is rescheduled from the new plan's duration band. Totals and
+ *  history are preserved. */
+export async function userUpgradeInvestmentPlan(data: {
+  planId: string;
+  topUp?: number;   // how much deposit balance to add to the investment
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const userId = session.user.id;
+
+  const kycError = await requireApprovedKyc(userId);
+  if (kycError) return kycError;
+
+  const topUp = Math.max(0, data.topUp ?? 0);
+
+  const [investment, targetPlan, usdWallet] = await Promise.all([
+    db.userInvestment.findUnique({ where: { userId } }),
+    db.investmentPlan.findUnique({ where: { id: data.planId } }),
+    db.wallet.findFirst({ where: { userId, currency: "USD" } }),
+  ]);
+
+  if (!investment) return { error: "No active investment to upgrade" };
+  if (investment.status !== "ACTIVE") return { error: "Investment is not active" };
+  if (!targetPlan || !targetPlan.isActive) return { error: "Target plan not found or inactive" };
+
+  // Eligibility — strictly higher tier by minAmount.
+  let currentMin = Number(investment.amount);
+  if (investment.planId) {
+    const current = await db.investmentPlan.findUnique({ where: { id: investment.planId } });
+    if (current) currentMin = Number(current.minAmount);
+  }
+  if (Number(targetPlan.minAmount) <= currentMin) {
+    return { error: "Target plan is not higher than your current plan" };
+  }
+
+  // Projected size after top-up must clear the target plan minimum.
+  const projected = Number(investment.amount) + topUp;
+  if (projected < Number(targetPlan.minAmount)) {
+    const shortfall = Number(targetPlan.minAmount) - projected;
+    return {
+      error: `Top up at least ${`$${shortfall.toLocaleString()}`} more to meet the ${targetPlan.name} minimum of $${Number(targetPlan.minAmount).toLocaleString()}.`,
+      shortfall,
+    };
+  }
+  if (targetPlan.maxAmount !== null && projected > Number(targetPlan.maxAmount)) {
+    return {
+      error: `Upgrade would exceed the ${targetPlan.name} maximum of $${Number(targetPlan.maxAmount).toLocaleString()}.`,
+    };
+  }
+
+  // Deposit balance (USD wallet) is the only allowed funding source.
+  if (topUp > 0) {
+    if (!usdWallet) return { error: "No USD (deposit) wallet found" };
+    if (Number(usdWallet.balance) < topUp) {
+      return { error: `Deposit balance is $${Number(usdWallet.balance).toLocaleString()} — short by $${(topUp - Number(usdWallet.balance)).toLocaleString()}.` };
+    }
+  }
+
+  // Reschedule next tick from the target plan's duration band. First tick
+  // timing resets so the new plan's cadence takes effect immediately.
+  const now = new Date();
+  const minH = targetPlan.minDurationHours ?? 1;
+  const maxH = targetPlan.maxDurationHours ?? Math.max(3, minH);
+  const nextHours = maxH > minH ? minH + Math.random() * (maxH - minH) : minH;
+  const nextProfitAt = new Date(now.getTime() + Math.round(nextHours * 3600 * 1000));
+
+  const ops: any[] = [
+    db.userInvestment.update({
+      where: { userId },
+      data: {
+        planId:            targetPlan.id,
+        planName:          targetPlan.name,
+        amount:            { increment: topUp },
+        minProfit:         targetPlan.minProfit,
+        maxProfit:         targetPlan.maxProfit,
+        profitInterval:    targetPlan.profitInterval,
+        maxInterval:       targetPlan.maxInterval,
+        minDurationHours:  targetPlan.minDurationHours,
+        maxDurationHours:  targetPlan.maxDurationHours,
+        minLossRatio:      targetPlan.minLossRatio,
+        maxLossRatio:      targetPlan.maxLossRatio,
+        minLoss:           targetPlan.minLoss,
+        maxLoss:           targetPlan.maxLoss,
+        consecutiveLosses: 0,
+        lastProfitAt:      now,
+        nextProfitAt,
+      },
+    }),
+    db.activityLog.create({
+      data: {
+        userId,
+        type:     "INVESTMENT_UPGRADED",
+        title:    `Upgraded to ${targetPlan.name}${topUp > 0 ? ` (+$${topUp.toLocaleString()})` : ""}`,
+        amount:   topUp > 0 ? topUp : null,
+        currency: "USD",
+      },
+    }),
+    db.notification.create({
+      data: {
+        userId,
+        title:   "Investment Upgraded",
+        message: `Your investment is now on the ${targetPlan.name} plan.`,
+        type:    "SUCCESS",
+      },
+    }),
+  ];
+
+  if (topUp > 0 && usdWallet) {
+    ops.unshift(
+      db.wallet.update({ where: { id: usdWallet.id }, data: { balance: { decrement: topUp } } }),
+    );
+    ops.push(
+      db.transaction.create({
+        data: {
+          userId,
+          type:        "ADJUSTMENT",
+          currency:    "USD",
+          amount:      topUp,
+          description: `Upgrade top-up to ${targetPlan.name}`,
+        },
+      }),
+    );
+  }
+
+  await db.$transaction(ops);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/investments");
   return { success: true };
 }
 

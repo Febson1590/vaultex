@@ -46,8 +46,8 @@ function fmtPct(n: number) {
 
 function fmtDuration(min: number | null, max: number | null) {
   if (min === null || max === null) return null;
-  if (min === max) return `${min} Hours`;
-  return `${min}-${max} Hours`;
+  if (min === max) return `Every ${min} hour${min === 1 ? "" : "s"}`;
+  return `Every ${min}–${max} hours`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -239,7 +239,7 @@ function PlanCard({
             >
               <Calendar size={13} className="text-sky-400" />
             </span>
-            <span className="text-slate-400 flex-shrink-0">Daily Profit</span>
+            <span className="text-slate-400 flex-shrink-0">Cycle</span>
             <span className="text-white font-semibold tabular-nums truncate">
               {duration ?? "—"}
             </span>
@@ -345,7 +345,7 @@ function InvestModal({
             <span className="text-emerald-400 font-semibold tabular-nums">
               {fmtPct(plan.minProfit)} – {fmtPct(plan.maxProfit)}
             </span>{" "}
-            daily return
+            per tick
             {duration && (
               <>
                 {" "}·{" "}

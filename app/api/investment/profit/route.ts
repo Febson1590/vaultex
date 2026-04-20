@@ -57,21 +57,17 @@ export async function POST(req: NextRequest) {
       activityTitle = `${investment.planName} profit (${pct.toFixed(2)}%)`;
     }
 
-    // ── 4. Schedule the next tick in HOURS, using the plan's duration band.
-    //     Fallback to the legacy second-based interval if duration isn't set
-    //     (keeps older plans ticking without admin intervention).
-    const minHours = investment.minDurationHours ?? null;
-    const maxHours = investment.maxDurationHours ?? null;
-    let nextDelayMs: number;
-    if (minHours !== null && maxHours !== null && maxHours >= minHours) {
-      const hours = minHours + Math.random() * (maxHours - minHours);
-      nextDelayMs = Math.round(hours * 3600 * 1000);
-    } else {
-      const minSecs = investment.profitInterval;
-      const maxSecs = investment.maxInterval ?? investment.profitInterval;
-      const intervalSecs = minSecs + Math.floor(Math.random() * (maxSecs - minSecs + 1));
-      nextDelayMs = intervalSecs * 1000;
-    }
+    // ── 4. Schedule the next tick from the hour band on the investment.
+    //     Each tick picks an independently random wait so the sequence is
+    //     never a fixed cadence. If the band is missing (shouldn't happen —
+    //     admin validation + seed backfill ensure it's populated), use a
+    //     safe 1–3 hour default rather than slipping into seconds.
+    const minHours = investment.minDurationHours ?? 1;
+    const maxHours = investment.maxDurationHours ?? Math.max(3, minHours);
+    const hours = maxHours > minHours
+      ? minHours + Math.random() * (maxHours - minHours)
+      : minHours;
+    const nextDelayMs = Math.round(hours * 3600 * 1000);
     const nextProfitAt = new Date(now.getTime() + nextDelayMs);
 
     // ── 5. Persist atomically. Update the streak counter so the guard

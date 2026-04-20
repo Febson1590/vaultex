@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
-import { addInvestmentFunds, stopCopyTrade } from "@/lib/actions/investment";
+import { addInvestmentFunds, stopCopyTrade, getUpgradePlans, userUpgradeInvestmentPlan } from "@/lib/actions/investment";
 import {
   TrendingUp, Activity, Plus, ShieldAlert, Loader2, Clock,
   Users, StopCircle, XCircle, ArrowDownToLine, ArrowUpFromLine,
@@ -178,7 +178,8 @@ function AddFundsModal({
       >
         <h3 className="text-base font-semibold text-white mb-1">Add Funds to Investment</h3>
         <p className="text-xs text-slate-400 mb-5">
-          Available: <span className="text-white font-semibold">{fmt(usdBalance)}</span>
+          From <span className="text-sky-300 font-semibold">Deposit Balance</span>:{" "}
+          <span className="text-white font-semibold">{fmt(usdBalance)}</span>
         </p>
         <input
           type="number"
@@ -199,6 +200,271 @@ function AddFundsModal({
           >
             {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
             Add Funds
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Upgrade-plan modal — shows only higher-ranked plans (by minAmount)
+   and uses Deposit Balance (USD wallet) as the funding source.
+────────────────────────────────────────────────────────────────────── */
+
+type UpgradeCandidate = {
+  id:               string;
+  name:             string;
+  description:      string | null;
+  minAmount:        number;
+  maxAmount:        number | null;
+  minProfit:        number;
+  maxProfit:        number;
+  minDurationHours: number | null;
+  maxDurationHours: number | null;
+  isPopular:        boolean;
+};
+
+function UpgradeModal({
+  currentPlanName, currentInvested, usdBalance, onClose, onSuccess,
+}: {
+  currentPlanName: string;
+  currentInvested: number;
+  usdBalance:      number;
+  onClose:         () => void;
+  onSuccess:       () => void;
+}) {
+  const [plans,     setPlans]     = useState<UpgradeCandidate[] | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [selected,  setSelected]  = useState<UpgradeCandidate | null>(null);
+  const [topUp,     setTopUp]     = useState("");
+  const [saving,    setSaving]    = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const rows = await getUpgradePlans();
+      if (cancelled) return;
+      const list: UpgradeCandidate[] = rows.map((p: any) => ({
+        id:               p.id,
+        name:             p.name,
+        description:      p.description,
+        minAmount:        Number(p.minAmount),
+        maxAmount:        p.maxAmount !== null ? Number(p.maxAmount) : null,
+        minProfit:        Number(p.minProfit),
+        maxProfit:        Number(p.maxProfit),
+        minDurationHours: p.minDurationHours ?? null,
+        maxDurationHours: p.maxDurationHours ?? null,
+        isPopular:        Boolean(p.isPopular),
+      }));
+      setPlans(list);
+      if (list.length > 0) setSelected(list[0]);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const required = selected ? Math.max(0, selected.minAmount - currentInvested) : 0;
+  const topUpNum = Math.max(0, parseFloat(topUp) || 0);
+  const projected = currentInvested + topUpNum;
+  const meetsMin  = selected ? projected >= selected.minAmount : false;
+  const exceedsMax = selected && selected.maxAmount !== null ? projected > selected.maxAmount : false;
+  const hasEnoughDeposit = topUpNum <= usdBalance;
+  const shortfall = selected ? Math.max(0, selected.minAmount - currentInvested - usdBalance) : 0;
+
+  async function submit() {
+    if (!selected) return;
+    if (!meetsMin) {
+      toast.error(`Top up at least $${(selected.minAmount - currentInvested).toLocaleString()} more`);
+      return;
+    }
+    if (exceedsMax) {
+      toast.error(`Exceeds ${selected.name} maximum of $${selected.maxAmount!.toLocaleString()}`);
+      return;
+    }
+    if (!hasEnoughDeposit) {
+      toast.error("Insufficient deposit balance");
+      return;
+    }
+    setSaving(true);
+    const r = await userUpgradeInvestmentPlan({ planId: selected.id, topUp: topUpNum });
+    setSaving(false);
+    if ("error" in r) { toast.error(r.error); return; }
+    toast.success(`Upgraded to ${selected.name}`);
+    onSuccess();
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-center items-start sm:items-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-sky-500/20 shadow-2xl my-4 sm:my-auto"
+        style={{ background: "rgba(7,15,30,0.98)" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]">
+          <h3 className="text-base font-bold text-white">Upgrade Investment Plan</h3>
+          <p className="text-[11.5px] text-slate-500 mt-1">
+            Currently on <span className="text-white font-medium">{currentPlanName}</span>{" "}·{" "}
+            <span className="text-white font-medium tabular-nums">{fmt(currentInvested)}</span> invested
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4">
+          {loading ? (
+            <div className="py-8 flex items-center justify-center text-slate-500 text-sm">
+              <Loader2 size={16} className="animate-spin mr-2" /> Loading eligible plans…
+            </div>
+          ) : plans && plans.length === 0 ? (
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-6 text-center">
+              <div className="text-[13px] font-semibold text-white mb-1">
+                You&apos;re already on the highest available plan.
+              </div>
+              <div className="text-[11.5px] text-slate-500">
+                No higher-tier plans are currently configured.
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Plan list — tap to select */}
+              <div className="space-y-2">
+                {plans!.map((p) => {
+                  const active = selected?.id === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelected(p)}
+                      className={`w-full text-left rounded-xl border px-4 py-3 transition ${
+                        active
+                          ? "border-sky-400/60 bg-sky-500/[0.08]"
+                          : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.16]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[14px] font-bold text-white truncate">{p.name}</span>
+                            {p.isPopular && (
+                              <span className="text-[9px] font-black tracking-widest text-amber-300 px-1.5 py-[1px] rounded-full bg-amber-500/15 border border-amber-400/30">
+                                POPULAR
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11.5px] text-slate-400 tabular-nums mt-0.5">
+                            Min {fmt(p.minAmount)}
+                            {p.maxAmount !== null && <> · Max {fmt(p.maxAmount)}</>}
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-[12px] font-bold tabular-nums whitespace-nowrap">
+                            <span className="text-amber-400">{p.minProfit}%</span>
+                            <span className="text-slate-500 mx-1">–</span>
+                            <span className="text-emerald-400">{p.maxProfit}%</span>
+                          </div>
+                          {p.minDurationHours != null && p.maxDurationHours != null && (
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              every{" "}
+                              {p.minDurationHours === p.maxDurationHours
+                                ? `${p.minDurationHours}h`
+                                : `${p.minDurationHours}–${p.maxDurationHours}h`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Top-up controls */}
+              {selected && (
+                <div className="pt-2 border-t border-white/[0.06] space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-0.5">Target min</div>
+                      <div className="text-[13px] font-semibold text-sky-400 tabular-nums">{fmt(selected.minAmount)}</div>
+                    </div>
+                    <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08]">
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-0.5">Projected</div>
+                      <div className={`text-[13px] font-semibold tabular-nums ${meetsMin && !exceedsMax ? "text-emerald-400" : "text-white"}`}>
+                        {fmt(projected)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Top up from Deposit Balance (optional)
+                    </label>
+                    <div className="relative mt-1.5">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="50"
+                        placeholder={required > 0 ? String(required) : "0"}
+                        value={topUp}
+                        onChange={(e) => setTopUp(e.target.value)}
+                        className="w-full bg-white/[0.05] border border-white/[0.12] rounded-lg pl-7 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-sky-500/50"
+                      />
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1.5">
+                      Deposit Balance: <span className="text-white font-semibold tabular-nums">{fmt(usdBalance)}</span>
+                    </div>
+                    {required > 0 && (
+                      <p className="text-[11px] text-amber-400 mt-1.5">
+                        Need at least <span className="font-semibold tabular-nums">{fmt(required)}</span> more to meet {selected.name} minimum.
+                      </p>
+                    )}
+                    {topUpNum > 0 && !hasEnoughDeposit && (
+                      <p className="text-[11px] text-red-400 mt-1.5">
+                        Deposit Balance short by <span className="font-semibold tabular-nums">{fmt(topUpNum - usdBalance)}</span>.
+                      </p>
+                    )}
+                    {shortfall > 0 && (
+                      <p className="text-[11px] text-red-400 mt-1.5">
+                        Even using the full deposit balance, you&apos;re <span className="font-semibold tabular-nums">{fmt(shortfall)}</span> short of the {selected.name} minimum.
+                      </p>
+                    )}
+                    {exceedsMax && (
+                      <p className="text-[11px] text-amber-400 mt-1.5">
+                        Projected amount exceeds the {selected.name} maximum of {fmt(selected.maxAmount!)}.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1 h-10 border-white/10 text-slate-300 hover:text-white"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1 h-10 bg-sky-500 hover:bg-sky-400 text-white font-semibold"
+            onClick={submit}
+            disabled={
+              saving || loading || !selected ||
+              (plans !== null && plans.length === 0) ||
+              !meetsMin || !!exceedsMax || !hasEnoughDeposit
+            }
+          >
+            {saving ? <Loader2 size={14} className="animate-spin mr-1.5" /> : null}
+            {plans && plans.length === 0 ? "Highest tier" : "Upgrade"}
           </Button>
         </div>
       </div>
@@ -236,6 +502,7 @@ export default function DashboardClient({
   const [activity, setActivity]           = useState<ActivityItem[]>(initActivity);
   const [chartRefreshKey, setChartRefreshKey] = useState(0);
   const [showAddFunds, setShowAddFunds]   = useState(false);
+  const [showUpgrade,  setShowUpgrade]    = useState(false);
   const [stoppingId, setStoppingId]       = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -419,7 +686,18 @@ export default function DashboardClient({
           <div className="px-5 py-4 space-y-3">
             <MetaRow label="Invested" value={fmt(investment.amount)} />
             <MetaRow label="Profit"   value={fmt(investment.totalEarned)} valueClassName="text-emerald-400" />
-            <MetaRow label="Cycle"    value={`${investment.minProfit}% – ${investment.maxProfit}% every ${investment.profitInterval}s`} />
+            <MetaRow
+              label="Cycle"
+              value={(() => {
+                const minH = (investment as any).minDurationHours as number | null | undefined;
+                const maxH = (investment as any).maxDurationHours as number | null | undefined;
+                const cycle =
+                  minH != null && maxH != null
+                    ? (minH === maxH ? `every ${minH}h` : `every ${minH}–${maxH}h`)
+                    : "variable";
+                return `${investment.minProfit}%–${investment.maxProfit}% · ${cycle}`;
+              })()}
+            />
           </div>
           {investment.status === "ACTIVE" && (
             <div className="px-5 pb-5 flex gap-2">
@@ -434,7 +712,10 @@ export default function DashboardClient({
               </Button>
               <Button
                 className="flex-1 h-10 bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[13px]"
-                render={<Link href="/dashboard/support" />}
+                onClick={() => {
+                  if (!isKycApproved) { router.push(kycHref); return; }
+                  setShowUpgrade(true);
+                }}
               >
                 Upgrade Plan
               </Button>
@@ -565,6 +846,16 @@ export default function DashboardClient({
         <AddFundsModal
           usdBalance={usdBalance}
           onClose={() => setShowAddFunds(false)}
+          onSuccess={refresh}
+        />
+      )}
+
+      {showUpgrade && investment && (
+        <UpgradeModal
+          currentPlanName={investment.planName}
+          currentInvested={investment.amount}
+          usdBalance={usdBalance}
+          onClose={() => setShowUpgrade(false)}
           onSuccess={refresh}
         />
       )}

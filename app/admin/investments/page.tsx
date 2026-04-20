@@ -90,11 +90,14 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     if (parseFloat(form.maxProfit) < parseFloat(form.minProfit))
       errs.maxProfit = "Max must be ≥ min profit";
 
-    if (form.minDurationHours.trim() && !nonNeg(form.minDurationHours))
-      errs.minDurationHours = "Must be 0 or more";
-    if (form.maxDurationHours.trim() && !nonNeg(form.maxDurationHours))
-      errs.maxDurationHours = "Must be 0 or more";
-    if (form.minDurationHours.trim() && form.maxDurationHours.trim() &&
+    // Duration is REQUIRED — it drives the tick scheduler.
+    if (!form.minDurationHours.trim()) errs.minDurationHours = "Required (hours)";
+    else if (parseFloat(form.minDurationHours) <= 0)
+      errs.minDurationHours = "Must be greater than 0";
+    if (!form.maxDurationHours.trim()) errs.maxDurationHours = "Required (hours)";
+    else if (parseFloat(form.maxDurationHours) <= 0)
+      errs.maxDurationHours = "Must be greater than 0";
+    if (!errs.minDurationHours && !errs.maxDurationHours &&
         parseFloat(form.maxDurationHours) < parseFloat(form.minDurationHours))
       errs.maxDurationHours = "Max must be ≥ min duration";
 
