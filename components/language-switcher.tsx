@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Globe, Check, Search, X } from "lucide-react";
 
 /**
@@ -254,9 +255,15 @@ export function LanguageMenuDialog({
     window.location.reload();
   };
 
-  if (!open) return null;
+  // Track browser mount — we portal to document.body so an ancestor
+  // `backdrop-filter` / `filter` / `transform` (e.g. the sticky dashboard
+  // header) can't hijack `position: fixed` and clip the dialog.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
-  return (
+  if (!open || !mounted) return null;
+
+  const overlay = (
     <div
       role="dialog"
       aria-modal="true"
@@ -356,4 +363,6 @@ export function LanguageMenuDialog({
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }
