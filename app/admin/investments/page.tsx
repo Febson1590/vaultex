@@ -24,7 +24,7 @@ interface Plan {
   id: string; name: string; description: string | null;
   minAmount: number; maxAmount: number | null;
   minProfit: number; maxProfit: number;
-  minDurationDays: number | null; maxDurationDays: number | null;
+  minDurationHours: number | null; maxDurationHours: number | null;
   profitInterval: number; maxInterval: number;
   isActive: boolean; isPopular: boolean;
   _count: { userInvestments: number };
@@ -50,8 +50,8 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     minAmount: String(plan?.minAmount ?? 100),
     maxAmount: plan?.maxAmount !== null && plan?.maxAmount !== undefined ? String(plan.maxAmount) : "",
     minProfit: String(plan?.minProfit ?? 0.5), maxProfit: String(plan?.maxProfit ?? 1.5),
-    minDurationDays: plan?.minDurationDays !== null && plan?.minDurationDays !== undefined ? String(plan.minDurationDays) : "",
-    maxDurationDays: plan?.maxDurationDays !== null && plan?.maxDurationDays !== undefined ? String(plan.maxDurationDays) : "",
+    minDurationHours: plan?.minDurationHours !== null && plan?.minDurationHours !== undefined ? String(plan.minDurationHours) : "",
+    maxDurationHours: plan?.maxDurationHours !== null && plan?.maxDurationHours !== undefined ? String(plan.maxDurationHours) : "",
     profitInterval: String(plan?.profitInterval ?? 60), maxInterval: String(plan?.maxInterval ?? 60),
     isPopular: plan?.isPopular ?? false,
   });
@@ -63,8 +63,8 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     if (!form.name.trim()) { toast.error("Name required"); return; }
     setLoading(true);
     const maxAmountParsed = form.maxAmount.trim() ? parseFloat(form.maxAmount) : null;
-    const minDur = form.minDurationDays.trim() ? parseInt(form.minDurationDays) : null;
-    const maxDur = form.maxDurationDays.trim() ? parseInt(form.maxDurationDays) : null;
+    const minDur = form.minDurationHours.trim() ? parseInt(form.minDurationHours) : null;
+    const maxDur = form.maxDurationHours.trim() ? parseInt(form.maxDurationHours) : null;
     if (minDur !== null && maxDur !== null && maxDur < minDur) {
       toast.error("Max duration must be ≥ min duration");
       return;
@@ -74,7 +74,7 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
       minAmount: parseFloat(form.minAmount),
       maxAmount: maxAmountParsed,
       minProfit: parseFloat(form.minProfit), maxProfit: parseFloat(form.maxProfit),
-      minDurationDays: minDur, maxDurationDays: maxDur,
+      minDurationHours: minDur, maxDurationHours: maxDur,
       profitInterval: parseInt(form.profitInterval), maxInterval: parseInt(form.maxInterval),
       isPopular: form.isPopular,
     };
@@ -101,10 +101,10 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
             <div><label className={labelCls}>Max Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Min Duration (days)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.minDurationDays} onChange={e => set("minDurationDays", e.target.value)} placeholder="e.g. 30" /></div>
-            <div><label className={labelCls}>Max Duration (days)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.maxDurationDays} onChange={e => set("maxDurationDays", e.target.value)} placeholder="e.g. 50" /></div>
+            <div><label className={labelCls}>Min Duration (hours)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.minDurationHours} onChange={e => set("minDurationHours", e.target.value)} placeholder="e.g. 30" /></div>
+            <div><label className={labelCls}>Max Duration (hours)</label><input type="number" min={1} className={inputCls + " mt-1"} value={form.maxDurationHours} onChange={e => set("maxDurationHours", e.target.value)} placeholder="e.g. 50" /></div>
           </div>
-          <p className="text-[11px] text-slate-500">Advertised plan horizon shown on the user-facing plan cards.</p>
+          <p className="text-[11px] text-slate-500">Advertised plan horizon (in hours) shown on the user-facing plan cards.</p>
 
           {/* Advanced (cycle cadence in seconds) */}
           <button
@@ -298,8 +298,8 @@ export default function AdminInvestmentsPage() {
       maxAmount:       p.maxAmount !== null && p.maxAmount !== undefined ? Number(p.maxAmount) : null,
       minProfit:       Number(p.minProfit),
       maxProfit:       Number(p.maxProfit),
-      minDurationDays: p.minDurationDays ?? null,
-      maxDurationDays: p.maxDurationDays ?? null,
+      minDurationHours: p.minDurationHours ?? null,
+      maxDurationHours: p.maxDurationHours ?? null,
       maxInterval:     p.maxInterval ?? p.profitInterval,
     })));
     setInvestments(invs.map((i: any) => ({
@@ -446,8 +446,8 @@ export default function AdminInvestmentsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-emerald-400 whitespace-nowrap">{plan.minProfit}%–{plan.maxProfit}%</td>
                       <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                        {plan.minDurationDays !== null && plan.maxDurationDays !== null
-                          ? `${plan.minDurationDays}–${plan.maxDurationDays} days`
+                        {plan.minDurationHours !== null && plan.maxDurationHours !== null
+                          ? `${plan.minDurationHours}–${plan.maxDurationHours} hours`
                           : <span className="text-slate-600">—</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-white font-semibold">{plan._count.userInvestments}</td>

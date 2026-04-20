@@ -309,8 +309,8 @@ export async function adminCreatePlan(data: {
   maxAmount?: number | null;
   minProfit: number;
   maxProfit: number;
-  minDurationDays?: number | null;
-  maxDurationDays?: number | null;
+  minDurationHours?: number | null;
+  maxDurationHours?: number | null;
   profitInterval: number;
   maxInterval: number;
   isPopular?: boolean;
@@ -334,7 +334,7 @@ export async function adminCreatePlan(data: {
 export async function adminUpdatePlan(planId: string, data: Partial<{
   name: string; description: string; minAmount: number; maxAmount: number | null;
   minProfit: number; maxProfit: number;
-  minDurationDays: number | null; maxDurationDays: number | null;
+  minDurationHours: number | null; maxDurationHours: number | null;
   profitInterval: number; maxInterval: number;
   isActive: boolean; isPopular: boolean;
 }>) {

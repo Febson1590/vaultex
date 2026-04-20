@@ -24,8 +24,8 @@ interface Plan {
   maxAmount:       number | null;
   minProfit:       number;
   maxProfit:       number;
-  minDurationDays: number | null;
-  maxDurationDays: number | null;
+  minDurationHours: number | null;
+  maxDurationHours: number | null;
   profitInterval:  number;
   maxInterval:     number;
   isActive:        boolean;
@@ -46,8 +46,8 @@ function fmtPct(n: number) {
 
 function fmtDuration(min: number | null, max: number | null) {
   if (min === null || max === null) return null;
-  if (min === max) return `${min} Days`;
-  return `${min}-${max} Days`;
+  if (min === max) return `${min} Hours`;
+  return `${min}-${max} Hours`;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -140,28 +140,28 @@ function PlanCard({
   disabled: boolean;
   onSelect: () => void;
 }) {
-  const duration = fmtDuration(plan.minDurationDays, plan.maxDurationDays);
+  const duration = fmtDuration(plan.minDurationHours, plan.maxDurationHours);
 
   return (
     <div
       className="relative rounded-2xl overflow-hidden border border-white/[0.07] transition-colors hover:border-white/[0.12]"
       style={{ background: "rgba(10,18,34,0.75)" }}
     >
-      {/* Diagonal POPULAR ribbon (top-left). Smaller on mobile so it
-          doesn't eat card content. */}
+      {/* Diagonal POPULAR ribbon — top-right. Placed on the right so it
+          doesn't block the plan name or "Starts at $X" text on the left. */}
       {plan.isPopular && (
         <span
           aria-label="Most popular plan"
-          className="absolute top-0 left-0 overflow-hidden pointer-events-none select-none"
+          className="absolute top-0 right-0 overflow-hidden pointer-events-none select-none"
           style={{ width: 96, height: 96 }}
         >
           <span
             className="absolute text-[8.5px] sm:text-[9px] font-black tracking-[0.18em] text-[#0A1226]"
             style={{
               top:          22,
-              left:         -32,
+              right:        -32,
               width:        130,
-              transform:    "rotate(-45deg)",
+              transform:    "rotate(45deg)",
               transformOrigin: "center",
               textAlign:    "center",
               background:   "linear-gradient(180deg, #f5c24e 0%, #d99a2b 100%)",
@@ -175,7 +175,7 @@ function PlanCard({
       )}
 
       <div
-        className={`px-5 py-5 sm:p-6 ${plan.isPopular ? "pt-10 sm:pt-6 sm:pl-[80px]" : ""}`}
+        className={`px-5 py-5 sm:p-6 ${plan.isPopular ? "pt-10 sm:pt-6 sm:pr-[88px]" : ""}`}
       >
         {/* Top row — name / starts-at  +  profit range.
             Stacks vertically on the smallest screens, side-by-side from sm. */}
@@ -305,7 +305,7 @@ function InvestModal({
   const exceedsMax = plan.maxAmount !== null && val > plan.maxAmount;
   const canAfford = val <= usdBalance;
   const needsDeposit = usdBalance < plan.minAmount;
-  const duration = fmtDuration(plan.minDurationDays, plan.maxDurationDays);
+  const duration = fmtDuration(plan.minDurationHours, plan.maxDurationHours);
 
   function submit() {
     if (!meetsMin) {

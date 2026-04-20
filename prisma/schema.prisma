@@ -392,11 +392,14 @@ model InvestmentPlan {
   maxProfit        Decimal  @default(1.5)  @db.Decimal(6, 4)
   profitInterval   Int      @default(60)   // min seconds between profit credits
   maxInterval      Int      @default(60)   // max seconds between profit credits
-  /** Advertised investment horizon — how long the plan runs, in days.
+  /** Advertised investment horizon — how long the plan runs, in HOURS.
       Used on the public plan cards; the profit-credit scheduler itself still
-      uses `profitInterval` for cycle cadence. Nullable for legacy plans. */
-  minDurationDays  Int?     // e.g. 30
-  maxDurationDays  Int?     // e.g. 50
+      uses `profitInterval` for cycle cadence. Nullable for legacy plans.
+      Stored in the DB under the legacy `minDurationDays`/`maxDurationDays`
+      column names (unchanged to avoid a destructive migration); the field
+      names here are the source of truth for the unit. */
+  minDurationHours Int?     @map("minDurationDays")
+  maxDurationHours Int?     @map("maxDurationDays")
   isActive         Boolean  @default(true)
   isPopular        Boolean  @default(false) // show "Most Popular" badge (only one plan should have this)
   createdAt        DateTime @default(now())
