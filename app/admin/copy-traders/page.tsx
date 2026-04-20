@@ -23,7 +23,10 @@ interface CopyTrader {
   totalTrades: number; successfulTrades: number; failedTrades: number; maxDrawdown: number;
   minCopyAmount: number; maxCopyAmount: number | null;
   profitInterval: number; maxInterval: number;
+  minDurationHours: number | null; maxDurationHours: number | null;
   minProfit: number; maxProfit: number;
+  minLossRatio: number; maxLossRatio: number;
+  minLoss: number; maxLoss: number;
   isActive: boolean; isSeeded?: boolean; userCopyTrades: { id: string }[];
 }
 interface CopyTrade {
@@ -92,14 +95,57 @@ function TraderModal({ trader, onClose, onSuccess }: {
     minCopyAmount:    String(trader?.minCopyAmount ?? 100),
     profitInterval:   String(trader?.profitInterval ?? 60),
     maxInterval:      String(trader?.maxInterval ?? 60),
+    minDurationHours: trader?.minDurationHours != null ? String(trader.minDurationHours) : "",
+    maxDurationHours: trader?.maxDurationHours != null ? String(trader.maxDurationHours) : "",
     minProfit:        String(trader?.minProfit ?? 0.3),
     maxProfit:        String(trader?.maxProfit ?? 1.2),
+    minLossRatio:     String(trader?.minLossRatio ?? 0),
+    maxLossRatio:     String(trader?.maxLossRatio ?? 0),
+    minLoss:          String(trader?.minLoss ?? 0),
+    maxLoss:          String(trader?.maxLoss ?? 0),
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [avatarUrl, setAvatarUrl] = useState<string | null>(trader?.avatarUrl ?? null);
   const [imgLoading, setImgLoading] = useState(false);
   const [loading, setLoading]       = useState(false);
 
-  function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
+  function set(k: string, v: string) {
+    setForm(f => ({ ...f, [k]: v }));
+    setErrors(e => { const { [k]: _drop, ...rest } = e; return rest; });
+  }
+
+  function validate(): { ok: boolean; errs: Record<string, string> } {
+    const errs: Record<string, string> = {};
+    const nonNeg = (s: string) => !Number.isNaN(parseFloat(s)) && parseFloat(s) >= 0;
+    const pct0to100 = (s: string) => nonNeg(s) && parseFloat(s) <= 100;
+
+    if (!form.name.trim()) errs.name = "Trader name is required";
+    if (!nonNeg(form.minProfit)) errs.minProfit = "Must be 0 or more";
+    if (!nonNeg(form.maxProfit)) errs.maxProfit = "Must be 0 or more";
+    if (parseFloat(form.maxProfit) < parseFloat(form.minProfit))
+      errs.maxProfit = "Max must be ≥ min profit";
+
+    if (!form.minDurationHours.trim()) errs.minDurationHours = "Required (hours)";
+    else if (parseFloat(form.minDurationHours) <= 0) errs.minDurationHours = "Must be greater than 0";
+    if (!form.maxDurationHours.trim()) errs.maxDurationHours = "Required (hours)";
+    else if (parseFloat(form.maxDurationHours) <= 0) errs.maxDurationHours = "Must be greater than 0";
+    if (!errs.minDurationHours && !errs.maxDurationHours &&
+        parseFloat(form.maxDurationHours) < parseFloat(form.minDurationHours))
+      errs.maxDurationHours = "Max must be ≥ min duration";
+
+    if (!pct0to100(form.minLossRatio)) errs.minLossRatio = "Must be between 0 and 100";
+    if (!pct0to100(form.maxLossRatio)) errs.maxLossRatio = "Must be between 0 and 100";
+    if (!errs.minLossRatio && !errs.maxLossRatio &&
+        parseFloat(form.maxLossRatio) < parseFloat(form.minLossRatio))
+      errs.maxLossRatio = "Max must be ≥ min loss ratio";
+
+    if (!nonNeg(form.minLoss)) errs.minLoss = "Must be 0 or more";
+    if (!nonNeg(form.maxLoss)) errs.maxLoss = "Must be 0 or more";
+    if (parseFloat(form.maxLoss) < parseFloat(form.minLoss))
+      errs.maxLoss = "Max must be ≥ min loss";
+
+    return { ok: Object.keys(errs).length === 0, errs };
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -119,7 +165,9 @@ function TraderModal({ trader, onClose, onSuccess }: {
   }
 
   async function submit() {
-    if (!form.name.trim()) { toast.error("Trader name is required"); return; }
+    const { ok, errs } = validate();
+    setErrors(errs);
+    if (!ok) { toast.error("Please fix the highlighted fields"); return; }
     setLoading(true);
     try {
       const payload = {
@@ -134,10 +182,18 @@ function TraderModal({ trader, onClose, onSuccess }: {
         riskLevel:        form.riskLevel || "MEDIUM",
         followers:        parseInt(form.followers)       || 0,
         minCopyAmount:    parseFloat(form.minCopyAmount) || 0,
-        profitInterval:   parseInt(form.profitInterval)  || 60,
-        maxInterval:      parseInt(form.maxInterval)     || 60,
+        // Hour-based cadence drives the engine. Legacy second intervals
+        // kept at 60s server-side; not exposed in the admin form anymore.
+        profitInterval:   60,
+        maxInterval:      60,
+        minDurationHours: parseInt(form.minDurationHours) || 1,
+        maxDurationHours: parseInt(form.maxDurationHours) || 3,
         minProfit:        parseFloat(form.minProfit)     || 0,
         maxProfit:        parseFloat(form.maxProfit)     || 0,
+        minLossRatio:     parseFloat(form.minLossRatio)  || 0,
+        maxLossRatio:     parseFloat(form.maxLossRatio)  || 0,
+        minLoss:          parseFloat(form.minLoss)       || 0,
+        maxLoss:          parseFloat(form.maxLoss)       || 0,
       };
       const r = trader
         ? await adminUpdateCopyTrader(trader.id, payload)
@@ -159,11 +215,11 @@ function TraderModal({ trader, onClose, onSuccess }: {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-center items-start sm:items-center overflow-y-auto p-4 bg-black/70 backdrop-blur-sm"
       onClick={() => !loading && onClose()}
     >
       <div
-        className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="glass-card border border-sky-500/20 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl my-4 sm:my-auto"
         onClick={e => e.stopPropagation()}
       >
         <h3 className="text-base font-bold text-white mb-5">
@@ -323,19 +379,74 @@ function TraderModal({ trader, onClose, onSuccess }: {
             </div>
           </div>
 
-          {/* Intervals */}
+          {/* Duration (hours) — tick cadence */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Min Interval (s)</label>
-              <input type="number" className={inputCls + " mt-1"} value={form.profitInterval} onChange={e => set("profitInterval", e.target.value)} />
+              <label className={labelCls}>Min Duration (hours)</label>
+              <input type="number" min={0} step="1" className={inputCls + " mt-1"}
+                value={form.minDurationHours} onChange={e => set("minDurationHours", e.target.value)}
+                placeholder="e.g. 1" />
+              {errors.minDurationHours && <p className="text-[11px] text-red-400 mt-1">{errors.minDurationHours}</p>}
             </div>
             <div>
-              <label className={labelCls}>Max Interval (s)</label>
-              <input type="number" className={inputCls + " mt-1"} value={form.maxInterval} onChange={e => set("maxInterval", e.target.value)} />
+              <label className={labelCls}>Max Duration (hours)</label>
+              <input type="number" min={0} step="1" className={inputCls + " mt-1"}
+                value={form.maxDurationHours} onChange={e => set("maxDurationHours", e.target.value)}
+                placeholder="e.g. 3" />
+              {errors.maxDurationHours && <p className="text-[11px] text-red-400 mt-1">{errors.maxDurationHours}</p>}
             </div>
           </div>
+          <p className="text-[11px] text-slate-500 -mt-2">
+            Each tick fires after a random wait between min and max duration.
+          </p>
 
-          <p className="text-[11px] text-slate-500">Profit fires at a random time between Min and Max interval.</p>
+          {/* Loss simulation */}
+          <div className="pt-4 mt-1 border-t border-white/[0.06]">
+            <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider mb-2">
+              Loss simulation
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Min Loss Ratio (%)</label>
+                <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"}
+                  value={form.minLossRatio} onChange={e => set("minLossRatio", e.target.value)}
+                  placeholder="e.g. 8" />
+                {errors.minLossRatio && <p className="text-[11px] text-red-400 mt-1">{errors.minLossRatio}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Max Loss Ratio (%)</label>
+                <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"}
+                  value={form.maxLossRatio} onChange={e => set("maxLossRatio", e.target.value)}
+                  placeholder="e.g. 12" />
+                {errors.maxLossRatio && <p className="text-[11px] text-red-400 mt-1">{errors.maxLossRatio}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className={labelCls}>Min Loss (%)</label>
+                <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
+                  value={form.minLoss} onChange={e => set("minLoss", e.target.value)}
+                  placeholder="e.g. 0.10" />
+                {errors.minLoss && <p className="text-[11px] text-red-400 mt-1">{errors.minLoss}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Max Loss (%)</label>
+                <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
+                  value={form.maxLoss} onChange={e => set("maxLoss", e.target.value)}
+                  placeholder="e.g. 0.30" />
+                {errors.maxLoss && <p className="text-[11px] text-red-400 mt-1">{errors.maxLoss}</p>}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+              Each tick picks a loss-ratio in [<span className="text-amber-400 font-semibold">Min</span>,{" "}
+              <span className="text-amber-400 font-semibold">Max</span>]% and rolls it as the probability of a loss.
+              Loss magnitude is a random % between Min Loss and Max Loss, applied to the copied amount.
+              Back-to-back losses are capped at 2 in a row.
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-2 mt-6">
@@ -539,12 +650,18 @@ export default function AdminCopyTradersPage() {
       ]);
       setTraders(trs.map((t: any) => ({
         ...t,
-        winRate:       Number(t.winRate),
-        totalROI:      Number(t.totalROI),
-        minCopyAmount: Number(t.minCopyAmount),
-        minProfit:     Number(t.minProfit),
-        maxProfit:     Number(t.maxProfit),
-        maxInterval:   t.maxInterval ?? t.profitInterval,
+        winRate:          Number(t.winRate),
+        totalROI:         Number(t.totalROI),
+        minCopyAmount:    Number(t.minCopyAmount),
+        minProfit:        Number(t.minProfit),
+        maxProfit:        Number(t.maxProfit),
+        maxInterval:      t.maxInterval ?? t.profitInterval,
+        minDurationHours: t.minDurationHours ?? null,
+        maxDurationHours: t.maxDurationHours ?? null,
+        minLossRatio:     Number(t.minLossRatio ?? 0),
+        maxLossRatio:     Number(t.maxLossRatio ?? 0),
+        minLoss:          Number(t.minLoss ?? 0),
+        maxLoss:          Number(t.maxLoss ?? 0),
       })));
       setTrades(tds.map((t: any) => ({
         ...t,
@@ -776,7 +893,11 @@ export default function AdminCopyTradersPage() {
                         <td className="px-4 py-3 text-sm font-semibold text-sky-400">+{tr.totalROI}%</td>
                         <td className="px-4 py-3 text-xs text-slate-400">{tr.followers.toLocaleString()}</td>
                         <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{tr.minProfit}%–{tr.maxProfit}%</td>
-                        <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{tr.profitInterval}s–{tr.maxInterval}s</td>
+                        <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                          {tr.minDurationHours !== null && tr.maxDurationHours !== null
+                            ? `${tr.minDurationHours}–${tr.maxDurationHours}h`
+                            : <span className="text-slate-600">—</span>}
+                        </td>
                         <td className="px-4 py-3 text-xs text-white font-semibold">{tr.userCopyTrades.length}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5">

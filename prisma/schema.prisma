@@ -478,10 +478,22 @@ model CopyTrader {
   maxDrawdown     Decimal  @default(0) @db.Decimal(6, 2)  // negative % e.g. -8.00
   minCopyAmount   Decimal  @default(100) @db.Decimal(20, 2)
   maxCopyAmount   Decimal? @db.Decimal(20, 2)             // null = unlimited
-  profitInterval  Int      @default(60)  // min seconds between profit credits
-  maxInterval     Int      @default(60)  // max seconds between profit credits
+  profitInterval  Int      @default(60)  // legacy seconds-based cadence (kept for back-compat)
+  maxInterval     Int      @default(60)
+  /** New hour-based tick cadence — the engine uses these, falling back
+      to profitInterval only if both are null. Nullable so legacy traders
+      keep ticking until an admin sets them. */
+  minDurationHours Int?
+  maxDurationHours Int?
   minProfit       Decimal  @default(0.3) @db.Decimal(6, 4)
   maxProfit       Decimal  @default(1.2) @db.Decimal(6, 4)
+  /** Loss-simulation band — same shape as InvestmentPlan. minLossRatio
+      / maxLossRatio are percents (0-100); the engine picks a random
+      value in that band per tick and treats it as the loss probability. */
+  minLossRatio    Decimal  @default(0) @db.Decimal(6, 4)
+  maxLossRatio    Decimal  @default(0) @db.Decimal(6, 4)
+  minLoss         Decimal  @default(0) @db.Decimal(6, 4)
+  maxLoss         Decimal  @default(0) @db.Decimal(6, 4)
   isActive        Boolean  @default(true)
   isSeeded        Boolean  @default(false)               // true if auto-created by the default-seed action
   createdAt       DateTime @default(now())
@@ -503,6 +515,16 @@ model UserCopyTrade {
   maxProfit    Decimal         @db.Decimal(6, 4)
   profitInterval Int           @default(60)
   maxInterval  Int           @default(60)
+  /** Hour-based cadence snapshot from the trader at copy-start time. */
+  minDurationHours Int?
+  maxDurationHours Int?
+  /** Loss-simulation snapshot — mirrors CopyTrader.minLossRatio etc. */
+  minLossRatio  Decimal        @default(0) @db.Decimal(6, 4)
+  maxLossRatio  Decimal        @default(0) @db.Decimal(6, 4)
+  minLoss       Decimal        @default(0) @db.Decimal(6, 4)
+  maxLoss       Decimal        @default(0) @db.Decimal(6, 4)
+  /** Streak guard — no more than 2 consecutive losses per copy-trade. */
+  consecutiveLosses Int        @default(0)
   status       CopyTradeStatus @default(ACTIVE)
   lastProfitAt DateTime?
   nextProfitAt DateTime?
@@ -670,6 +692,7 @@ enum ActivityType {
   INVESTMENT_CANCELLED
   COPY_TRADE_STARTED
   COPY_TRADE_PROFIT
+  COPY_TRADE_LOSS
   COPY_TRADE_STOPPED
   COPY_TRADE_PAUSED
 }

@@ -168,9 +168,19 @@ export async function userStartCopyTrade(data: {
     return { error: "Insufficient USD balance" };
   }
 
+  // Hour-based cadence first; seconds-based intervals are only a fallback
+  // for legacy traders that don't have the hour band set yet.
   const now = new Date();
-  const intervalSecs = Number(trader.profitInterval);
-  const nextProfitAt = new Date(now.getTime() + intervalSecs * 1000);
+  const minH = trader.minDurationHours ?? null;
+  const maxH = trader.maxDurationHours ?? null;
+  let firstDelayMs: number;
+  if (minH !== null && maxH !== null && maxH >= minH) {
+    const hrs = maxH > minH ? minH + Math.random() * (maxH - minH) : minH;
+    firstDelayMs = Math.round(hrs * 3600 * 1000);
+  } else {
+    firstDelayMs = Number(trader.profitInterval) * 1000;
+  }
+  const nextProfitAt = new Date(now.getTime() + firstDelayMs);
 
   await db.$transaction([
     db.wallet.update({ where: { id: usdWallet.id }, data: { balance: { decrement: data.amount } } }),
@@ -180,6 +190,13 @@ export async function userStartCopyTrade(data: {
         amount: data.amount, totalEarned: 0,
         minProfit: trader.minProfit, maxProfit: trader.maxProfit,
         profitInterval: trader.profitInterval, maxInterval: trader.maxInterval,
+        minDurationHours: trader.minDurationHours,
+        maxDurationHours: trader.maxDurationHours,
+        minLossRatio: trader.minLossRatio,
+        maxLossRatio: trader.maxLossRatio,
+        minLoss:      trader.minLoss,
+        maxLoss:      trader.maxLoss,
+        consecutiveLosses: 0,
         status: "ACTIVE", lastProfitAt: now, nextProfitAt,
       },
     }),
@@ -666,7 +683,11 @@ export async function adminCreateCopyTrader(data: {
   failedTrades?: number; maxDrawdown?: number;
   minCopyAmount: number; maxCopyAmount?: number | null;
   profitInterval: number; maxInterval: number;
+  minDurationHours?: number | null;
+  maxDurationHours?: number | null;
   minProfit: number; maxProfit: number;
+  minLossRatio?: number; maxLossRatio?: number;
+  minLoss?: number; maxLoss?: number;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -692,7 +713,12 @@ export async function adminUpdateCopyTrader(traderId: string, data: Partial<{
   failedTrades: number; maxDrawdown: number;
   minCopyAmount: number; maxCopyAmount: number | null;
   profitInterval: number; maxInterval: number;
-  minProfit: number; maxProfit: number; isActive: boolean;
+  minDurationHours: number | null;
+  maxDurationHours: number | null;
+  minProfit: number; maxProfit: number;
+  minLossRatio: number; maxLossRatio: number;
+  minLoss: number; maxLoss: number;
+  isActive: boolean;
 }>) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };

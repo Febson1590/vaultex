@@ -337,6 +337,69 @@ async function main() {
     console.log(`   backfilled duration hours on ${backfilled} user investments`);
   }
 
+  // ── Copy traders — backfill loss + duration defaults ──────────────
+  // Traders are admin-created, not seeded, but existing rows predate the
+  // loss/duration schema columns. Give any trader without a duration
+  // band a sensible default and a conservative loss profile. Skip rows
+  // that an admin has already configured.
+  const tradersToBackfill = await prisma.copyTrader.findMany({
+    where: { OR: [{ minDurationHours: null }, { maxDurationHours: null }] },
+    select: { id: true, riskLevel: true, minLossRatio: true, maxLossRatio: true },
+  });
+  let tradersPatched = 0;
+  for (const t of tradersToBackfill) {
+    // Risk-tiered defaults (percent, 0–100 for ratios; % of copied amount for losses).
+    const defaults = t.riskLevel === "LOW"
+      ? { lr: [6, 10],  ll: [0.08, 0.22], hrs: [2, 4] }
+      : t.riskLevel === "HIGH"
+        ? { lr: [14, 22], ll: [0.20, 0.60], hrs: [1, 3] }
+        : { lr: [10, 16], ll: [0.14, 0.40], hrs: [1, 3] };
+    const patch: Record<string, any> = {
+      minDurationHours: defaults.hrs[0],
+      maxDurationHours: defaults.hrs[1],
+    };
+    // Only set loss fields if the admin hasn't touched them yet (both 0).
+    if (Number(t.minLossRatio ?? 0) === 0 && Number(t.maxLossRatio ?? 0) === 0) {
+      patch.minLossRatio = defaults.lr[0];
+      patch.maxLossRatio = defaults.lr[1];
+      patch.minLoss      = defaults.ll[0];
+      patch.maxLoss      = defaults.ll[1];
+    }
+    await prisma.copyTrader.update({ where: { id: t.id }, data: patch });
+    tradersPatched++;
+  }
+  if (tradersPatched > 0) {
+    console.log(`   backfilled duration + loss defaults on ${tradersPatched} copy traders`);
+  }
+
+  // ── User copy-trades — backfill hour snapshot + loss-band snapshot ──
+  // Active rows that predate the schema columns need the new fields so
+  // the engine's hour-based scheduler and loss roll have data to work with.
+  const userCopyTradesToPatch = await prisma.userCopyTrade.findMany({
+    where: { OR: [{ minDurationHours: null }, { maxDurationHours: null }] },
+    include: { trader: true },
+  });
+  let ucPatched = 0;
+  for (const uc of userCopyTradesToPatch) {
+    if (uc.trader?.minDurationHours != null && uc.trader?.maxDurationHours != null) {
+      await prisma.userCopyTrade.update({
+        where: { id: uc.id },
+        data: {
+          minDurationHours: uc.trader.minDurationHours,
+          maxDurationHours: uc.trader.maxDurationHours,
+          minLossRatio:     uc.trader.minLossRatio,
+          maxLossRatio:     uc.trader.maxLossRatio,
+          minLoss:          uc.trader.minLoss,
+          maxLoss:          uc.trader.maxLoss,
+        },
+      });
+      ucPatched++;
+    }
+  }
+  if (ucPatched > 0) {
+    console.log(`   backfilled duration + loss snapshot on ${ucPatched} user copy-trades`);
+  }
+
   // ── Site Config ────────────────────────────────────────────
   const configs = [
     { key: "site.maintenance", value: "false" },

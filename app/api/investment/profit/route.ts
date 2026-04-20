@@ -109,33 +109,94 @@ export async function POST(req: NextRequest) {
   for (const trade of copyTrades) {
     if (!trade.nextProfitAt || trade.nextProfitAt > now) continue;
 
-    const min = Number(trade.minProfit) / 100;
-    const max = Number(trade.maxProfit) / 100;
-    const rate = min + Math.random() * (max - min);
-    const profit = Number(trade.amount) * rate;
-    const roundedProfit = Math.round(profit * 100) / 100;
+    // ── 1. Per-tick loss probability from the band.
+    const minRatioPct = Number(trade.minLossRatio ?? 0);
+    const maxRatioPct = Number(trade.maxLossRatio ?? 0);
+    const currentRatioPct = maxRatioPct > minRatioPct
+      ? minRatioPct + Math.random() * (maxRatioPct - minRatioPct)
+      : minRatioPct;
+    const lossProbability = Math.max(0, Math.min(1, currentRatioPct / 100));
 
-    // Random next interval between profitInterval (min) and maxInterval (max)
-    const minSecs = trade.profitInterval;
-    const maxSecs = trade.maxInterval ?? trade.profitInterval;
-    const intervalSecs = minSecs + Math.floor(Math.random() * (maxSecs - minSecs + 1));
-    const nextProfitAt = new Date(now.getTime() + intervalSecs * 1000);
+    // ── 2. Streak guard — cap at 2 consecutive losses.
+    const streakCap   = 2;
+    const streakAtCap = (trade.consecutiveLosses ?? 0) >= streakCap;
+    const isLoss = !streakAtCap && lossProbability > 0 && Math.random() < lossProbability;
+
+    // ── 3. Compute delta + exact percent for the history record.
+    let delta:         number;
+    let percentUsed:   number;
+    let activityType:  "COPY_TRADE_PROFIT" | "COPY_TRADE_LOSS";
+    let activityTitle: string;
+
+    if (isLoss) {
+      const minL = Number(trade.minLoss ?? 0);
+      const maxL = Number(trade.maxLoss ?? 0);
+      const pct  = minL + Math.random() * (maxL - minL);
+      const loss = Number(trade.amount) * (pct / 100);
+      delta         = -(Math.round(loss * 100) / 100);
+      percentUsed   = -Math.round(pct * 10000) / 10000;
+      activityType  = "COPY_TRADE_LOSS";
+      activityTitle = `${trade.traderName} copy loss (${pct.toFixed(2)}%)`;
+    } else {
+      const minP   = Number(trade.minProfit);
+      const maxP   = Number(trade.maxProfit);
+      const pct    = minP + Math.random() * (maxP - minP);
+      const profit = Number(trade.amount) * (pct / 100);
+      delta         = Math.round(profit * 100) / 100;
+      percentUsed   = Math.round(pct * 10000) / 10000;
+      activityType  = "COPY_TRADE_PROFIT";
+      activityTitle = `${trade.traderName} copy profit (${pct.toFixed(2)}%)`;
+    }
+
+    // ── 4. Schedule next tick from the HOUR band on the copy-trade snapshot.
+    //     Falls back to the legacy seconds-based interval only if hours
+    //     aren't set (pre-migration rows), never slipping into seconds otherwise.
+    const minHours = trade.minDurationHours ?? null;
+    const maxHours = trade.maxDurationHours ?? null;
+    let nextDelayMs: number;
+    if (minHours !== null && maxHours !== null && maxHours >= minHours) {
+      const hrs = maxHours > minHours
+        ? minHours + Math.random() * (maxHours - minHours)
+        : minHours;
+      nextDelayMs = Math.round(hrs * 3600 * 1000);
+    } else {
+      const minSecs = trade.profitInterval;
+      const maxSecs = trade.maxInterval ?? trade.profitInterval;
+      const intervalSecs = minSecs + Math.floor(Math.random() * (maxSecs - minSecs + 1));
+      nextDelayMs = intervalSecs * 1000;
+    }
+    const nextProfitAt = new Date(now.getTime() + nextDelayMs);
+
+    // ── 5. Persist atomically with the updated streak counter.
+    const nextStreak = isLoss ? (trade.consecutiveLosses ?? 0) + 1 : 0;
 
     await db.$transaction([
       db.userCopyTrade.update({
         where: { id: trade.id },
-        data: { totalEarned: { increment: roundedProfit }, lastProfitAt: now, nextProfitAt },
+        data: {
+          totalEarned:       { increment: delta },
+          lastProfitAt:      now,
+          nextProfitAt,
+          consecutiveLosses: nextStreak,
+        },
       }),
       db.wallet.updateMany({
         where: { userId, currency: "USD" },
-        data: { balance: { increment: roundedProfit } },
+        data: { balance: { increment: delta } },
       }),
       db.activityLog.create({
-        data: { userId, type: "COPY_TRADE_PROFIT", title: `${trade.traderName} copy profit`, amount: roundedProfit, currency: "USD" },
+        data: {
+          userId,
+          type:     activityType,
+          title:    activityTitle,
+          amount:   delta,
+          percent:  percentUsed,
+          currency: "USD",
+        },
       }),
     ]);
 
-    credited.push({ type: "copyTrade", amount: roundedProfit, label: trade.traderName });
+    credited.push({ type: "copyTrade", amount: delta, label: trade.traderName });
   }
 
   const [updatedInvestment, updatedCopyTrades, updatedActivity, updatedWallet] = await Promise.all([
