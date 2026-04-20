@@ -373,6 +373,133 @@ font[style*="vertical-align: inherit"] { font: inherit !important; }
    navbar. The `.language-switcher-fixed` and `.pb-lang-switcher` classes
    that reserved space for the old chip are intentionally removed. */
 
+/* ════════════════════════════════════════════════════════════════════════
+   Sonner toast — premium Vaultex dark-glass styling
+   Applies to every variant (success / error / info / warning / default /
+   loading) via `[data-sonner-toast]`, with per-variant accent borders and
+   icon colours layered on top via `[data-type=...]`.
+   ════════════════════════════════════════════════════════════════════════ */
+
+[data-sonner-toaster] {
+  /* Respect iOS notch / Safari top chrome */
+  padding-top: env(safe-area-inset-top) !important;
+}
+
+[data-sonner-toast] {
+  /* Glass surface */
+  background: rgba(8, 14, 28, 0.78) !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  color: #e2e8f0 !important;
+  border-radius: 14px !important;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    0 12px 40px -8px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(14, 165, 233, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  padding: 14px 14px !important;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  max-width: min(420px, calc(100vw - 1.5rem));
+}
+
+/* Title — bold, white */
+[data-sonner-toast] [data-title] {
+  color: #f8fafc !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.005em;
+}
+
+/* Description — lighter, smaller, proper gap from title */
+[data-sonner-toast] [data-description] {
+  color: rgba(203, 213, 225, 0.72) !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  margin-top: 3px !important;
+}
+
+/* Icon — breathing room */
+[data-sonner-toast] [data-icon] {
+  margin-right: 10px !important;
+  align-self: flex-start;
+  margin-top: 1px;
+}
+
+/* Close button — blends into dark surface */
+[data-sonner-toast] [data-close-button] {
+  background: rgba(15, 23, 42, 0.7) !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  color: rgba(203, 213, 225, 0.75) !important;
+  transform: translate(-4px, -4px);
+}
+[data-sonner-toast] [data-close-button]:hover {
+  background: rgba(30, 41, 59, 0.9) !important;
+  color: #f1f5f9 !important;
+}
+
+/* ─── Per-variant accents ─────────────────────────────────────────── */
+
+/* Success — emerald accent */
+[data-sonner-toast][data-type="success"] {
+  border-color: rgba(16, 185, 129, 0.32) !important;
+  box-shadow:
+    0 12px 40px -8px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(16, 185, 129, 0.10),
+    0 0 30px -12px rgba(16, 185, 129, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+[data-sonner-toast][data-type="success"] [data-icon] {
+  color: #34d399 !important;
+}
+
+/* Error — red accent */
+[data-sonner-toast][data-type="error"] {
+  border-color: rgba(239, 68, 68, 0.32) !important;
+  box-shadow:
+    0 12px 40px -8px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(239, 68, 68, 0.10),
+    0 0 30px -12px rgba(239, 68, 68, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+[data-sonner-toast][data-type="error"] [data-icon] {
+  color: #f87171 !important;
+}
+
+/* Warning — amber accent */
+[data-sonner-toast][data-type="warning"] {
+  border-color: rgba(245, 158, 11, 0.32) !important;
+  box-shadow:
+    0 12px 40px -8px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(245, 158, 11, 0.10),
+    0 0 30px -12px rgba(245, 158, 11, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+[data-sonner-toast][data-type="warning"] [data-icon] {
+  color: #fbbf24 !important;
+}
+
+/* Info + default — brand sky accent */
+[data-sonner-toast][data-type="info"],
+[data-sonner-toast][data-type="default"] {
+  border-color: rgba(14, 165, 233, 0.30) !important;
+  box-shadow:
+    0 12px 40px -8px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(14, 165, 233, 0.10),
+    0 0 30px -12px rgba(14, 165, 233, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+[data-sonner-toast][data-type="info"] [data-icon],
+[data-sonner-toast][data-type="default"] [data-icon] {
+  color: #38bdf8 !important;
+}
+
+/* Loading — subtle, no accent flood */
+[data-sonner-toast][data-type="loading"] [data-icon] {
+  color: #94a3b8 !important;
+}
+
 /* ─── Border divider ─────────────────────────────── */
 .section-divider {
   height: 1px;

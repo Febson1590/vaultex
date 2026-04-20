@@ -45,14 +45,14 @@ export default function RootLayout({
         {children}
         <GoogleTranslateHost />
         <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: "oklch(0.10 0.02 240)",
-              border: "1px solid oklch(0.20 0.03 240)",
-              color: "oklch(0.95 0.01 220)",
-            },
-          }}
+          position="top-center"
+          theme="dark"
+          richColors
+          expand={false}
+          closeButton
+          duration={5000}
+          offset={16}
+          visibleToasts={3}
         />
       </body>
     </html>

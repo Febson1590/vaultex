@@ -110,25 +110,27 @@ function VerifyContent() {
       } catch { /* storage blocked */ }
 
       if (storedPassword) {
-        toast.success("Email verified successfully. Redirecting you to your account…");
+        toast.success("Email verified successfully", {
+          description: "Redirecting you to your account…",
+        });
         try {
           const r = await signInAfterRegister({ email, password: storedPassword });
-          // Successful sign-in always throws NEXT_REDIRECT, so reaching
-          // here means auto sign-in returned an error object.
           if (r && "error" in r) {
             try { sessionStorage.removeItem(storageKey); } catch { /* noop */ }
-            toast.message("Email verified successfully. Please sign in to continue.");
+            toast.success("Email verified successfully", {
+              description: "Please sign in to continue.",
+            });
             router.push("/login");
           }
         } catch (err: any) {
-          // NEXT_REDIRECT is expected on success — let it propagate so
-          // the framework navigates to /dashboard.
           if (err?.message === "NEXT_REDIRECT" || err?.digest?.startsWith?.("NEXT_REDIRECT")) {
             try { sessionStorage.removeItem(storageKey); } catch { /* noop */ }
             throw err;
           }
           try { sessionStorage.removeItem(storageKey); } catch { /* noop */ }
-          toast.message("Email verified successfully. Please sign in to continue.");
+          toast.success("Email verified successfully", {
+            description: "Please sign in to continue.",
+          });
           router.push("/login");
         }
         return;
@@ -136,7 +138,9 @@ function VerifyContent() {
 
       // No stashed password (refreshed tab, different browser, etc.) —
       // graceful fallback to /login.
-      toast.success("Email verified successfully. Please sign in to continue.");
+      toast.success("Email verified successfully", {
+        description: "Please sign in to continue.",
+      });
       router.push("/login");
     }
     // For LOGIN type, this page is never shown (login page handles it inline).

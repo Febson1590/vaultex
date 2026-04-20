@@ -261,7 +261,9 @@ export default function RegisterPage() {
           );
         } catch { /* sessionStorage unavailable — falls back to manual sign-in */ }
 
-        toast.success("Account created successfully. Check your email to verify your account.");
+        toast.success("Account created successfully", {
+          description: "Check your email to verify your account.",
+        });
         router.push(`/verify?email=${encodeURIComponent(formData.email)}&type=register`);
       }
     } catch {
