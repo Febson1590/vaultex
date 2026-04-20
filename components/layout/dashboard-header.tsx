@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Menu, ChevronDown } from "lucide-react";
+import { Bell, Menu, ChevronDown, Globe } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -11,6 +11,7 @@ import { logoutUser } from "@/lib/actions/auth";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { getStatusBg } from "@/lib/utils";
+import { LanguageMenuDialog } from "@/components/language-switcher";
 
 interface DashboardHeaderProps {
   user: {
@@ -24,6 +25,7 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [langOpen,  setLangOpen]  = useState(false);
   const pathname = usePathname();
 
   // Close the drawer whenever the route changes (failsafe for any navigation)
@@ -57,7 +59,19 @@ export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps)
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Language — opens the global LanguageMenuDialog.
+            Sits between the logo and the notification bell as the
+            dedicated, always-visible translator entry point. */}
+        <button
+          type="button"
+          aria-label="Change language"
+          onClick={() => setLangOpen(true)}
+          className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+        >
+          <Globe size={18} />
+        </button>
+
         {/* Notifications */}
         <Link
           href="/dashboard/notifications"
@@ -124,6 +138,10 @@ export function DashboardHeader({ user, unreadCount = 0 }: DashboardHeaderProps)
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Portaled to document.body so the sticky/blurred header can't
+          clip it. Single source of truth for the dashboard translator. */}
+      <LanguageMenuDialog open={langOpen} onOpenChange={setLangOpen} />
     </header>
   );
 }
