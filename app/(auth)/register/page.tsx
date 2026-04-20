@@ -251,7 +251,17 @@ export default function RegisterPage() {
       if (result?.error) {
         setSubmitError(result.error);
       } else {
-        toast.success("Account created! Please verify your email.");
+        // Stash the password briefly in sessionStorage (tab-scoped, cleared
+        // after the verify page consumes it) so the verify step can log the
+        // user in automatically on OTP success without a second manual sign-in.
+        try {
+          sessionStorage.setItem(
+            `vaultex:postVerifyAuth:${formData.email.toLowerCase()}`,
+            formData.password,
+          );
+        } catch { /* sessionStorage unavailable — falls back to manual sign-in */ }
+
+        toast.success("Account created successfully. Check your email to verify your account.");
         router.push(`/verify?email=${encodeURIComponent(formData.email)}&type=register`);
       }
     } catch {

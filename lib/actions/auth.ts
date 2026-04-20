@@ -232,6 +232,52 @@ export async function completeLogin(data: {
   }
 }
 
+// ─── Post-verification auto sign-in ──────────────────────────────────────────
+
+/**
+ * Called from the verify page immediately after a successful REGISTER OTP
+ * check. Signs the user in via NextAuth using the credentials the register
+ * page stashed in sessionStorage, then redirects to /dashboard.
+ *
+ * Throws Next.js's internal NEXT_REDIRECT on success (signIn handles the
+ * navigation). Returns `{ error }` only if credentials are missing/wrong,
+ * in which case the caller falls back to /login with a success-but-sign-in
+ * required toast.
+ */
+export async function signInAfterRegister(data: {
+  email:    string;
+  password: string;
+}) {
+  const tag   = "[signInAfterRegister]";
+  const email = (data.email ?? "").trim().toLowerCase();
+
+  console.log(`${tag} ── START ─ email: "${email}"`);
+
+  try {
+    const user = await db.user.findUnique({
+      where:  { email },
+      select: { role: true },
+    });
+    const redirectTo = user?.role === "ADMIN" ? "/admin" : "/dashboard";
+
+    await signIn("credentials", {
+      email,
+      password: data.password,
+      redirectTo,
+    });
+    // signIn throws NEXT_REDIRECT on success — line below never runs.
+    return { pending: true as const };
+
+  } catch (err: any) {
+    if (err?.message === "NEXT_REDIRECT") throw err;
+    if (err?.message?.includes("AccountSuspended")) {
+      return { error: "Account suspended. Contact support." };
+    }
+    console.error(`${tag} ❌ auto sign-in failed:`, err);
+    return { error: "Auto sign-in failed. Please sign in to continue." };
+  }
+}
+
 // ─── Logout ───────────────────────────────────────────────────────────────────
 export async function logoutUser() {
   await signOut({ redirectTo: "/" });
