@@ -7,10 +7,44 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, TrendingUp, Users, ArrowDownToLine,
   ArrowUpFromLine, History, HeadphonesIcon, Settings,
-  ChevronLeft, ChevronRight, LogOut, Bell,
+  ChevronLeft, ChevronRight, LogOut, Bell, Globe,
 } from "lucide-react";
 import { logoutUser } from "@/lib/actions/auth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { LanguageMenuDialog } from "@/components/language-switcher";
+
+// Kept in sync with the starred set in language-switcher.tsx so the
+// sidebar can show a friendly label for the active language without
+// importing the whole list.
+const COMMON_LANG_LABELS: Record<string, string> = {
+  en:       "English",
+  es:       "Español",
+  fr:       "Français",
+  de:       "Deutsch",
+  pt:       "Português",
+  it:       "Italiano",
+  nl:       "Nederlands",
+  ru:       "Русский",
+  "zh-CN":  "中文",
+  "zh-TW":  "中文",
+  ja:       "日本語",
+  ko:       "한국어",
+  ar:       "العربية",
+  hi:       "हिन्दी",
+  bn:       "বাংলা",
+};
+
+function readCurrentLanguageCode(): string {
+  if (typeof document === "undefined") return "en";
+  const m = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith("googtrans="));
+  if (!m) return "en";
+  const raw = decodeURIComponent(m.split("=")[1] || "");
+  const parts = raw.split("/").filter(Boolean);
+  return parts[1] || "en";
+}
 
 const navItems = [
   { href: "/dashboard",                 label: "Overview",      icon: LayoutDashboard, exact: true },
@@ -34,6 +68,14 @@ interface DashboardSidebarProps {
 export function DashboardSidebar({ unreadCount = 0, isMobile = false, onNavClick }: DashboardSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [langOpen,  setLangOpen]  = useState(false);
+  const [langCode,  setLangCode]  = useState<string>("en");
+
+  useEffect(() => {
+    setLangCode(readCurrentLanguageCode());
+  }, []);
+
+  const langLabel = COMMON_LANG_LABELS[langCode] ?? langCode.toUpperCase();
 
   // Mobile drawer never collapses
   const isCollapsed = isMobile ? false : collapsed;
@@ -42,6 +84,15 @@ export function DashboardSidebar({ unreadCount = 0, isMobile = false, onNavClick
     if (exact) return pathname === href;
     return pathname.startsWith(href);
   };
+
+  function openLanguage() {
+    // Close the mobile drawer (if any) before the dialog opens so it
+    // lands cleanly on top of the dashboard instead of the Sheet.
+    onNavClick?.();
+    // Delay one tick so Radix/base-ui unmounts the drawer before the
+    // dialog portal attaches to document.body.
+    window.setTimeout(() => setLangOpen(true), 10);
+  }
 
   return (
     <aside
@@ -119,6 +170,28 @@ export function DashboardSidebar({ unreadCount = 0, isMobile = false, onNavClick
           )}
         </Link>
 
+        {/* Language — opens the global LanguageMenuDialog. Shows the
+            currently-active language next to the label on wide menus. */}
+        <button
+          type="button"
+          onClick={openLanguage}
+          title={isCollapsed ? `Language — ${langLabel}` : undefined}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors",
+            isCollapsed && "justify-center px-2"
+          )}
+        >
+          <Globe className="h-4 w-4 flex-shrink-0" />
+          {!isCollapsed && (
+            <>
+              <span>Language</span>
+              <span className="ml-auto text-[11px] font-normal text-slate-500 truncate max-w-[6rem]">
+                {langLabel}
+              </span>
+            </>
+          )}
+        </button>
+
         <form action={logoutUser}>
           <button
             type="submit"
@@ -148,6 +221,23 @@ export function DashboardSidebar({ unreadCount = 0, isMobile = false, onNavClick
           </button>
         )}
       </div>
+
+      {/* Language dialog — portals to document.body so it works
+          regardless of where the sidebar is rendered (desktop aside
+          or mobile Sheet drawer). */}
+      <LanguageMenuDialog
+        open={langOpen}
+        onOpenChange={(next) => {
+          setLangOpen(next);
+          if (!next) {
+            // Refresh the displayed label after the user closes the
+            // dialog; if they picked a new language the page reloads
+            // anyway, but if they bailed out we still pick up any
+            // new cookie value quietly.
+            setLangCode(readCurrentLanguageCode());
+          }
+        }}
+      />
     </aside>
   );
 }
