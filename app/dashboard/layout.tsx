@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           user={{ name: user.name, email: user.email, role: user.role, status: user.status }}
           unreadCount={unreadCount}
         />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-lang-switcher">
           {children}
         </main>
       </div>

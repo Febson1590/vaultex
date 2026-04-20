@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="flex flex-col flex-1 min-w-0">
         {/* Mobile-aware header with hamburger + Sheet drawer */}
         <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6 pb-lang-switcher">{children}</main>
       </div>
     </div>
   );

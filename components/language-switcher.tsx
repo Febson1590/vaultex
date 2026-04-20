@@ -288,11 +288,13 @@ export default function LanguageSwitcher() {
         className="notranslate language-switcher-fixed"
         translate="no"
       >
-        {/* Dropdown panel */}
+        {/* Dropdown panel — opens upward from the chip.
+            Horizontally centered on the chip; width capped to the viewport
+            minus margins so it never overflows on narrow phones. */}
         {open && (
           <div
             role="listbox"
-            className="absolute bottom-full left-0 mb-2 flex w-72 flex-col overflow-hidden rounded-xl border border-sky-500/25 shadow-2xl backdrop-blur-sm"
+            className="absolute bottom-full left-1/2 mb-2 flex w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-sky-500/25 shadow-2xl backdrop-blur-sm"
             style={{ background: "rgba(8,14,28,0.96)", maxHeight: "min(70vh, 520px)" }}
           >
             {/* Header: search */}
