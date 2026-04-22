@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vaultex">
+  <defs>
+    <linearGradient id="vxf-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1b36"/>
+      <stop offset="100%" stop-color="#050b1e"/>
+    </linearGradient>
+    <linearGradient id="vxf-hex-outer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eef2f8"/>
+      <stop offset="45%" stop-color="#b7c2d4"/>
+      <stop offset="100%" stop-color="#6b7896"/>
+    </linearGradient>
+    <linearGradient id="vxf-hex-inner" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0c1b3a"/>
+      <stop offset="100%" stop-color="#050b1e"/>
+    </linearGradient>
+    <linearGradient id="vxf-bar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="60%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="vxf-arrow" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="60%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tinted square background so the mark reads clearly at favicon size -->
+  <rect width="64" height="64" rx="10" fill="url(#vxf-bg)"/>
+
+  <!-- Hex shield -->
+  <path d="M32 5 L54 17 V47 L32 59 L10 47 V17 Z" fill="url(#vxf-hex-outer)"/>
+  <path d="M32 10 L50 20.25 V43.75 L32 54 L14 43.75 V20.25 Z" fill="url(#vxf-hex-inner)"/>
+
+  <!-- Ascending bars -->
+  <rect x="19"   y="39"  width="5" height="9"  rx="1" fill="url(#vxf-bar)"/>
+  <rect x="26.5" y="31"  width="5" height="17" rx="1" fill="url(#vxf-bar)"/>
+  <rect x="34"   y="23"  width="5" height="25" rx="1" fill="url(#vxf-bar)"/>
+
+  <!-- Swooping arrow -->
+  <path d="M14 44 Q30 46 42 34 Q50 26 57 15"
+        stroke="url(#vxf-arrow)" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M50 13 L57 15 L55.5 22"
+        stroke="url(#vxf-arrow)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
