@@ -745,6 +745,114 @@ export async function adminCancelInvestment(userId: string) {
   return { success: true };
 }
 
+/**
+ * Admin-only: end a user's active trade professionally.
+ *
+ * Releases `principal + max(earned, 0)` to the user's USD (Available)
+ * wallet. Losses accumulated during the trade are visible in the
+ * activity log for realism, but never eat into the principal — the
+ * user always walks away with at least what they invested (Option B
+ * from our design conversation).
+ *
+ * Status becomes COMPLETED; `completedAt` + `finalReturn` are stamped.
+ * This is the "Trade ended" event the user sees in their history.
+ */
+export async function adminEndInvestment(userId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  const inv = await db.userInvestment.findUnique({ where: { userId } });
+  if (!inv) return { error: "No investment found for this user" };
+  if (inv.status === "COMPLETED" || inv.status === "CANCELLED") {
+    return { error: "This trade is already closed" };
+  }
+
+  const principal    = Number(inv.amount);
+  const earnedRaw    = Number(inv.totalEarned);
+  // Option B: losses during the trade don't eat principal. Earned
+  // profit floor is 0 so the payout is never less than what the user
+  // deposited into this trade.
+  const profitPayout = Math.max(0, earnedRaw);
+  const payout       = Math.round((principal + profitPayout) * 100) / 100;
+
+  const usdWallet = await db.wallet.findFirst({ where: { userId, currency: "USD" } });
+
+  await db.$transaction([
+    db.userInvestment.update({
+      where: { userId },
+      data:  {
+        status:       "COMPLETED",
+        completedAt:  new Date(),
+        finalReturn:  payout,
+        nextProfitAt: null,
+      },
+    }),
+    // Release the payout to the user's Available Balance. Create the
+    // wallet if it somehow doesn't exist so the funds always land.
+    ...(usdWallet
+      ? [db.wallet.update({ where: { id: usdWallet.id }, data: { balance: { increment: payout } } })]
+      : [db.wallet.create({ data: { userId, currency: "USD", balance: payout, address: "" } })]),
+    db.transaction.create({
+      data: {
+        userId,
+        type:        "ADJUSTMENT",
+        currency:    "USD",
+        amount:      payout,
+        description: `Trade ended — ${inv.planName} released to available balance`,
+      },
+    }),
+    db.activityLog.create({
+      data: {
+        userId,
+        type:     "INVESTMENT_ENDED",
+        title:    `Trade ended — $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} released to your balance`,
+        amount:   payout,
+        currency: "USD",
+      },
+    }),
+    db.notification.create({
+      data: {
+        userId,
+        title:   "Trade Ended",
+        message: `Your ${inv.planName} trade has been closed. $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} has been released to your available balance.`,
+        type:    "SUCCESS",
+      },
+    }),
+  ]);
+
+  // Fire-and-forget email
+  try {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+    if (user?.email) {
+      sendNotificationEmail({
+        to: user.email,
+        name: user.name || "Trader",
+        subject: `Trade Ended — ${inv.planName}`,
+        heading: "Your Trade Has Ended",
+        body: [
+          `Your ${inv.planName} trade has been closed by our team.`,
+          `Principal invested: $${principal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          profitPayout > 0
+            ? `Profit released: $${profitPayout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : "Profit released: —",
+          `Total released to your available balance: $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          "You can now withdraw these funds, fund a new trade, or upgrade to a higher plan.",
+        ],
+        cta: { label: "View Dashboard", url: `${APP_URL}/dashboard` },
+      }).catch((err) => console.error("[adminEndInvestment] email failed:", err));
+    }
+  } catch (_) { /* non-blocking */ }
+
+  revalidatePath("/admin/investments");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/investments");
+  revalidatePath(`/admin/users/${userId}`);
+
+  return { success: true, payout, principal, profitReleased: profitPayout };
+}
+
 // ─── Admin: copy traders ───────────────────────────────────────────────────
 
 export async function adminCreateCopyTrader(data: {

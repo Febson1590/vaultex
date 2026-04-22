@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import {
   adminAssignInvestment, adminEditInvestment, adminAddFundsToInvestment,
-  adminToggleInvestment, adminCancelInvestment, adminGetAllInvestments,
+  adminToggleInvestment, adminCancelInvestment, adminEndInvestment, adminGetAllInvestments,
   adminGetAllUsers, adminGetInvestmentPlans, adminCreatePlan, adminUpdatePlan,
   adminDeletePlan,
 } from "@/lib/actions/investment";
@@ -816,12 +816,38 @@ export default function AdminInvestmentsPage() {
     setProcessing(null);
   }
 
+  async function handleEndTrade(inv: UserInvestment) {
+    const principal = inv.amount;
+    const earned    = Math.max(0, inv.totalEarned);
+    const payout    = principal + earned;
+    const msg = `End this trade and release $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to the user's available balance?\n\n` +
+      `  Principal:      $${principal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+      `  Profit released: $${earned.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
+      `This cannot be undone.`;
+    if (!confirm(msg)) return;
+    setProcessing(inv.userId);
+    const r = await adminEndInvestment(inv.userId);
+    if ("error" in r) toast.error(r.error);
+    else {
+      toast.success("Trade ended", {
+        description: `$${(r.payout ?? payout).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} released to available balance.`,
+      });
+      load();
+    }
+    setProcessing(null);
+  }
+
+  /** Hard cancel — retained for admin use in edge cases (e.g. fraud).
+   *  Doesn't release funds. Professional default is End Trade. */
   async function handleCancelInv(userId: string) {
-    if (!confirm("Cancel this investment?")) return;
+    if (!confirm(
+      "Cancel this trade WITHOUT releasing funds to the user?\n\n" +
+      "This is a hard cancel — usually you want 'End Trade' instead, which releases principal + profit."
+    )) return;
     setProcessing(userId);
     const r = await adminCancelInvestment(userId);
     if (r.error) toast.error(r.error);
-    else { toast.success("Cancelled"); load(); }
+    else { toast.success("Trade cancelled"); load(); }
     setProcessing(null);
   }
 
@@ -1010,10 +1036,18 @@ export default function AdminInvestmentsPage() {
                             </Button>
                           )}
                           {(inv.status === "ACTIVE" || inv.status === "PAUSED") && (
-                            <Button size="sm" disabled={processing === inv.userId} onClick={() => handleCancelInv(inv.userId)}
-                              className="h-7 px-2 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
-                              <XCircle size={11} className="mr-1" />Cancel
-                            </Button>
+                            <>
+                              <Button size="sm" disabled={processing === inv.userId} onClick={() => handleEndTrade(inv)}
+                                title="Close the trade and release principal + profit to the user's available balance"
+                                className="h-7 px-2 text-xs bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/25">
+                                <XCircle size={11} className="mr-1" />End Trade
+                              </Button>
+                              <Button size="sm" disabled={processing === inv.userId} onClick={() => handleCancelInv(inv.userId)}
+                                title="Hard-cancel without releasing funds (use for fraud / abuse only)"
+                                className="h-7 px-2 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20">
+                                Cancel
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>

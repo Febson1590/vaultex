@@ -589,11 +589,15 @@ export default function DashboardClient({
       <Card className="overflow-hidden">
         <div className="px-5 pt-5 pb-4">
           <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold mb-2">
-            Total Balance
+            Available Balance
           </p>
           <div className="text-[32px] sm:text-[36px] font-bold text-white tracking-tight leading-none">
             {fmt(usdBalance)}
           </div>
+          <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+            Funds ready to invest, upgrade, or withdraw. Earned profit from active
+            trades is shown below and released when a trade ends.
+          </p>
 
           {daily !== null && (
             <div className="mt-2 text-[13px]">
@@ -1097,6 +1101,7 @@ function PortfolioChartWrapper({
 const ACT_COLOR: Record<string, string> = {
   INVESTMENT_PROFIT:     "text-emerald-400",
   INVESTMENT_LOSS:       "text-red-400",
+  INVESTMENT_ENDED:      "text-emerald-300",
   COPY_TRADE_PROFIT:     "text-sky-400",
   COPY_TRADE_LOSS:       "text-red-400",
   INVESTMENT_STARTED:    "text-violet-400",
@@ -1110,6 +1115,7 @@ const ACT_COLOR: Record<string, string> = {
 const ACT_DOT: Record<string, string> = {
   INVESTMENT_PROFIT:     "bg-emerald-400",
   INVESTMENT_LOSS:       "bg-red-400",
+  INVESTMENT_ENDED:      "bg-emerald-300",
   COPY_TRADE_PROFIT:     "bg-sky-400",
   COPY_TRADE_LOSS:       "bg-red-400",
   INVESTMENT_STARTED:    "bg-violet-400",

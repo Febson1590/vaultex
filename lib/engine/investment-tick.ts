@@ -134,12 +134,26 @@ export async function runInvestmentTick(
   }
 
   // 4. Schedule next tick from the seconds band.
+  //    Anchor the new nextProfitAt to the PREVIOUS nextProfitAt, not
+  //    to `now`. When the loop runs catch-up on a user who was offline
+  //    for a while, this keeps missed ticks in the past relative to
+  //    `now` so runInvestmentTick returns a non-null delta on the next
+  //    iteration — instead of stopping after a single tick because the
+  //    newly-scheduled time landed in the future.
   const { minSecs, maxSecs } = resolveCadenceSecs(investment);
   const secs = maxSecs > minSecs ? minSecs + Math.random() * (maxSecs - minSecs) : minSecs;
-  const nextProfitAt = new Date(now.getTime() + Math.round(secs * 1000));
+  const anchor = investment.nextProfitAt ?? now;
+  const nextProfitAt = new Date(anchor.getTime() + Math.round(secs * 1000));
   const nextStreak   = isLoss ? (investment.consecutiveLosses ?? 0) + 1 : 0;
 
   // 5. Persist atomically.
+  //
+  // IMPORTANT — investment ticks no longer touch the USD wallet. Under
+  // the split-balance model the user's Available Balance ONLY holds
+  // deposited money. Unrealised profit (and running losses) accumulate
+  // in `investment.totalEarned` until an admin ends the trade via
+  // `adminEndInvestment`, at which point `principal + max(profit, 0)`
+  // is released to the wallet in one move.
   await db.$transaction([
     db.userInvestment.update({
       where: { userId: investment.userId },
@@ -149,10 +163,6 @@ export async function runInvestmentTick(
         nextProfitAt,
         consecutiveLosses: nextStreak,
       },
-    }),
-    db.wallet.updateMany({
-      where: { userId: investment.userId, currency: "USD" },
-      data:  { balance: { increment: delta } },
     }),
     db.activityLog.create({
       data: {
@@ -214,9 +224,12 @@ export async function runCopyTradeTick(
     activityTitle = `${trade.traderName} copy profit (${pct.toFixed(2)}%)`;
   }
 
+  // Anchor to the previous nextProfitAt so catch-up loops advance
+  // correctly when the user was offline for multiple intervals.
   const { minSecs, maxSecs } = resolveCadenceSecs(trade);
   const secs = maxSecs > minSecs ? minSecs + Math.random() * (maxSecs - minSecs) : minSecs;
-  const nextProfitAt = new Date(now.getTime() + Math.round(secs * 1000));
+  const anchor = trade.nextProfitAt ?? now;
+  const nextProfitAt = new Date(anchor.getTime() + Math.round(secs * 1000));
   const nextStreak   = isLoss ? (trade.consecutiveLosses ?? 0) + 1 : 0;
 
   await db.$transaction([
