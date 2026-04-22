@@ -53,6 +53,53 @@ export function displayToSeconds(value: number, unit: DurationUnit): number {
 }
 
 /**
+ * Resolve the canonical (minSecs, maxSecs) for any plan/investment row.
+ *
+ * Duration is stored as seconds on `profitInterval` / `maxInterval`, but
+ * legacy rows still carry the old hour columns. This helper is the one
+ * place we fold the old shape into the new unit — every UI surface
+ * (admin list, admin modal, user card, activity feed) must go through
+ * it so they never disagree.
+ *
+ * Rule: trust `profitInterval` only when it's above the 60-second
+ * placeholder default. Below-or-equal that, fall back to
+ * `minDurationHours × 3600`. Returns `{0, 0}` when nothing is set.
+ */
+export function resolvePlanSecs(p: {
+  profitInterval?:   number | null;
+  maxInterval?:      number | null;
+  minDurationHours?: number | null;
+  maxDurationHours?: number | null;
+}): { minSecs: number; maxSecs: number } {
+  const pi = Number(p.profitInterval ?? 0);
+  const mi = Number(p.maxInterval    ?? 0);
+  if (pi > 60) {
+    return { minSecs: pi, maxSecs: mi > 60 ? mi : pi };
+  }
+  const minH = Number(p.minDurationHours ?? 0);
+  const maxH = Number(p.maxDurationHours ?? minH);
+  if (minH > 0 || maxH > 0) {
+    return { minSecs: minH * 3600, maxSecs: Math.max(minH, maxH) * 3600 };
+  }
+  return { minSecs: 0, maxSecs: 0 };
+}
+
+/**
+ * Canonical cycle label used everywhere — admin list, admin modal,
+ * user plan card, active-investment card. Output reads naturally in
+ * minutes or hours based on the underlying value.
+ *
+ *   planCycleLabel({ profitInterval: 3600, maxInterval: 7200 }) → "Every 1–2 hours"
+ *   planCycleLabel({ profitInterval:   60, maxInterval:   60 }) → "—"   (placeholder)
+ *   planCycleLabel({ profitInterval:  300, maxInterval:  900 }) → "Every 5–15 minutes"
+ */
+export function planCycleLabel(p: Parameters<typeof resolvePlanSecs>[0]): string {
+  const { minSecs, maxSecs } = resolvePlanSecs(p);
+  if (minSecs <= 0 || maxSecs <= 0) return "—";
+  return formatSecondsRange(minSecs, maxSecs);
+}
+
+/**
  * Friendly human label for showing a cycle range on user-facing cards.
  *
  *   formatSecondsRange(1800, 3600)  → "Every 30–60 minutes"

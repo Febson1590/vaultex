@@ -14,7 +14,10 @@ import {
   adminGetAllUsers, adminGetInvestmentPlans, adminCreatePlan, adminUpdatePlan,
   adminDeletePlan,
 } from "@/lib/actions/investment";
-import { secondsToDisplay, displayToSeconds, type DurationUnit, UNIT_LABELS } from "@/lib/duration";
+import {
+  secondsToDisplay, displayToSeconds, type DurationUnit, UNIT_LABELS,
+  resolvePlanSecs, planCycleLabel,
+} from "@/lib/duration";
 
 interface UserInvestment {
   id: string; userId: string; planId?: string | null; planName: string; amount: number; totalEarned: number;
@@ -94,11 +97,12 @@ function DurationField({
 
 // ── Plan Modal ────────────────────────────────────────────────────────────────
 function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => void; onSuccess: () => void }) {
-  // Duration fields are stored as seconds in the DB (profitInterval /
-  // maxInterval). The form surfaces them as (value, unit) pairs so admins
-  // can type "5 minutes" or "2 hours" instead of "300" / "7200" seconds.
-  const minDurDisplay = secondsToDisplay(plan?.profitInterval);
-  const maxDurDisplay = secondsToDisplay(plan?.maxInterval);
+  // Duration fields are stored as seconds (profitInterval / maxInterval).
+  // resolvePlanSecs folds legacy hour columns into seconds so an old
+  // plan opens in the editor with its real values, not an empty form.
+  const resolvedSecs  = plan ? resolvePlanSecs(plan) : { minSecs: 0, maxSecs: 0 };
+  const minDurDisplay = secondsToDisplay(resolvedSecs.minSecs);
+  const maxDurDisplay = secondsToDisplay(resolvedSecs.maxSecs);
 
   const [form, setForm] = useState({
     name:             plan?.name ?? "",
@@ -378,8 +382,11 @@ function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess 
   users: UserOption[]; plans: Plan[]; investment?: UserInvestment; isEdit: boolean;
   onClose: () => void; onSuccess: () => void;
 }) {
-  const initMinDur = secondsToDisplay(investment?.profitInterval);
-  const initMaxDur = secondsToDisplay(investment?.maxInterval);
+  // Same resolver the plan modal + admin list use — keeps every
+  // surface perfectly aligned for a given row.
+  const resolvedInvSecs = investment ? resolvePlanSecs(investment as any) : { minSecs: 0, maxSecs: 0 };
+  const initMinDur      = secondsToDisplay(resolvedInvSecs.minSecs);
+  const initMaxDur      = secondsToDisplay(resolvedInvSecs.maxSecs);
 
   const [form, setForm] = useState({
     userId:           investment?.userId ?? "",
@@ -410,16 +417,21 @@ function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess 
    *  override any individual field afterwards. */
   function applyPlan(planId: string) {
     const p = plans.find(pp => pp.id === planId);
+    // Resolve seconds through the same helper used by the admin list
+    // so legacy hour-only plans still prefill correctly when chosen.
+    const pSecs = p ? resolvePlanSecs(p) : { minSecs: 0, maxSecs: 0 };
+    const pMin  = secondsToDisplay(pSecs.minSecs);
+    const pMax  = secondsToDisplay(pSecs.maxSecs);
     setForm(f => ({
       ...f,
       planId:           planId,
       planName:         p?.name ?? f.planName,
       minProfit:        p ? String(p.minProfit) : f.minProfit,
       maxProfit:        p ? String(p.maxProfit) : f.maxProfit,
-      minDurationValue: p ? String(secondsToDisplay(p.profitInterval).value) : f.minDurationValue,
-      minDurationUnit:  p ? secondsToDisplay(p.profitInterval).unit        : f.minDurationUnit,
-      maxDurationValue: p ? String(secondsToDisplay(p.maxInterval).value)  : f.maxDurationValue,
-      maxDurationUnit:  p ? secondsToDisplay(p.maxInterval).unit           : f.maxDurationUnit,
+      minDurationValue: p ? String(pMin.value) : f.minDurationValue,
+      minDurationUnit:  p ? pMin.unit          : f.minDurationUnit,
+      maxDurationValue: p ? String(pMax.value) : f.maxDurationValue,
+      maxDurationUnit:  p ? pMax.unit          : f.maxDurationUnit,
       minLossRatio:     p ? String(p.minLossRatio) : f.minLossRatio,
       maxLossRatio:     p ? String(p.maxLossRatio) : f.maxLossRatio,
       minLoss:          p ? String(p.minLoss)      : f.minLoss,
@@ -897,9 +909,7 @@ export default function AdminInvestmentsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-emerald-400 whitespace-nowrap">{plan.minProfit}%–{plan.maxProfit}%</td>
                       <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                        {plan.minDurationHours !== null && plan.maxDurationHours !== null
-                          ? `${plan.minDurationHours}–${plan.maxDurationHours} hours`
-                          : <span className="text-slate-600">—</span>}
+                        {planCycleLabel(plan)}
                       </td>
                       <td className="px-4 py-3 text-xs text-white font-semibold">{plan._count.userInvestments}</td>
                       <td className="px-4 py-3">

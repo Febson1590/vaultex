@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { userStartInvestment } from "@/lib/actions/investment";
 import { formatCurrency } from "@/lib/utils";
-import { formatSecondsRange } from "@/lib/duration";
+import { planCycleLabel } from "@/lib/duration";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
 import type { KycStatus } from "@/lib/kyc";
 
@@ -45,17 +45,12 @@ function fmtPct(n: number) {
   return Number.isInteger(n) ? `${n}.0%` : `${n}%`;
 }
 
-function fmtDuration(plan: Plan) {
-  // Engine's canonical cadence is seconds. Legacy hour columns are
-  // read as a fallback so old plans without seconds still display.
-  const minSecs = plan.profitInterval > 0
-    ? plan.profitInterval
-    : (plan.minDurationHours ?? 0) * 3600;
-  const maxSecs = plan.maxInterval > 0
-    ? plan.maxInterval
-    : (plan.maxDurationHours ?? 0) * 3600;
-  if (minSecs <= 0 || maxSecs <= 0) return null;
-  return formatSecondsRange(minSecs, maxSecs);
+function fmtDuration(plan: Plan): string | null {
+  // Delegate to the shared resolver in lib/duration so the user page,
+  // admin list, and admin modal all produce the exact same label for
+  // the same plan.
+  const label = planCycleLabel(plan);
+  return label === "—" ? null : label;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
