@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Loader2, TrendingUp, Plus, PauseCircle, PlayCircle,
   XCircle, ChevronDown, Pencil, DollarSign, ToggleLeft, ToggleRight,
-  Trash2,
+  Trash2, Info,
 } from "lucide-react";
 import {
   adminAssignInvestment, adminEditInvestment, adminAddFundsToInvestment,
@@ -14,10 +14,12 @@ import {
   adminGetAllUsers, adminGetInvestmentPlans, adminCreatePlan, adminUpdatePlan,
   adminDeletePlan,
 } from "@/lib/actions/investment";
+import { secondsToDisplay, displayToSeconds, type DurationUnit, UNIT_LABELS } from "@/lib/duration";
 
 interface UserInvestment {
-  id: string; userId: string; planName: string; amount: number; totalEarned: number;
+  id: string; userId: string; planId?: string | null; planName: string; amount: number; totalEarned: number;
   minProfit: number; maxProfit: number; profitInterval: number; maxInterval: number;
+  minLossRatio: number; maxLossRatio: number; minLoss: number; maxLoss: number;
   status: string; startedAt: string; user: { name: string | null; email: string };
 }
 interface Plan {
@@ -45,8 +47,59 @@ const STATUS_COLORS: Record<string, string> = {
 const inputCls = "w-full bg-white/[0.06] border border-white/[0.15] rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60";
 const labelCls = "text-xs font-medium text-slate-400 uppercase tracking-wider";
 
+/**
+ * Paired numeric + unit selector for duration fields. Canonical storage
+ * is always seconds — see lib/duration.ts. This widget is used in BOTH
+ * the Plan modal and the User-Investment edit modal so the two forms
+ * stay structurally identical (same fields, same labels, same logic).
+ */
+function DurationField({
+  label, value, unit, onValueChange, onUnitChange, placeholder, error,
+}: {
+  label:         string;
+  value:         string;
+  unit:          DurationUnit;
+  onValueChange: (v: string) => void;
+  onUnitChange:  (u: DurationUnit) => void;
+  placeholder?:  string;
+  error?:        string;
+}) {
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      <div className="mt-1 flex gap-2">
+        <input
+          type="number" min={0} step="0.01"
+          value={value}
+          onChange={(e) => onValueChange(e.target.value)}
+          placeholder={placeholder}
+          className={inputCls + " flex-1"}
+        />
+        <div className="relative shrink-0">
+          <select
+            value={unit}
+            onChange={(e) => onUnitChange(e.target.value as DurationUnit)}
+            className={inputCls + " appearance-none pr-8 w-[110px]"}
+          >
+            <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
+            <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>
+          </select>
+          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+      </div>
+      {error && <p className="text-[11px] text-red-400 mt-1">{error}</p>}
+    </div>
+  );
+}
+
 // ── Plan Modal ────────────────────────────────────────────────────────────────
 function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => void; onSuccess: () => void }) {
+  // Duration fields are stored as seconds in the DB (profitInterval /
+  // maxInterval). The form surfaces them as (value, unit) pairs so admins
+  // can type "5 minutes" or "2 hours" instead of "300" / "7200" seconds.
+  const minDurDisplay = secondsToDisplay(plan?.profitInterval);
+  const maxDurDisplay = secondsToDisplay(plan?.maxInterval);
+
   const [form, setForm] = useState({
     name:             plan?.name ?? "",
     description:      plan?.description ?? "",
@@ -54,8 +107,10 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     maxAmount:        plan?.maxAmount !== null && plan?.maxAmount !== undefined ? String(plan.maxAmount) : "",
     minProfit:        String(plan?.minProfit ?? 0.5),
     maxProfit:        String(plan?.maxProfit ?? 1.5),
-    minDurationHours: plan?.minDurationHours !== null && plan?.minDurationHours !== undefined ? String(plan.minDurationHours) : "",
-    maxDurationHours: plan?.maxDurationHours !== null && plan?.maxDurationHours !== undefined ? String(plan.maxDurationHours) : "",
+    minDurationValue: plan ? String(minDurDisplay.value) : "",
+    minDurationUnit:  plan ? minDurDisplay.unit : ("hours" as DurationUnit),
+    maxDurationValue: plan ? String(maxDurDisplay.value) : "",
+    maxDurationUnit:  plan ? maxDurDisplay.unit : ("hours" as DurationUnit),
     minLossRatio:     String(plan?.minLossRatio ?? 0),
     maxLossRatio:     String(plan?.maxLossRatio ?? 0),
     minLoss:          String(plan?.minLoss ?? 0),
@@ -64,12 +119,11 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  function set(k: keyof typeof form, v: string | boolean) {
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm(f => ({ ...f, [k]: v }));
-    setErrors(e => { const { [k]: _drop, ...rest } = e; return rest; });
+    setErrors(e => { const { [k as string]: _drop, ...rest } = e; return rest; });
   }
 
-  /** Numeric range check helpers — shared inline validator. */
   function validate(): { ok: boolean; errs: Record<string, string> } {
     const errs: Record<string, string> = {};
     const nonNeg = (s: string) => parseFloat(s) >= 0;
@@ -91,15 +145,12 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
       errs.maxProfit = "Max must be ≥ min profit";
 
     // Duration is REQUIRED — it drives the tick scheduler.
-    if (!form.minDurationHours.trim()) errs.minDurationHours = "Required (hours)";
-    else if (parseFloat(form.minDurationHours) <= 0)
-      errs.minDurationHours = "Must be greater than 0";
-    if (!form.maxDurationHours.trim()) errs.maxDurationHours = "Required (hours)";
-    else if (parseFloat(form.maxDurationHours) <= 0)
-      errs.maxDurationHours = "Must be greater than 0";
-    if (!errs.minDurationHours && !errs.maxDurationHours &&
-        parseFloat(form.maxDurationHours) < parseFloat(form.minDurationHours))
-      errs.maxDurationHours = "Max must be ≥ min duration";
+    const minSecs = displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit);
+    const maxSecs = displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit);
+    if (!form.minDurationValue.trim() || minSecs <= 0) errs.minDurationValue = "Enter a positive value";
+    if (!form.maxDurationValue.trim() || maxSecs <= 0) errs.maxDurationValue = "Enter a positive value";
+    if (!errs.minDurationValue && !errs.maxDurationValue && maxSecs < minSecs)
+      errs.maxDurationValue = "Max must be ≥ min duration";
 
     if (!pct01_100(form.minLossRatio)) errs.minLossRatio = "Must be between 0 and 100";
     if (!pct01_100(form.maxLossRatio)) errs.maxLossRatio = "Must be between 0 and 100";
@@ -120,6 +171,9 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
     setErrors(errs);
     if (!ok) { toast.error("Please fix the highlighted fields"); return; }
 
+    const minSecs = displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit);
+    const maxSecs = displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit);
+
     setLoading(true);
     const payload = {
       name:             form.name.trim(),
@@ -128,11 +182,13 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
       maxAmount:        form.maxAmount.trim() ? parseFloat(form.maxAmount) : null,
       minProfit:        parseFloat(form.minProfit),
       maxProfit:        parseFloat(form.maxProfit),
-      minDurationHours: form.minDurationHours.trim() ? parseInt(form.minDurationHours) : null,
-      maxDurationHours: form.maxDurationHours.trim() ? parseInt(form.maxDurationHours) : null,
-      // Cadence fields are defaulted server-side (unused by the new hour-based engine).
-      profitInterval:   60,
-      maxInterval:      60,
+      // Canonical seconds storage. Legacy hour columns are left null;
+      // migration pass in seed.ts copies any prior hour values into
+      // profitInterval automatically.
+      profitInterval:   minSecs,
+      maxInterval:      maxSecs,
+      minDurationHours: null,
+      maxDurationHours: null,
       minLossRatio:     parseFloat(form.minLossRatio) || 0,
       maxLossRatio:     parseFloat(form.maxLossRatio) || 0,
       minLoss:          parseFloat(form.minLoss)      || 0,
@@ -213,23 +269,28 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Min Duration (hours)</label>
-              <input type="number" min={0} className={inputCls + " mt-1"}
-                value={form.minDurationHours} onChange={e => set("minDurationHours", e.target.value)}
-                placeholder="e.g. 30" />
-              {err("minDurationHours")}
-            </div>
-            <div>
-              <label className={labelCls}>Max Duration (hours)</label>
-              <input type="number" min={0} className={inputCls + " mt-1"}
-                value={form.maxDurationHours} onChange={e => set("maxDurationHours", e.target.value)}
-                placeholder="e.g. 50" />
-              {err("maxDurationHours")}
-            </div>
+            <DurationField
+              label="Min Duration"
+              value={form.minDurationValue}
+              unit={form.minDurationUnit}
+              onValueChange={(v) => set("minDurationValue", v)}
+              onUnitChange={(u) => set("minDurationUnit", u)}
+              placeholder="e.g. 5"
+              error={errors.minDurationValue}
+            />
+            <DurationField
+              label="Max Duration"
+              value={form.maxDurationValue}
+              unit={form.maxDurationUnit}
+              onValueChange={(v) => set("maxDurationValue", v)}
+              onUnitChange={(u) => set("maxDurationUnit", u)}
+              placeholder="e.g. 15"
+              error={errors.maxDurationValue}
+            />
           </div>
-          <p className="text-[11px] text-slate-500 -mt-2">
-            The engine picks a random wait between min and max duration before the next tick.
+          <p className="text-[11px] text-slate-500 -mt-2 inline-flex items-center gap-1.5">
+            <Info size={11} className="text-sky-500/70" />
+            Each tick fires after a random wait between min and max duration. Stored internally as seconds.
           </p>
 
           {/* Loss simulation — fewer losses, more profits */}
@@ -308,38 +369,136 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
 }
 
 // ── Investment Modal (assign / edit user investment) ──────────────────────────
-function InvestmentModal({ users, investment, isEdit, onClose, onSuccess }: {
-  users: UserOption[]; investment?: UserInvestment; isEdit: boolean;
+// Structurally identical to PlanModal: same fields, same labels, same
+// DurationField + Loss-simulation block. An extra plan picker at the
+// top lets the admin prefill from any existing plan and then override
+// individual values per user. All values submitted to the server are in
+// the canonical unit (seconds for duration, percent for everything else).
+function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess }: {
+  users: UserOption[]; plans: Plan[]; investment?: UserInvestment; isEdit: boolean;
   onClose: () => void; onSuccess: () => void;
 }) {
+  const initMinDur = secondsToDisplay(investment?.profitInterval);
+  const initMaxDur = secondsToDisplay(investment?.maxInterval);
+
   const [form, setForm] = useState({
-    userId: investment?.userId ?? "", planName: investment?.planName ?? "Growth Plan",
-    amount: String(investment?.amount ?? ""),
-    minProfit: String(investment?.minProfit ?? 0.5), maxProfit: String(investment?.maxProfit ?? 1.5),
-    profitInterval: String(investment?.profitInterval ?? 60),
-    maxInterval: String(investment?.maxInterval ?? 60),
+    userId:           investment?.userId ?? "",
+    planId:           investment?.planId ?? "",
+    planName:         investment?.planName ?? "",
+    amount:           investment ? String(investment.amount) : "",
+    minProfit:        String(investment?.minProfit ?? 0.5),
+    maxProfit:        String(investment?.maxProfit ?? 1.5),
+    minDurationValue: investment ? String(initMinDur.value) : "",
+    minDurationUnit:  investment ? initMinDur.unit : ("hours" as DurationUnit),
+    maxDurationValue: investment ? String(initMaxDur.value) : "",
+    maxDurationUnit:  investment ? initMaxDur.unit : ("hours" as DurationUnit),
+    minLossRatio:     String(investment?.minLossRatio ?? 0),
+    maxLossRatio:     String(investment?.maxLossRatio ?? 0),
+    minLoss:          String(investment?.minLoss ?? 0),
+    maxLoss:          String(investment?.maxLoss ?? 0),
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
+
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
+    setForm(f => ({ ...f, [k]: v }));
+    setErrors(e => { const { [k as string]: _drop, ...rest } = e; return rest; });
+  }
+
+  /** When the admin picks a plan, pull all of that plan's defaults into
+   *  the form so they don't have to retype anything. Admin is free to
+   *  override any individual field afterwards. */
+  function applyPlan(planId: string) {
+    const p = plans.find(pp => pp.id === planId);
+    setForm(f => ({
+      ...f,
+      planId:           planId,
+      planName:         p?.name ?? f.planName,
+      minProfit:        p ? String(p.minProfit) : f.minProfit,
+      maxProfit:        p ? String(p.maxProfit) : f.maxProfit,
+      minDurationValue: p ? String(secondsToDisplay(p.profitInterval).value) : f.minDurationValue,
+      minDurationUnit:  p ? secondsToDisplay(p.profitInterval).unit        : f.minDurationUnit,
+      maxDurationValue: p ? String(secondsToDisplay(p.maxInterval).value)  : f.maxDurationValue,
+      maxDurationUnit:  p ? secondsToDisplay(p.maxInterval).unit           : f.maxDurationUnit,
+      minLossRatio:     p ? String(p.minLossRatio) : f.minLossRatio,
+      maxLossRatio:     p ? String(p.maxLossRatio) : f.maxLossRatio,
+      minLoss:          p ? String(p.minLoss)      : f.minLoss,
+      maxLoss:          p ? String(p.maxLoss)      : f.maxLoss,
+      amount:           (!isEdit && p && !f.amount) ? String(p.minAmount) : f.amount,
+    }));
+    setErrors({});
+  }
+
+  function validate(): { ok: boolean; errs: Record<string, string> } {
+    const errs: Record<string, string> = {};
+    const nonNeg = (s: string) => parseFloat(s) >= 0;
+    const pct01_100 = (s: string) => {
+      const n = parseFloat(s);
+      return !Number.isNaN(n) && n >= 0 && n <= 100;
+    };
+
+    if (!isEdit && !form.userId) errs.userId = "Select a user";
+    if (!form.planName.trim())   errs.planName = "Plan name is required";
+    if (!form.amount || parseFloat(form.amount) <= 0) errs.amount = "Enter a valid amount";
+
+    if (!nonNeg(form.minProfit)) errs.minProfit = "Must be 0 or more";
+    if (!nonNeg(form.maxProfit)) errs.maxProfit = "Must be 0 or more";
+    if (parseFloat(form.maxProfit) < parseFloat(form.minProfit))
+      errs.maxProfit = "Max must be ≥ min profit";
+
+    const minSecs = displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit);
+    const maxSecs = displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit);
+    if (!form.minDurationValue.trim() || minSecs <= 0) errs.minDurationValue = "Enter a positive value";
+    if (!form.maxDurationValue.trim() || maxSecs <= 0) errs.maxDurationValue = "Enter a positive value";
+    if (!errs.minDurationValue && !errs.maxDurationValue && maxSecs < minSecs)
+      errs.maxDurationValue = "Max must be ≥ min duration";
+
+    if (!pct01_100(form.minLossRatio)) errs.minLossRatio = "Must be between 0 and 100";
+    if (!pct01_100(form.maxLossRatio)) errs.maxLossRatio = "Must be between 0 and 100";
+    if (!errs.minLossRatio && !errs.maxLossRatio &&
+        parseFloat(form.maxLossRatio) < parseFloat(form.minLossRatio))
+      errs.maxLossRatio = "Max must be ≥ min loss ratio";
+
+    if (!nonNeg(form.minLoss)) errs.minLoss = "Must be 0 or more";
+    if (!nonNeg(form.maxLoss)) errs.maxLoss = "Must be 0 or more";
+    if (parseFloat(form.maxLoss) < parseFloat(form.minLoss))
+      errs.maxLoss = "Max must be ≥ min loss";
+
+    return { ok: Object.keys(errs).length === 0, errs };
+  }
 
   async function submit() {
-    if (!isEdit && !form.userId) { toast.error("Select a user"); return; }
-    if (!form.amount || parseFloat(form.amount) <= 0) { toast.error("Enter a valid amount"); return; }
+    const { ok, errs } = validate();
+    setErrors(errs);
+    if (!ok) { toast.error("Please fix the highlighted fields"); return; }
+
+    const minSecs = displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit);
+    const maxSecs = displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit);
+
+    const common = {
+      planName:       form.planName.trim(),
+      amount:         parseFloat(form.amount),
+      minProfit:      parseFloat(form.minProfit),
+      maxProfit:      parseFloat(form.maxProfit),
+      profitInterval: minSecs,
+      maxInterval:    maxSecs,
+      minLossRatio:   parseFloat(form.minLossRatio) || 0,
+      maxLossRatio:   parseFloat(form.maxLossRatio) || 0,
+      minLoss:        parseFloat(form.minLoss)      || 0,
+      maxLoss:        parseFloat(form.maxLoss)      || 0,
+    };
+
     setLoading(true);
     if (isEdit && investment) {
-      const r = await adminEditInvestment(investment.userId, {
-        planName: form.planName, amount: parseFloat(form.amount),
-        minProfit: parseFloat(form.minProfit), maxProfit: parseFloat(form.maxProfit),
-        profitInterval: parseInt(form.profitInterval), maxInterval: parseInt(form.maxInterval),
-      });
+      const r = await adminEditInvestment(investment.userId, common);
       setLoading(false);
       if (r.error) { toast.error(r.error); return; }
       toast.success("Investment updated!");
     } else {
       const r = await adminAssignInvestment({
-        userId: form.userId, planName: form.planName, amount: parseFloat(form.amount),
-        minProfit: parseFloat(form.minProfit), maxProfit: parseFloat(form.maxProfit),
-        profitInterval: parseInt(form.profitInterval), maxInterval: parseInt(form.maxInterval),
+        userId: form.userId,
+        planId: form.planId || undefined,
+        ...common,
       });
       setLoading(false);
       if (r.error) { toast.error(r.error); return; }
@@ -348,43 +507,165 @@ function InvestmentModal({ users, investment, isEdit, onClose, onSuccess }: {
     onSuccess(); onClose();
   }
 
+  const err = (k: string) => errors[k] ? <p className="text-[11px] text-red-400 mt-1">{errors[k]}</p> : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-center items-start sm:items-center overflow-y-auto p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="text-base font-bold text-white mb-5">{isEdit ? "Edit Investment" : "Assign Investment"}</h3>
+    <div
+      className="fixed inset-0 z-50 flex justify-center items-start sm:items-center overflow-y-auto p-4 bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="glass-card border border-sky-500/20 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl my-4 sm:my-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-white mb-1">
+          {isEdit ? "Edit User Investment" : "Assign Investment"}
+        </h3>
+        <p className="text-[11.5px] text-slate-500 mb-5">
+          {isEdit
+            ? "These are the live settings for this user's investment. Pick a plan to reset, or override values directly."
+            : "Pick a plan to auto-fill defaults, then tweak any value before assigning."}
+        </p>
+
         <div className="space-y-4">
           {!isEdit && (
-            <div><label className={labelCls}>User</label>
+            <div>
+              <label className={labelCls}>User</label>
               <div className="relative mt-1">
-                <select value={form.userId} onChange={e => set("userId", e.target.value)} className={inputCls + " appearance-none pr-8"}>
+                <select
+                  value={form.userId}
+                  onChange={e => set("userId", e.target.value)}
+                  className={inputCls + " appearance-none pr-8"}
+                >
                   <option value="" className="bg-[#0d1e3a]">Select user…</option>
-                  {users.map(u => <option key={u.id} value={u.id} className="bg-[#0d1e3a]">{u.name || "—"} ({u.email})</option>)}
+                  {users.map(u => (
+                    <option key={u.id} value={u.id} className="bg-[#0d1e3a]">
+                      {u.name || "—"} ({u.email})
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
+              {err("userId")}
             </div>
           )}
           {isEdit && investment && (
-            <div><label className={labelCls}>User</label>
+            <div>
+              <label className={labelCls}>User</label>
               <div className="mt-1 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-sm">
                 <span className="text-white font-medium">{investment.user.name || "—"}</span>
                 <span className="text-slate-500 ml-2">{investment.user.email}</span>
               </div>
             </div>
           )}
-          <div><label className={labelCls}>Plan Name</label><input className={inputCls + " mt-1"} value={form.planName} onChange={e => set("planName", e.target.value)} /></div>
-          <div><label className={labelCls}>Amount (USD)</label><input type="number" className={inputCls + " mt-1"} value={form.amount} onChange={e => set("amount", e.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Min Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.minProfit} onChange={e => set("minProfit", e.target.value)} /></div>
-            <div><label className={labelCls}>Max Profit (%)</label><input type="number" step="0.01" className={inputCls + " mt-1"} value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} /></div>
+
+          {/* Plan picker — prefills every field below */}
+          <div>
+            <label className={labelCls}>Plan {isEdit && <span className="text-slate-600">— reset defaults</span>}</label>
+            <div className="relative mt-1">
+              <select
+                value={form.planId}
+                onChange={(e) => applyPlan(e.target.value)}
+                className={inputCls + " appearance-none pr-8"}
+              >
+                <option value="" className="bg-[#0d1e3a]">
+                  {isEdit ? "Custom (keep current values)" : "Custom — fill fields manually"}
+                </option>
+                {plans.filter(p => p.isActive).map(p => (
+                  <option key={p.id} value={p.id} className="bg-[#0d1e3a]">{p.name}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+            <p className="text-[10.5px] text-slate-500 mt-1">
+              Picking a plan copies its profit, duration and loss settings below — you can still override any value.
+            </p>
           </div>
+
+          <div>
+            <label className={labelCls}>Plan Name</label>
+            <input className={inputCls + " mt-1"} value={form.planName} onChange={e => set("planName", e.target.value)} placeholder="e.g. Growth Plan" />
+            {err("planName")}
+          </div>
+
+          <div>
+            <label className={labelCls}>Amount (USD)</label>
+            <input type="number" min={0} className={inputCls + " mt-1"} value={form.amount} onChange={e => set("amount", e.target.value)} />
+            {err("amount")}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Min Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.profitInterval} onChange={e => set("profitInterval", e.target.value)} /></div>
-            <div><label className={labelCls}>Max Interval (s)</label><input type="number" className={inputCls + " mt-1"} value={form.maxInterval} onChange={e => set("maxInterval", e.target.value)} /></div>
+            <div>
+              <label className={labelCls}>Min Profit (%)</label>
+              <input type="number" step="0.01" min={0} className={inputCls + " mt-1"} value={form.minProfit} onChange={e => set("minProfit", e.target.value)} />
+              {err("minProfit")}
+            </div>
+            <div>
+              <label className={labelCls}>Max Profit (%)</label>
+              <input type="number" step="0.01" min={0} className={inputCls + " mt-1"} value={form.maxProfit} onChange={e => set("maxProfit", e.target.value)} />
+              {err("maxProfit")}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <DurationField
+              label="Min Duration"
+              value={form.minDurationValue}
+              unit={form.minDurationUnit}
+              onValueChange={(v) => set("minDurationValue", v)}
+              onUnitChange={(u) => set("minDurationUnit", u)}
+              placeholder="e.g. 5"
+              error={errors.minDurationValue}
+            />
+            <DurationField
+              label="Max Duration"
+              value={form.maxDurationValue}
+              unit={form.maxDurationUnit}
+              onValueChange={(v) => set("maxDurationValue", v)}
+              onUnitChange={(u) => set("maxDurationUnit", u)}
+              placeholder="e.g. 15"
+              error={errors.maxDurationValue}
+            />
+          </div>
+          <p className="text-[11px] text-slate-500 -mt-2 inline-flex items-center gap-1.5">
+            <Info size={11} className="text-sky-500/70" />
+            Stored internally as seconds. Engine calculations are unchanged.
+          </p>
+
+          {/* Loss simulation — same layout as PlanModal */}
+          <div className="pt-4 mt-1 border-t border-white/[0.06]">
+            <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider mb-2">
+              Loss simulation
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Min Loss Ratio (%)</label>
+                <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"} value={form.minLossRatio} onChange={e => set("minLossRatio", e.target.value)} />
+                {err("minLossRatio")}
+              </div>
+              <div>
+                <label className={labelCls}>Max Loss Ratio (%)</label>
+                <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"} value={form.maxLossRatio} onChange={e => set("maxLossRatio", e.target.value)} />
+                {err("maxLossRatio")}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className={labelCls}>Min Loss (%)</label>
+                <input type="number" step="0.01" min={0} className={inputCls + " mt-1"} value={form.minLoss} onChange={e => set("minLoss", e.target.value)} />
+                {err("minLoss")}
+              </div>
+              <div>
+                <label className={labelCls}>Max Loss (%)</label>
+                <input type="number" step="0.01" min={0} className={inputCls + " mt-1"} value={form.maxLoss} onChange={e => set("maxLoss", e.target.value)} />
+                {err("maxLoss")}
+              </div>
+            </div>
           </div>
         </div>
+
         <div className="flex gap-2 mt-6">
-          <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose} disabled={loading}>Cancel</Button>
           <Button className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold" onClick={submit} disabled={loading}>
             {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : null}{isEdit ? "Save" : "Assign"}
           </Button>
@@ -465,10 +746,18 @@ export default function AdminInvestmentsPage() {
       maxInterval:      p.maxInterval ?? p.profitInterval,
     })));
     setInvestments(invs.map((i: any) => ({
-      ...i, amount: Number(i.amount), totalEarned: Number(i.totalEarned),
-      minProfit: Number(i.minProfit), maxProfit: Number(i.maxProfit),
-      maxInterval: i.maxInterval ?? i.profitInterval,
-      startedAt: new Date(i.startedAt).toISOString(),
+      ...i,
+      amount:       Number(i.amount),
+      totalEarned:  Number(i.totalEarned),
+      minProfit:    Number(i.minProfit),
+      maxProfit:    Number(i.maxProfit),
+      minLossRatio: Number(i.minLossRatio ?? 0),
+      maxLossRatio: Number(i.maxLossRatio ?? 0),
+      minLoss:      Number(i.minLoss ?? 0),
+      maxLoss:      Number(i.maxLoss ?? 0),
+      maxInterval:  i.maxInterval ?? i.profitInterval,
+      planId:       i.planId ?? null,
+      startedAt:    new Date(i.startedAt).toISOString(),
     })));
     setUsers(usrs);
     setLoading(false);
@@ -723,8 +1012,8 @@ export default function AdminInvestmentsPage() {
 
       {showCreatePlan && <PlanModal onClose={() => setShowCreatePlan(false)} onSuccess={load} />}
       {editPlan && <PlanModal plan={editPlan} onClose={() => setEditPlan(null)} onSuccess={load} />}
-      {showAssign && <InvestmentModal users={users} isEdit={false} onClose={() => setShowAssign(false)} onSuccess={load} />}
-      {editInv && <InvestmentModal users={users} investment={editInv} isEdit={true} onClose={() => setEditInv(null)} onSuccess={load} />}
+      {showAssign && <InvestmentModal users={users} plans={plans} isEdit={false} onClose={() => setShowAssign(false)} onSuccess={load} />}
+      {editInv && <InvestmentModal users={users} plans={plans} investment={editInv} isEdit={true} onClose={() => setEditInv(null)} onSuccess={load} />}
       {fundsTarget && <AddFundsModal investment={fundsTarget} onClose={() => setFundsTarget(null)} onSuccess={load} />}
     </div>
   );

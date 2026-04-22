@@ -15,6 +15,16 @@ export async function POST(req: NextRequest) {
   // ── Active investment ───────────────────────────────────────────────────────────────────
   const investment = await db.userInvestment.findUnique({ where: { userId } });
 
+  /** Weighted-toward-low random draw inside [min, max].
+   *  Squaring Math.random() biases toward 0, so most ticks land near the
+   *  floor of the band with occasional draws near the ceiling. Produces
+   *  a naturalistic distribution: lots of small outcomes, fewer big ones. */
+  const biasedRand = (min: number, max: number) => {
+    if (max <= min) return min;
+    const t = Math.random() * Math.random();          // Beta(1,2)-ish
+    return min + t * (max - min);
+  };
+
   if (investment && investment.status === "ACTIVE" && investment.nextProfitAt && investment.nextProfitAt <= now) {
     // ── 1. Pick this tick's loss probability from the configured band.
     //     minLossRatio / maxLossRatio are percents (0–100). Convert to a
@@ -40,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (isLoss) {
       const minL = Number(investment.minLoss ?? 0);
       const maxL = Number(investment.maxLoss ?? 0);
-      const pct  = minL + Math.random() * (maxL - minL);
+      const pct  = biasedRand(minL, maxL);
       const loss = Number(investment.amount) * (pct / 100);
       delta         = -(Math.round(loss * 100) / 100);
       percentUsed   = -Math.round(pct * 10000) / 10000;
@@ -49,7 +59,7 @@ export async function POST(req: NextRequest) {
     } else {
       const minP   = Number(investment.minProfit);
       const maxP   = Number(investment.maxProfit);
-      const pct    = minP + Math.random() * (maxP - minP);
+      const pct    = biasedRand(minP, maxP);
       const profit = Number(investment.amount) * (pct / 100);
       delta         = Math.round(profit * 100) / 100;
       percentUsed   = Math.round(pct * 10000) / 10000;
@@ -57,18 +67,20 @@ export async function POST(req: NextRequest) {
       activityTitle = `${investment.planName} profit (${pct.toFixed(2)}%)`;
     }
 
-    // ── 4. Schedule the next tick from the hour band on the investment.
-    //     Each tick picks an independently random wait so the sequence is
-    //     never a fixed cadence. If the band is missing (shouldn't happen —
-    //     admin validation + seed backfill ensure it's populated), use a
-    //     safe 1–3 hour default rather than slipping into seconds.
-    const minHours = investment.minDurationHours ?? 1;
-    const maxHours = investment.maxDurationHours ?? Math.max(3, minHours);
-    const hours = maxHours > minHours
-      ? minHours + Math.random() * (maxHours - minHours)
-      : minHours;
-    const nextDelayMs = Math.round(hours * 3600 * 1000);
-    const nextProfitAt = new Date(now.getTime() + nextDelayMs);
+    // ── 4. Schedule the next tick from the seconds band on the
+    //     investment. profitInterval / maxInterval are the canonical
+    //     storage; legacy hour columns are read only as a fallback for
+    //     any row that hasn't been touched since the schema split.
+    let minSecs = investment.profitInterval;
+    let maxSecs = investment.maxInterval ?? minSecs;
+    if (minSecs <= 0 && investment.minDurationHours) minSecs = investment.minDurationHours * 3600;
+    if (maxSecs <= 0 && investment.maxDurationHours) maxSecs = investment.maxDurationHours * 3600;
+    if (minSecs <= 0) minSecs = 3600;
+    if (maxSecs <  minSecs) maxSecs = minSecs;
+    const secs = maxSecs > minSecs
+      ? minSecs + Math.random() * (maxSecs - minSecs)
+      : minSecs;
+    const nextProfitAt = new Date(now.getTime() + Math.round(secs * 1000));
 
     // ── 5. Persist atomically. Update the streak counter so the guard
     //     stays accurate across ticks.
@@ -131,7 +143,7 @@ export async function POST(req: NextRequest) {
     if (isLoss) {
       const minL = Number(trade.minLoss ?? 0);
       const maxL = Number(trade.maxLoss ?? 0);
-      const pct  = minL + Math.random() * (maxL - minL);
+      const pct  = biasedRand(minL, maxL);
       const loss = Number(trade.amount) * (pct / 100);
       delta         = -(Math.round(loss * 100) / 100);
       percentUsed   = -Math.round(pct * 10000) / 10000;
@@ -140,7 +152,7 @@ export async function POST(req: NextRequest) {
     } else {
       const minP   = Number(trade.minProfit);
       const maxP   = Number(trade.maxProfit);
-      const pct    = minP + Math.random() * (maxP - minP);
+      const pct    = biasedRand(minP, maxP);
       const profit = Number(trade.amount) * (pct / 100);
       delta         = Math.round(profit * 100) / 100;
       percentUsed   = Math.round(pct * 10000) / 10000;
@@ -148,24 +160,19 @@ export async function POST(req: NextRequest) {
       activityTitle = `${trade.traderName} copy profit (${pct.toFixed(2)}%)`;
     }
 
-    // ── 4. Schedule next tick from the HOUR band on the copy-trade snapshot.
-    //     Falls back to the legacy seconds-based interval only if hours
-    //     aren't set (pre-migration rows), never slipping into seconds otherwise.
-    const minHours = trade.minDurationHours ?? null;
-    const maxHours = trade.maxDurationHours ?? null;
-    let nextDelayMs: number;
-    if (minHours !== null && maxHours !== null && maxHours >= minHours) {
-      const hrs = maxHours > minHours
-        ? minHours + Math.random() * (maxHours - minHours)
-        : minHours;
-      nextDelayMs = Math.round(hrs * 3600 * 1000);
-    } else {
-      const minSecs = trade.profitInterval;
-      const maxSecs = trade.maxInterval ?? trade.profitInterval;
-      const intervalSecs = minSecs + Math.floor(Math.random() * (maxSecs - minSecs + 1));
-      nextDelayMs = intervalSecs * 1000;
-    }
-    const nextProfitAt = new Date(now.getTime() + nextDelayMs);
+    // ── 4. Schedule next tick from the seconds band on the copy-trade
+    //     snapshot (profitInterval / maxInterval). Falls back to the
+    //     legacy hour columns only for rows that predate the unification.
+    let minSecs = trade.profitInterval;
+    let maxSecs = trade.maxInterval ?? minSecs;
+    if (minSecs <= 0 && trade.minDurationHours) minSecs = trade.minDurationHours * 3600;
+    if (maxSecs <= 0 && trade.maxDurationHours) maxSecs = trade.maxDurationHours * 3600;
+    if (minSecs <= 0) minSecs = 3600;
+    if (maxSecs <  minSecs) maxSecs = minSecs;
+    const secs = maxSecs > minSecs
+      ? minSecs + Math.random() * (maxSecs - minSecs)
+      : minSecs;
+    const nextProfitAt = new Date(now.getTime() + Math.round(secs * 1000));
 
     // ── 5. Persist atomically with the updated streak counter.
     const nextStreak = isLoss ? (trade.consecutiveLosses ?? 0) + 1 : 0;

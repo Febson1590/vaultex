@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { userStartInvestment } from "@/lib/actions/investment";
 import { formatCurrency } from "@/lib/utils";
+import { formatSecondsRange } from "@/lib/duration";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
 import type { KycStatus } from "@/lib/kyc";
 
@@ -44,10 +45,17 @@ function fmtPct(n: number) {
   return Number.isInteger(n) ? `${n}.0%` : `${n}%`;
 }
 
-function fmtDuration(min: number | null, max: number | null) {
-  if (min === null || max === null) return null;
-  if (min === max) return `Every ${min} hour${min === 1 ? "" : "s"}`;
-  return `Every ${min}–${max} hours`;
+function fmtDuration(plan: Plan) {
+  // Engine's canonical cadence is seconds. Legacy hour columns are
+  // read as a fallback so old plans without seconds still display.
+  const minSecs = plan.profitInterval > 0
+    ? plan.profitInterval
+    : (plan.minDurationHours ?? 0) * 3600;
+  const maxSecs = plan.maxInterval > 0
+    ? plan.maxInterval
+    : (plan.maxDurationHours ?? 0) * 3600;
+  if (minSecs <= 0 || maxSecs <= 0) return null;
+  return formatSecondsRange(minSecs, maxSecs);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -140,7 +148,7 @@ function PlanCard({
   disabled: boolean;
   onSelect: () => void;
 }) {
-  const duration = fmtDuration(plan.minDurationHours, plan.maxDurationHours);
+  const duration = fmtDuration(plan);
 
   return (
     <div
@@ -305,7 +313,7 @@ function InvestModal({
   const exceedsMax = plan.maxAmount !== null && val > plan.maxAmount;
   const canAfford = val <= usdBalance;
   const needsDeposit = usdBalance < plan.minAmount;
-  const duration = fmtDuration(plan.minDurationHours, plan.maxDurationHours);
+  const duration = fmtDuration(plan);
 
   function submit() {
     if (!meetsMin) {

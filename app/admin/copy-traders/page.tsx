@@ -14,6 +14,7 @@ import {
   adminDeleteAllSeededCopyTraders,
 } from "@/lib/actions/investment";
 import { COUNTRIES_SORTED, flagEmoji } from "@/lib/countries";
+import { secondsToDisplay, displayToSeconds, type DurationUnit, UNIT_LABELS } from "@/lib/duration";
 
 interface CopyTrader {
   id: string; name: string; avatarUrl: string | null;
@@ -95,8 +96,34 @@ function TraderModal({ trader, onClose, onSuccess }: {
     minCopyAmount:    String(trader?.minCopyAmount ?? 100),
     profitInterval:   String(trader?.profitInterval ?? 60),
     maxInterval:      String(trader?.maxInterval ?? 60),
-    minDurationHours: trader?.minDurationHours != null ? String(trader.minDurationHours) : "",
-    maxDurationHours: trader?.maxDurationHours != null ? String(trader.maxDurationHours) : "",
+    // Duration is stored as seconds (profitInterval/maxInterval). The
+    // admin UI uses the shared (value, unit) pair; legacy hour values
+    // on the trader row are promoted to seconds on first load so the
+    // display stays consistent.
+    minDurationValue: (() => {
+      const secs = trader?.profitInterval && trader.profitInterval > 60
+        ? trader.profitInterval
+        : (trader?.minDurationHours ?? 0) * 3600;
+      return secs > 0 ? String(secondsToDisplay(secs).value) : "";
+    })(),
+    minDurationUnit: (() => {
+      const secs = trader?.profitInterval && trader.profitInterval > 60
+        ? trader.profitInterval
+        : (trader?.minDurationHours ?? 0) * 3600;
+      return (secs > 0 ? secondsToDisplay(secs).unit : "hours") as DurationUnit;
+    })(),
+    maxDurationValue: (() => {
+      const secs = trader?.maxInterval && trader.maxInterval > 60
+        ? trader.maxInterval
+        : (trader?.maxDurationHours ?? 0) * 3600;
+      return secs > 0 ? String(secondsToDisplay(secs).value) : "";
+    })(),
+    maxDurationUnit: (() => {
+      const secs = trader?.maxInterval && trader.maxInterval > 60
+        ? trader.maxInterval
+        : (trader?.maxDurationHours ?? 0) * 3600;
+      return (secs > 0 ? secondsToDisplay(secs).unit : "hours") as DurationUnit;
+    })(),
     minProfit:        String(trader?.minProfit ?? 0.3),
     maxProfit:        String(trader?.maxProfit ?? 1.2),
     minLossRatio:     String(trader?.minLossRatio ?? 0),
@@ -125,13 +152,12 @@ function TraderModal({ trader, onClose, onSuccess }: {
     if (parseFloat(form.maxProfit) < parseFloat(form.minProfit))
       errs.maxProfit = "Max must be ≥ min profit";
 
-    if (!form.minDurationHours.trim()) errs.minDurationHours = "Required (hours)";
-    else if (parseFloat(form.minDurationHours) <= 0) errs.minDurationHours = "Must be greater than 0";
-    if (!form.maxDurationHours.trim()) errs.maxDurationHours = "Required (hours)";
-    else if (parseFloat(form.maxDurationHours) <= 0) errs.maxDurationHours = "Must be greater than 0";
-    if (!errs.minDurationHours && !errs.maxDurationHours &&
-        parseFloat(form.maxDurationHours) < parseFloat(form.minDurationHours))
-      errs.maxDurationHours = "Max must be ≥ min duration";
+    const minDurSecs = displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit);
+    const maxDurSecs = displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit);
+    if (!form.minDurationValue.trim() || minDurSecs <= 0) errs.minDurationValue = "Enter a positive value";
+    if (!form.maxDurationValue.trim() || maxDurSecs <= 0) errs.maxDurationValue = "Enter a positive value";
+    if (!errs.minDurationValue && !errs.maxDurationValue && maxDurSecs < minDurSecs)
+      errs.maxDurationValue = "Max must be ≥ min duration";
 
     if (!pct0to100(form.minLossRatio)) errs.minLossRatio = "Must be between 0 and 100";
     if (!pct0to100(form.maxLossRatio)) errs.maxLossRatio = "Must be between 0 and 100";
@@ -182,12 +208,13 @@ function TraderModal({ trader, onClose, onSuccess }: {
         riskLevel:        form.riskLevel || "MEDIUM",
         followers:        parseInt(form.followers)       || 0,
         minCopyAmount:    parseFloat(form.minCopyAmount) || 0,
-        // Hour-based cadence drives the engine. Legacy second intervals
-        // kept at 60s server-side; not exposed in the admin form anymore.
-        profitInterval:   60,
-        maxInterval:      60,
-        minDurationHours: parseInt(form.minDurationHours) || 1,
-        maxDurationHours: parseInt(form.maxDurationHours) || 3,
+        // Canonical seconds storage. Engine reads profitInterval /
+        // maxInterval directly; legacy hour columns are left null
+        // (the DB migration in seed.ts copies old hour values over).
+        profitInterval:   displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit),
+        maxInterval:      displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit),
+        minDurationHours: null,
+        maxDurationHours: null,
         minProfit:        parseFloat(form.minProfit)     || 0,
         maxProfit:        parseFloat(form.maxProfit)     || 0,
         minLossRatio:     parseFloat(form.minLossRatio)  || 0,
@@ -379,22 +406,38 @@ function TraderModal({ trader, onClose, onSuccess }: {
             </div>
           </div>
 
-          {/* Duration (hours) — tick cadence */}
+          {/* Duration — unified (value, unit) pair. Canonical seconds in DB. */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Min Duration (hours)</label>
-              <input type="number" min={0} step="1" className={inputCls + " mt-1"}
-                value={form.minDurationHours} onChange={e => set("minDurationHours", e.target.value)}
-                placeholder="e.g. 1" />
-              {errors.minDurationHours && <p className="text-[11px] text-red-400 mt-1">{errors.minDurationHours}</p>}
-            </div>
-            <div>
-              <label className={labelCls}>Max Duration (hours)</label>
-              <input type="number" min={0} step="1" className={inputCls + " mt-1"}
-                value={form.maxDurationHours} onChange={e => set("maxDurationHours", e.target.value)}
-                placeholder="e.g. 3" />
-              {errors.maxDurationHours && <p className="text-[11px] text-red-400 mt-1">{errors.maxDurationHours}</p>}
-            </div>
+            {(["Min", "Max"] as const).map((side) => {
+              const vKey = side === "Min" ? "minDurationValue" : "maxDurationValue";
+              const uKey = side === "Min" ? "minDurationUnit"  : "maxDurationUnit";
+              return (
+                <div key={side}>
+                  <label className={labelCls}>{side} Duration</label>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={form[vKey] as string}
+                      onChange={(e) => set(vKey, e.target.value)}
+                      placeholder={side === "Min" ? "e.g. 5" : "e.g. 15"}
+                      className={inputCls + " flex-1"}
+                    />
+                    <div className="relative shrink-0">
+                      <select
+                        value={form[uKey] as DurationUnit}
+                        onChange={(e) => set(uKey, e.target.value)}
+                        className={inputCls + " appearance-none pr-8 w-[110px]"}
+                      >
+                        <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
+                        <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  {errors[vKey] && <p className="text-[11px] text-red-400 mt-1">{errors[vKey]}</p>}
+                </div>
+              );
+            })}
           </div>
           <p className="text-[11px] text-slate-500 -mt-2">
             Each tick fires after a random wait between min and max duration.
@@ -894,9 +937,20 @@ export default function AdminCopyTradersPage() {
                         <td className="px-4 py-3 text-xs text-slate-400">{tr.followers.toLocaleString()}</td>
                         <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{tr.minProfit}%–{tr.maxProfit}%</td>
                         <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
-                          {tr.minDurationHours !== null && tr.maxDurationHours !== null
-                            ? `${tr.minDurationHours}–${tr.maxDurationHours}h`
-                            : <span className="text-slate-600">—</span>}
+                          {(() => {
+                            const mn = tr.profitInterval && tr.profitInterval > 60
+                              ? tr.profitInterval
+                              : (tr.minDurationHours ?? 0) * 3600;
+                            const mx = tr.maxInterval && tr.maxInterval > 60
+                              ? tr.maxInterval
+                              : (tr.maxDurationHours ?? 0) * 3600;
+                            if (mn <= 0 || mx <= 0) return <span className="text-slate-600">—</span>;
+                            const md = secondsToDisplay(mn);
+                            const xd = secondsToDisplay(mx);
+                            const unit = (md.unit === "hours" || xd.unit === "hours") ? "h" : "m";
+                            const div = unit === "h" ? 3600 : 60;
+                            return `${mn / div}–${mx / div}${unit}`;
+                          })()}
                         </td>
                         <td className="px-4 py-3 text-xs text-white font-semibold">{tr.userCopyTrades.length}</td>
                         <td className="px-4 py-3">

@@ -210,10 +210,13 @@ async function main() {
       maxAmount:        4999,
       minProfit:        0.5,
       maxProfit:        1.0,
-      minDurationHours: 30,
-      maxDurationHours: 50,
-      profitInterval:   60,
-      maxInterval:      60,
+      // Canonical seconds storage. Unified across plan + user-investment
+      // edit forms; the UI renders these as "1 hour"/"2 hours" via
+      // secondsToDisplay(). Hour columns are kept null — deprecated.
+      profitInterval:   1 * 3600,   // 1 hour
+      maxInterval:      2 * 3600,   // 2 hours
+      minDurationHours: null,
+      maxDurationHours: null,
       minLossRatio:     8,      // 8–12 % chance per tick → avg ~1 in 10 ticks
       maxLossRatio:     12,
       minLoss:          0.10,   // losses are small — 0.10%–0.30% of invested amount
@@ -228,10 +231,10 @@ async function main() {
       maxAmount:        19999,
       minProfit:        0.8,
       maxProfit:        1.3,
-      minDurationHours: 25,
-      maxDurationHours: 45,
-      profitInterval:   60,
-      maxInterval:      60,
+      profitInterval:   2 * 3600,   // 2 hours
+      maxInterval:      4 * 3600,   // 4 hours
+      minDurationHours: null,
+      maxDurationHours: null,
       minLossRatio:     12,     // 12–18 % per tick
       maxLossRatio:     18,
       minLoss:          0.15,
@@ -246,10 +249,10 @@ async function main() {
       maxAmount:        100000,
       minProfit:        1.0,
       maxProfit:        1.5,
-      minDurationHours: 20,
-      maxDurationHours: 45,
-      profitInterval:   60,
-      maxInterval:      60,
+      profitInterval:   3 * 3600,   // 3 hours
+      maxInterval:      6 * 3600,   // 6 hours
+      minDurationHours: null,
+      maxDurationHours: null,
       minLossRatio:     16,     // 16–24 % per tick — higher-tier volatility
       maxLossRatio:     24,
       minLoss:          0.20,
@@ -313,28 +316,78 @@ async function main() {
     console.log(`   migrated ${legacyInvs.length} legacy investment loss-ratios -> min/max`);
   }
 
-  // Backfill UserInvestment.minDurationHours/maxDurationHours from the
-  // referenced plan, for rows that don't have them set yet. Non-breaking,
-  // only writes when both source and target fields are available.
+  // Duration-unit migration: canonical storage is now seconds
+  // (profitInterval / maxInterval). Any plan or user investment that
+  // still has the legacy hour columns populated and the seconds columns
+  // at the placeholder 60-second default gets its hours copied into
+  // seconds. Engine reads seconds first, so new rows never slip back.
+  const hourPlans = await prisma.investmentPlan.findMany({
+    where: {
+      OR: [{ minDurationHours: { not: null } }, { maxDurationHours: { not: null } }],
+      profitInterval: { lte: 60 },
+    },
+    select: { id: true, minDurationHours: true, maxDurationHours: true },
+  });
+  let planSecMig = 0;
+  for (const p of hourPlans) {
+    const minH = p.minDurationHours ?? 1;
+    const maxH = p.maxDurationHours ?? Math.max(3, minH);
+    await prisma.investmentPlan.update({
+      where: { id: p.id },
+      data:  {
+        profitInterval: minH * 3600,
+        maxInterval:    maxH * 3600,
+      },
+    });
+    planSecMig++;
+  }
+  if (planSecMig > 0) console.log(`   migrated ${planSecMig} plan duration-hours → seconds`);
+
+  const hourInvs = await prisma.userInvestment.findMany({
+    where: {
+      OR: [{ minDurationHours: { not: null } }, { maxDurationHours: { not: null } }],
+      profitInterval: { lte: 60 },
+    },
+    select: { id: true, minDurationHours: true, maxDurationHours: true },
+  });
+  let invSecMig = 0;
+  for (const i of hourInvs) {
+    const minH = i.minDurationHours ?? 1;
+    const maxH = i.maxDurationHours ?? Math.max(3, minH);
+    await prisma.userInvestment.update({
+      where: { id: i.id },
+      data:  {
+        profitInterval: minH * 3600,
+        maxInterval:    maxH * 3600,
+      },
+    });
+    invSecMig++;
+  }
+  if (invSecMig > 0) console.log(`   migrated ${invSecMig} user-investment duration-hours → seconds`);
+
+  // Backfill UserInvestment seconds from the referenced plan for any
+  // row that still lacks a cadence (no seconds AND no legacy hours).
+  // Non-breaking — only writes when the plan has usable values.
   const toBackfill = await prisma.userInvestment.findMany({
-    where: { minDurationHours: null, planId: { not: null } },
+    where: { profitInterval: { lte: 60 }, planId: { not: null } },
     include: { plan: true },
   });
   let backfilled = 0;
   for (const inv of toBackfill) {
-    if (inv.plan?.minDurationHours != null && inv.plan?.maxDurationHours != null) {
+    const p = inv.plan;
+    if (!p) continue;
+    const pi = p.profitInterval && p.profitInterval > 60 ? p.profitInterval : null;
+    const mi = p.maxInterval    && p.maxInterval    > 60 ? p.maxInterval    : null;
+    if (pi && mi) {
       await prisma.userInvestment.update({
         where: { id: inv.id },
-        data: {
-          minDurationHours: inv.plan.minDurationHours,
-          maxDurationHours: inv.plan.maxDurationHours,
-        },
+        data:  { profitInterval: pi, maxInterval: mi },
       });
       backfilled++;
     }
   }
   if (backfilled > 0) {
-    console.log(`   backfilled duration hours on ${backfilled} user investments`);
+    console.log(`   backfilled seconds cadence on ${backfilled} user investments from parent plans`);
   }
 
   // ── Copy traders — backfill loss + duration defaults ──────────────

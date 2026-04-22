@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
 import { addInvestmentFunds, stopCopyTrade, getUpgradePlans, userUpgradeInvestmentPlan } from "@/lib/actions/investment";
+import { formatSecondsRange } from "@/lib/duration";
 import {
   TrendingUp, Activity, Plus, ShieldAlert, Loader2, Clock,
   Users, StopCircle, XCircle, ArrowDownToLine, ArrowUpFromLine,
@@ -713,12 +714,15 @@ export default function DashboardClient({
             <MetaRow
               label="Cycle"
               value={(() => {
+                const pi = investment.profitInterval;
+                const mi = (investment as any).maxInterval as number | undefined;
                 const minH = (investment as any).minDurationHours as number | null | undefined;
                 const maxH = (investment as any).maxDurationHours as number | null | undefined;
-                const cycle =
-                  minH != null && maxH != null
-                    ? (minH === maxH ? `every ${minH}h` : `every ${minH}–${maxH}h`)
-                    : "variable";
+                const minSecs = pi > 0 ? pi : (minH ?? 0) * 3600;
+                const maxSecs = (mi ?? pi) > 0 ? (mi ?? pi) : (maxH ?? 0) * 3600;
+                const cycle = minSecs > 0 && maxSecs > 0
+                  ? formatSecondsRange(minSecs, maxSecs).toLowerCase()
+                  : "variable cycle";
                 return `${investment.minProfit}%–${investment.maxProfit}% · ${cycle}`;
               })()}
             />

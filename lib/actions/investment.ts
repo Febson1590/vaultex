@@ -66,16 +66,21 @@ export async function userStartInvestment(data: {
     return { error: "Insufficient USD balance" };
   }
 
-  // Hour-based scheduling. A plan MUST define a duration band — admin
-  // form validation enforces this. If a legacy plan somehow lacks one,
-  // default to 1–3 hours so the engine never slips into seconds.
+  // Seconds-based scheduling (the canonical storage unit).
+  // Legacy plans that only have the hour columns populated get migrated
+  // by the seed's backfill pass; if somehow neither is set we fall back
+  // to a safe 1-3 hour window so the engine always has a cadence.
   const now = new Date();
-  const minH = plan.minDurationHours ?? 1;
-  const maxH = plan.maxDurationHours ?? Math.max(3, minH);
-  const firstTickHours = maxH > minH
-    ? minH + Math.random() * (maxH - minH)
-    : minH;
-  const nextProfitAt = new Date(now.getTime() + Math.round(firstTickHours * 3600 * 1000));
+  const minSecsCfg = plan.profitInterval > 0
+    ? plan.profitInterval
+    : (plan.minDurationHours ?? 1) * 3600;
+  const maxSecsCfg = plan.maxInterval > 0
+    ? plan.maxInterval
+    : (plan.maxDurationHours ?? Math.max(3, Math.ceil(minSecsCfg / 3600))) * 3600;
+  const firstTickSecs = maxSecsCfg > minSecsCfg
+    ? minSecsCfg + Math.random() * (maxSecsCfg - minSecsCfg)
+    : minSecsCfg;
+  const nextProfitAt = new Date(now.getTime() + Math.round(firstTickSecs * 1000));
 
   const invData = {
     planId: plan.id,
@@ -84,8 +89,10 @@ export async function userStartInvestment(data: {
     totalEarned: 0,
     minProfit: plan.minProfit,
     maxProfit: plan.maxProfit,
-    profitInterval: plan.profitInterval,
-    maxInterval: plan.maxInterval,
+    // Snapshot seconds (canonical). Use the resolved values so a legacy
+    // hour-only plan still writes correct seconds onto the user row.
+    profitInterval: minSecsCfg,
+    maxInterval:    maxSecsCfg,
     minDurationHours: plan.minDurationHours,
     maxDurationHours: plan.maxDurationHours,
     minLossRatio: plan.minLossRatio,
@@ -588,16 +595,42 @@ export async function adminDeletePlan(planId: string) {
 // ─── Admin: user investment management ───────────────────────────────────────
 
 export async function adminEditInvestment(userId: string, data: {
-  planName: string; amount: number; minProfit: number;
-  maxProfit: number; profitInterval: number; maxInterval: number;
+  planName:       string;
+  amount:         number;
+  minProfit:      number;
+  maxProfit:      number;
+  profitInterval: number;
+  maxInterval:    number;
+  minLossRatio?:  number;
+  maxLossRatio?:  number;
+  minLoss?:       number;
+  maxLoss?:       number;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
   const now = new Date();
-  const nextProfitAt = new Date(now.getTime() + data.profitInterval * 1000);
-  await db.userInvestment.update({ where: { userId }, data: { ...data, nextProfitAt } });
+  // Next tick scheduled from the min-edge of the band; the engine will
+  // re-randomize inside the band on every subsequent tick.
+  const nextProfitAt = new Date(now.getTime() + Math.max(0, data.profitInterval) * 1000);
+  await db.userInvestment.update({
+    where: { userId },
+    data: {
+      planName:         data.planName,
+      amount:           data.amount,
+      minProfit:        data.minProfit,
+      maxProfit:        data.maxProfit,
+      profitInterval:   data.profitInterval,
+      maxInterval:      data.maxInterval,
+      minLossRatio:     data.minLossRatio ?? 0,
+      maxLossRatio:     data.maxLossRatio ?? 0,
+      minLoss:          data.minLoss      ?? 0,
+      maxLoss:          data.maxLoss      ?? 0,
+      consecutiveLosses: 0,
+      nextProfitAt,
+    },
+  });
   revalidatePath("/admin/investments");
   return { success: true };
 }
@@ -620,20 +653,34 @@ export async function adminAddFundsToInvestment(userId: string, amount: number) 
 }
 
 export async function adminAssignInvestment(data: {
-  userId: string; planName: string; amount: number;
-  minProfit: number; maxProfit: number; profitInterval: number;
-  maxInterval: number; planId?: string;
+  userId:         string;
+  planName:       string;
+  amount:         number;
+  minProfit:      number;
+  maxProfit:      number;
+  profitInterval: number;
+  maxInterval:    number;
+  planId?:        string;
+  minLossRatio?:  number;
+  maxLossRatio?:  number;
+  minLoss?:       number;
+  maxLoss?:       number;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
   const now = new Date();
-  const nextProfitAt = new Date(now.getTime() + data.profitInterval * 1000);
+  const nextProfitAt = new Date(now.getTime() + Math.max(0, data.profitInterval) * 1000);
   const invPayload = {
     planId: data.planId || null, planName: data.planName, amount: data.amount,
     minProfit: data.minProfit, maxProfit: data.maxProfit,
     profitInterval: data.profitInterval, maxInterval: data.maxInterval,
+    minLossRatio: data.minLossRatio ?? 0,
+    maxLossRatio: data.maxLossRatio ?? 0,
+    minLoss:      data.minLoss      ?? 0,
+    maxLoss:      data.maxLoss      ?? 0,
+    consecutiveLosses: 0,
     status: "ACTIVE" as const, lastProfitAt: now, nextProfitAt,
   };
   await db.userInvestment.upsert({
