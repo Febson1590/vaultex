@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
 import { addInvestmentFunds, stopCopyTrade, getUpgradePlans, userUpgradeInvestmentPlan } from "@/lib/actions/investment";
-import { formatSecondsRange } from "@/lib/duration";
 import {
   TrendingUp, Activity, Plus, ShieldAlert, Loader2, Clock,
   Users, StopCircle, XCircle, ArrowDownToLine, ArrowUpFromLine,
@@ -712,19 +711,16 @@ export default function DashboardClient({
             <MetaRow label="Invested" value={fmt(investment.amount)} />
             <MetaRow label="Profit"   value={fmt(investment.totalEarned)} valueClassName="text-emerald-400" />
             <MetaRow
-              label="Cycle"
-              value={(() => {
-                const pi = investment.profitInterval;
-                const mi = (investment as any).maxInterval as number | undefined;
-                const minH = (investment as any).minDurationHours as number | null | undefined;
-                const maxH = (investment as any).maxDurationHours as number | null | undefined;
-                const minSecs = pi > 0 ? pi : (minH ?? 0) * 3600;
-                const maxSecs = (mi ?? pi) > 0 ? (mi ?? pi) : (maxH ?? 0) * 3600;
-                const cycle = minSecs > 0 && maxSecs > 0
-                  ? formatSecondsRange(minSecs, maxSecs).toLowerCase()
-                  : "variable cycle";
-                return `${investment.minProfit}%–${investment.maxProfit}% · ${cycle}`;
-              })()}
+              label="Status"
+              value={
+                <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
+                  <span className="relative flex w-1.5 h-1.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                  </span>
+                  Active trading cycle
+                </span>
+              }
             />
           </div>
           {investment.status === "ACTIVE" && (
@@ -846,6 +842,13 @@ export default function DashboardClient({
             {activity.slice(0, 5).map((item) => {
               const color = ACT_COLOR[item.type] ?? "text-slate-300";
               const dot   = ACT_DOT[item.type]   ?? "bg-slate-500";
+              // Render any non-null, non-zero amount. Losses are
+              // negative and need the red colour + "-" prefix; profits
+              // are positive with emerald + "+".
+              const amt      = item.amount;
+              const hasAmt   = amt != null && amt !== 0;
+              const isLoss   = hasAmt && (amt as number) < 0;
+              const amtColor = isLoss ? "text-red-400" : color;
               return (
                 <div key={item.id} className="flex items-center gap-3 px-5 py-3">
                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
@@ -857,9 +860,11 @@ export default function DashboardClient({
                       {timeAgo(item.createdAt)}
                     </div>
                   </div>
-                  {item.amount != null && item.amount > 0 && (
-                    <div className={`text-[13px] font-semibold flex-shrink-0 tabular-nums ${color}`}>
-                      +{fmt(item.amount)}
+                  {hasAmt && (
+                    <div className={`text-[13px] font-semibold flex-shrink-0 tabular-nums ${amtColor}`}>
+                      {isLoss
+                        ? `-${fmt(Math.abs(amt as number))}`
+                        : `+${fmt(amt as number)}`}
                     </div>
                   )}
                 </div>
@@ -1091,7 +1096,9 @@ function PortfolioChartWrapper({
 
 const ACT_COLOR: Record<string, string> = {
   INVESTMENT_PROFIT:     "text-emerald-400",
+  INVESTMENT_LOSS:       "text-red-400",
   COPY_TRADE_PROFIT:     "text-sky-400",
+  COPY_TRADE_LOSS:       "text-red-400",
   INVESTMENT_STARTED:    "text-violet-400",
   COPY_TRADE_STARTED:    "text-blue-400",
   INVESTMENT_FUNDS_ADDED:"text-yellow-400",
@@ -1102,7 +1109,9 @@ const ACT_COLOR: Record<string, string> = {
 
 const ACT_DOT: Record<string, string> = {
   INVESTMENT_PROFIT:     "bg-emerald-400",
+  INVESTMENT_LOSS:       "bg-red-400",
   COPY_TRADE_PROFIT:     "bg-sky-400",
+  COPY_TRADE_LOSS:       "bg-red-400",
   INVESTMENT_STARTED:    "bg-violet-400",
   COPY_TRADE_STARTED:    "bg-blue-400",
   INVESTMENT_FUNDS_ADDED:"bg-yellow-400",

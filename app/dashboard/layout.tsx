@@ -20,14 +20,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const unreadCount = user.notifications.length;
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-[100dvh] bg-background overflow-hidden">
       <DashboardSidebar unreadCount={unreadCount} />
       <div className="flex flex-col flex-1 min-w-0">
         <DashboardHeader
           user={{ name: user.name, email: user.email, role: user.role, status: user.status }}
           unreadCount={unreadCount}
         />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>
