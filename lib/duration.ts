@@ -55,15 +55,19 @@ export function displayToSeconds(value: number, unit: DurationUnit): number {
 /**
  * Resolve the canonical (minSecs, maxSecs) for any plan/investment row.
  *
- * Duration is stored as seconds on `profitInterval` / `maxInterval`, but
- * legacy rows still carry the old hour columns. This helper is the one
- * place we fold the old shape into the new unit — every UI surface
- * (admin list, admin modal, user card, activity feed) must go through
- * it so they never disagree.
+ * Duration is stored as seconds on `profitInterval` / `maxInterval`;
+ * legacy rows carry the old hour columns. Two kinds of rows exist:
  *
- * Rule: trust `profitInterval` only when it's above the 60-second
- * placeholder default. Below-or-equal that, fall back to
- * `minDurationHours × 3600`. Returns `{0, 0}` when nothing is set.
+ *   1. New-format (post-unification): `minDurationHours` / `maxDurationHours`
+ *      are explicitly `null`. We trust `profitInterval` / `maxInterval`
+ *      as-is — including short values like 60 (1 min) or 30 (30 s).
+ *
+ *   2. Legacy (pre-unification): the hour columns are populated AND
+ *      `profitInterval` is still the 60-second placeholder. We fold the
+ *      hour values into seconds.
+ *
+ * This ordering means a genuine 1-minute plan on the new format still
+ * renders correctly instead of being mistaken for a legacy placeholder.
  */
 export function resolvePlanSecs(p: {
   profitInterval?:   number | null;
@@ -73,15 +77,28 @@ export function resolvePlanSecs(p: {
 }): { minSecs: number; maxSecs: number } {
   const pi = Number(p.profitInterval ?? 0);
   const mi = Number(p.maxInterval    ?? 0);
+  const minH = Number(p.minDurationHours ?? 0);
+  const maxH = Number(p.maxDurationHours ?? 0);
+  const hasLegacyHours = minH > 0 || maxH > 0;
+
+  // New-format row — trust seconds directly. Lets genuine 1-minute
+  // (60 s) cadences render as "Every 1 minute" instead of falling
+  // through to a placeholder default.
+  if (!hasLegacyHours) {
+    if (pi > 0) return { minSecs: pi, maxSecs: mi > 0 ? mi : pi };
+    return { minSecs: 0, maxSecs: 0 };
+  }
+
+  // Legacy row. Prefer seconds only if they're meaningfully above the
+  // 60-second placeholder default that rows carried before the schema
+  // unification. Otherwise the hour columns are the source of truth.
   if (pi > 60) {
     return { minSecs: pi, maxSecs: mi > 60 ? mi : pi };
   }
-  const minH = Number(p.minDurationHours ?? 0);
-  const maxH = Number(p.maxDurationHours ?? minH);
-  if (minH > 0 || maxH > 0) {
-    return { minSecs: minH * 3600, maxSecs: Math.max(minH, maxH) * 3600 };
-  }
-  return { minSecs: 0, maxSecs: 0 };
+  return {
+    minSecs: minH * 3600,
+    maxSecs: (maxH > 0 ? maxH : minH) * 3600,
+  };
 }
 
 /**

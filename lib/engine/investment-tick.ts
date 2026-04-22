@@ -42,18 +42,41 @@ function biasedRand(min: number, max: number): number {
 }
 
 /** Resolve the canonical seconds cadence for any plan/investment row.
- *  Trusts `profitInterval` when it's above the 60-second placeholder;
- *  falls back to legacy hour columns; finally defaults to 1 hour. */
+ *
+ * Mirrors lib/duration.ts#resolvePlanSecs exactly so the display layer
+ * and the engine never disagree on what cadence a row is running at:
+ *
+ *   • New-format rows (hour columns null) → trust seconds as-is,
+ *     including short values like 60 s (1 minute) or 30 s.
+ *   • Legacy rows (hour columns populated) → prefer hours unless the
+ *     seconds column is meaningfully above the 60 s placeholder.
+ *   • Final fallback: 1 hour so the engine never fires in a tight loop.
+ */
 function resolveCadenceSecs(row: {
   profitInterval:   number;
   maxInterval:      number | null;
   minDurationHours: number | null;
   maxDurationHours: number | null;
 }): { minSecs: number; maxSecs: number } {
-  let minSecs = row.profitInterval;
-  let maxSecs = row.maxInterval ?? minSecs;
-  if (minSecs <= 60 && row.minDurationHours) minSecs = row.minDurationHours * 3600;
-  if (maxSecs <= 60 && row.maxDurationHours) maxSecs = row.maxDurationHours * 3600;
+  const pi = Number(row.profitInterval ?? 0);
+  const mi = Number(row.maxInterval    ?? 0);
+  const minH = Number(row.minDurationHours ?? 0);
+  const maxH = Number(row.maxDurationHours ?? 0);
+  const hasLegacyHours = minH > 0 || maxH > 0;
+
+  let minSecs: number;
+  let maxSecs: number;
+  if (!hasLegacyHours) {
+    minSecs = pi;
+    maxSecs = mi > 0 ? mi : pi;
+  } else if (pi > 60) {
+    minSecs = pi;
+    maxSecs = mi > 60 ? mi : pi;
+  } else {
+    minSecs = minH * 3600;
+    maxSecs = (maxH > 0 ? maxH : minH) * 3600;
+  }
+
   if (minSecs <= 0) minSecs = 3600;
   if (maxSecs <  minSecs) maxSecs = minSecs;
   return { minSecs, maxSecs };

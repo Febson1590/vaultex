@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireApprovedKyc } from "@/lib/kyc";
 import { sendNotificationEmail, APP_URL } from "@/lib/notifications";
+import { resolvePlanSecs } from "@/lib/duration";
 
 // ─── User: get available investment plans ────────────────────────────────────
 
@@ -66,17 +67,12 @@ export async function userStartInvestment(data: {
     return { error: "Insufficient USD balance" };
   }
 
-  // Seconds-based scheduling (the canonical storage unit).
-  // Legacy plans that only have the hour columns populated get migrated
-  // by the seed's backfill pass; if somehow neither is set we fall back
-  // to a safe 1-3 hour window so the engine always has a cadence.
+  // Canonical seconds via the shared resolver — same rule the admin
+  // list, admin modal, user card and engine all use.
   const now = new Date();
-  const minSecsCfg = plan.profitInterval > 0
-    ? plan.profitInterval
-    : (plan.minDurationHours ?? 1) * 3600;
-  const maxSecsCfg = plan.maxInterval > 0
-    ? plan.maxInterval
-    : (plan.maxDurationHours ?? Math.max(3, Math.ceil(minSecsCfg / 3600))) * 3600;
+  const resolved = resolvePlanSecs(plan);
+  const minSecsCfg = resolved.minSecs > 0 ? resolved.minSecs : 3600;   // 1 h safety floor
+  const maxSecsCfg = resolved.maxSecs >= minSecsCfg ? resolved.maxSecs : minSecsCfg;
   const firstTickSecs = maxSecsCfg > minSecsCfg
     ? minSecsCfg + Math.random() * (maxSecsCfg - minSecsCfg)
     : minSecsCfg;
@@ -605,15 +601,20 @@ export async function adminEditInvestment(userId: string, data: {
   maxLossRatio?:  number;
   minLoss?:       number;
   maxLoss?:       number;
+  planId?:        string | null;
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
   const now = new Date();
-  // Next tick scheduled from the min-edge of the band; the engine will
-  // re-randomize inside the band on every subsequent tick.
-  const nextProfitAt = new Date(now.getTime() + Math.max(0, data.profitInterval) * 1000);
+  // Next tick randomized inside the configured band so the first post-
+  // edit tick behaves like every other tick (no min-edge bias).
+  const minSecs = Math.max(0, data.profitInterval);
+  const maxSecs = Math.max(minSecs, data.maxInterval);
+  const firstSecs = maxSecs > minSecs ? minSecs + Math.random() * (maxSecs - minSecs) : minSecs;
+  const nextProfitAt = new Date(now.getTime() + Math.round(firstSecs * 1000));
+
   await db.userInvestment.update({
     where: { userId },
     data: {
@@ -623,15 +624,30 @@ export async function adminEditInvestment(userId: string, data: {
       maxProfit:        data.maxProfit,
       profitInterval:   data.profitInterval,
       maxInterval:      data.maxInterval,
+      // Legacy hour columns are fully deprecated — clear them on every
+      // admin edit so the canonical seconds fields are the sole source
+      // of truth for this row going forward.
+      minDurationHours: null,
+      maxDurationHours: null,
       minLossRatio:     data.minLossRatio ?? 0,
       maxLossRatio:     data.maxLossRatio ?? 0,
       minLoss:          data.minLoss      ?? 0,
       maxLoss:          data.maxLoss      ?? 0,
+      // Track plan link if the admin (re)selected a plan in the modal,
+      // or `null` to mark as a pure custom override.
+      ...(data.planId !== undefined ? { planId: data.planId || null } : {}),
       consecutiveLosses: 0,
+      lastProfitAt:      now,
       nextProfitAt,
     },
   });
   revalidatePath("/admin/investments");
+  // Make sure the user's dashboard + investments page drop their
+  // cached render too — otherwise they see the old values until the
+  // next 15s poll lands.
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/investments");
+  revalidatePath(`/admin/users/${userId}`);
   return { success: true };
 }
 
@@ -671,11 +687,19 @@ export async function adminAssignInvestment(data: {
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
   const now = new Date();
-  const nextProfitAt = new Date(now.getTime() + Math.max(0, data.profitInterval) * 1000);
+  // Randomize first tick inside the band so admin-assigned investments
+  // tick on the same distribution as user-started ones.
+  const minSecs = Math.max(0, data.profitInterval);
+  const maxSecs = Math.max(minSecs, data.maxInterval);
+  const firstSecs = maxSecs > minSecs ? minSecs + Math.random() * (maxSecs - minSecs) : minSecs;
+  const nextProfitAt = new Date(now.getTime() + Math.round(firstSecs * 1000));
+
   const invPayload = {
     planId: data.planId || null, planName: data.planName, amount: data.amount,
     minProfit: data.minProfit, maxProfit: data.maxProfit,
     profitInterval: data.profitInterval, maxInterval: data.maxInterval,
+    minDurationHours: null,
+    maxDurationHours: null,
     minLossRatio: data.minLossRatio ?? 0,
     maxLossRatio: data.maxLossRatio ?? 0,
     minLoss:      data.minLoss      ?? 0,
@@ -692,6 +716,8 @@ export async function adminAssignInvestment(data: {
     data: { userId: data.userId, type: "INVESTMENT_STARTED", title: `Investment started — ${data.planName}`, amount: data.amount, currency: "USD" },
   });
   revalidatePath("/admin/investments");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/investments");
   revalidatePath(`/admin/users/${data.userId}`);
   return { success: true };
 }

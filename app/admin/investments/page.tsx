@@ -502,7 +502,13 @@ function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess 
 
     setLoading(true);
     if (isEdit && investment) {
-      const r = await adminEditInvestment(investment.userId, common);
+      // Pass the plan link through on edits so the admin table + user
+      // dashboard stay accurate after a plan switch. An empty picker
+      // value means "custom override — no plan link".
+      const r = await adminEditInvestment(investment.userId, {
+        ...common,
+        planId: form.planId ? form.planId : null,
+      });
       setLoading(false);
       if (r.error) { toast.error(r.error); return; }
       toast.success("Investment updated!");
