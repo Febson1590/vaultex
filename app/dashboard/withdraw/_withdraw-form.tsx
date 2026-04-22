@@ -178,10 +178,14 @@ export default function WithdrawForm({
     setError("");
   }
 
-  /* Withdrawal fee: percent of USD + fixed USD fee. */
+  /* Withdrawal fee is shown separately as an informational charge.
+     It is NOT subtracted from the user's requested withdrawal amount —
+     the amount the user types is the amount they receive. */
   const usdAmount  = dual.usdNumber;
   const feeUsd     = (usdAmount * feePercent) / 100 + feeFixed;
-  const netReceiveUsd = Math.max(0, usdAmount - feeUsd);
+  // "You will receive" equals the full requested amount. The fee is a
+  // separate disclosure line — see comment above.
+  const netReceiveUsd = usdAmount;
 
   /** Fill both inputs with the full USD balance + its crypto equivalent. */
   function setMaxAmount() {
@@ -352,18 +356,27 @@ export default function WithdrawForm({
           rateStale={currentRate <= 0}
         />
 
-        {/* Fee breakdown */}
+        {/* Fee breakdown — informational only; not deducted from payout */}
         {usdAmount > 0 && (feePercent > 0 || feeFixed > 0) && (
-          <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2.5 text-[11.5px] text-slate-400 flex items-center justify-between gap-3">
-            <div>
-              Fee <span className="text-slate-300 tabular-nums">${formatUsd(feeUsd)}</span>
+          <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-[12px]">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-400">Withdrawal Amount</span>
+              <span className="text-white font-semibold tabular-nums">${formatUsd(usdAmount)}</span>
             </div>
-            <div>
-              You&apos;ll receive{" "}
-              <span className="text-emerald-300 font-semibold tabular-nums">
+            <div className="flex items-center justify-between gap-3 mt-1.5">
+              <span className="text-slate-400">Fee</span>
+              <span className="text-slate-300 tabular-nums">${formatUsd(feeUsd)}</span>
+            </div>
+            <div className="mt-2.5 pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-3">
+              <span className="text-slate-300 font-medium">You&rsquo;ll receive</span>
+              <span className="text-emerald-300 font-semibold tabular-nums text-[13px]">
                 ${formatUsd(netReceiveUsd)}
               </span>
             </div>
+            <p className="mt-2 text-[10.5px] text-slate-500 leading-relaxed">
+              Withdrawal fee is charged separately and is not deducted from
+              the requested withdrawal amount.
+            </p>
           </div>
         )}
 

@@ -99,6 +99,27 @@ export async function adminUpdateWallet(userId: string, currency: string, amount
     });
   }
 
+  // Professional user-facing description. Never surface the literal
+  // "Admin add/subtract" internal terminology — use words a customer
+  // would recognize on a bank/broker statement.
+  const reasonText = reason.trim();
+  const description = (() => {
+    if (operation === "ADD") {
+      // Heuristic: if the admin typed "bonus" anywhere in the reason,
+      // prefer the "Bonus credited" phrasing. Otherwise treat as a
+      // generic account credit, carrying the reason as the detail.
+      if (/\bbonus\b/i.test(reasonText)) {
+        return reasonText ? `Bonus credited — ${reasonText}` : "Bonus credited";
+      }
+      return reasonText ? `Account credit — ${reasonText}` : "Account credit";
+    }
+    if (operation === "SUBTRACT") {
+      return reasonText ? `Account adjustment — ${reasonText}` : "Account adjustment";
+    }
+    // SET
+    return reasonText ? `Balance correction — ${reasonText}` : "Balance correction";
+  })();
+
   await db.transaction.create({
     data: {
       userId,
@@ -106,9 +127,7 @@ export async function adminUpdateWallet(userId: string, currency: string, amount
       currency,
       amount,
       status: "COMPLETED",
-      description: reason
-        ? `Admin ${operation.toLowerCase()}: ${reason}`
-        : `Admin balance adjustment: ${operation} ${amount} ${currency}`,
+      description,
     },
   });
 

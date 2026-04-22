@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, ArrowDownToLine, ArrowUpFromLine,
   ShieldCheck, TrendingUp, History, HeadphonesIcon, Bell, Copy, Wallet,
-  SlidersHorizontal,
+  SlidersHorizontal, Lock,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +23,7 @@ const navItems = [
   { href: "/admin/transactions",    label: "Transactions",       icon: History },
   { href: "/admin/support",         label: "Support",            icon: HeadphonesIcon },
   { href: "/admin/notifications",   label: "Notifications",      icon: Bell },
+  { href: "/admin/security",        label: "Security",           icon: Lock },
 ];
 
 interface AdminNavProps {

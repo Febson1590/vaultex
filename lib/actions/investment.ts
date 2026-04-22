@@ -612,7 +612,7 @@ export async function adminAddFundsToInvestment(userId: string, amount: number) 
   await db.$transaction([
     db.userInvestment.update({ where: { userId }, data: { amount: { increment: amount } } }),
     db.activityLog.create({
-      data: { userId, type: "INVESTMENT_FUNDS_ADDED", title: `Admin added $${amount.toLocaleString()} to ${inv.planName}`, amount, currency: "USD" },
+      data: { userId, type: "INVESTMENT_FUNDS_ADDED", title: `$${amount.toLocaleString()} added to ${inv.planName}`, amount, currency: "USD" },
     }),
   ]);
   revalidatePath("/admin/investments");
