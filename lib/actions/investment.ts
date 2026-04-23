@@ -455,42 +455,13 @@ export async function userUpgradeInvestmentPlan(data: {
 
 // ─── User: stop copying a trader ──────────────────────────────────────
 
-export async function stopCopyTrade(copyTradeId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return { error: "Unauthorized" };
-  const userId = session.user.id;
-
-  const trade = await db.userCopyTrade.findFirst({ where: { id: copyTradeId, userId } });
-  if (!trade) return { error: "Trade not found" };
-
-  await db.$transaction([
-    db.userCopyTrade.update({ where: { id: copyTradeId }, data: { status: "STOPPED" } }),
-    db.activityLog.create({
-      data: { userId, type: "COPY_TRADE_STOPPED", title: `Stopped copying ${trade.traderName}`, amount: Number(trade.amount), currency: "USD" },
-    }),
-  ]);
-
-  // Fire-and-forget email notification
-  try {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
-    if (user?.email) {
-      sendNotificationEmail({
-        to: user.email,
-        name: user.name || "Trader",
-        subject: `Copy Trade Stopped — ${trade.traderName}`,
-        heading: "Copy Trade Stopped",
-        body: [
-          `You have stopped copying ${trade.traderName}.`,
-          `Your total invested amount was $${Number(trade.amount).toLocaleString()} with $${Number(trade.totalEarned).toLocaleString()} earned.`,
-        ],
-        cta: { label: "View Dashboard", url: `${APP_URL}/dashboard` },
-      }).catch((err) => console.error("[stopCopyTrade] email failed:", err));
-    }
-  } catch (_) { /* non-blocking */ }
-
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/copy-trading");
-  return { success: true };
+/** Deprecated: user-facing stop. Kept as a stub that returns an error
+ *  so older dashboards can't silently stop a trade — ending a copy
+ *  trade is an admin-only operation (via `adminEndCopyTrade`). */
+export async function stopCopyTrade(_copyTradeId: string) {
+  return {
+    error: "Copy trades can only be ended by an administrator. Contact support if you'd like to close a trade early.",
+  };
 }
 
 // ─── Admin: investment plan CRUD ─────────────────────────────────────────
@@ -959,21 +930,120 @@ export async function adminAssignCopyTrade(data: { userId: string; traderId: str
   return { success: true };
 }
 
-export async function adminStopCopyTrade(copyTradeId: string) {
+/**
+ * Admin-only: end a user's copy trade and release principal + profit.
+ *
+ * Mirrors `adminEndInvestment`. Releases `principal + max(totalEarned, 0)`
+ * to the user's Available Balance (USD wallet) atomically, creates a
+ * Transaction row (so it shows up in the transaction history), an
+ * activity log entry, and a notification. Losses during the run appear
+ * in history for realism but never eat the principal — Option B.
+ */
+export async function adminEndCopyTrade(copyTradeId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
   const admin = await db.user.findUnique({ where: { id: session.user.id } });
   if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
   const trade = await db.userCopyTrade.findUnique({ where: { id: copyTradeId } });
-  if (!trade) return { error: "Trade not found" };
+  if (!trade) return { error: "Copy trade not found" };
+  if (trade.status === "STOPPED") {
+    return { error: "This copy trade is already closed" };
+  }
+
+  const principal    = Number(trade.amount);
+  const earnedRaw    = Number(trade.totalEarned);
+  const profitPayout = Math.max(0, earnedRaw);
+  const payout       = Math.round((principal + profitPayout) * 100) / 100;
+
+  const usdWallet = await db.wallet.findFirst({
+    where: { userId: trade.userId, currency: "USD" },
+  });
+
   await db.$transaction([
-    db.userCopyTrade.update({ where: { id: copyTradeId }, data: { status: "STOPPED" } }),
+    db.userCopyTrade.update({
+      where: { id: copyTradeId },
+      data:  {
+        status:       "STOPPED",
+        completedAt:  new Date(),
+        finalReturn:  payout,
+        nextProfitAt: null,
+      },
+    }),
+    ...(usdWallet
+      ? [db.wallet.update({
+          where: { id: usdWallet.id },
+          data:  { balance: { increment: payout } },
+        })]
+      : [db.wallet.create({
+          data: { userId: trade.userId, currency: "USD", balance: payout, address: "" },
+        })]),
+    db.transaction.create({
+      data: {
+        userId:      trade.userId,
+        type:        "ADJUSTMENT",
+        currency:    "USD",
+        amount:      payout,
+        description: `Copy trade ended — ${trade.traderName} released to available balance`,
+      },
+    }),
     db.activityLog.create({
-      data: { userId: trade.userId, type: "COPY_TRADE_STOPPED", title: `Copy trade stopped — ${trade.traderName}`, currency: "USD" },
+      data: {
+        userId:   trade.userId,
+        type:     "COPY_TRADE_ENDED",
+        title:    `Copy trade ended — $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} released to your balance`,
+        amount:   payout,
+        currency: "USD",
+      },
+    }),
+    db.notification.create({
+      data: {
+        userId:  trade.userId,
+        title:   "Copy Trade Ended",
+        message: `Your ${trade.traderName} copy trade has been closed. $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} has been released to your available balance.`,
+        type:    "SUCCESS",
+      },
     }),
   ]);
+
+  // Fire-and-forget email
+  try {
+    const user = await db.user.findUnique({
+      where: { id: trade.userId }, select: { email: true, name: true },
+    });
+    if (user?.email) {
+      sendNotificationEmail({
+        to: user.email,
+        name: user.name || "Trader",
+        subject: `Copy Trade Ended — ${trade.traderName}`,
+        heading: "Your Copy Trade Has Ended",
+        body: [
+          `Your copy trade of ${trade.traderName} has been closed by our team.`,
+          `Principal invested: $${principal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          profitPayout > 0
+            ? `Profit released: $${profitPayout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : "Profit released: —",
+          `Total released to your available balance: $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          "You can now withdraw these funds, start a new trade, or copy another trader.",
+        ],
+        cta: { label: "View Dashboard", url: `${APP_URL}/dashboard` },
+      }).catch((err) => console.error("[adminEndCopyTrade] email failed:", err));
+    }
+  } catch (_) { /* non-blocking */ }
+
   revalidatePath("/admin/copy-traders");
-  return { success: true };
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/copy-trading");
+  revalidatePath("/dashboard/transactions");
+  revalidatePath(`/admin/users/${trade.userId}`);
+
+  return { success: true, payout, principal, profitReleased: profitPayout };
+}
+
+/** Thin alias kept for call-sites that still import the old name.
+ *  New callers should use `adminEndCopyTrade`. */
+export async function adminStopCopyTrade(copyTradeId: string) {
+  return adminEndCopyTrade(copyTradeId);
 }
 
 // ─── List helpers ──────────────────────────────────────────────────────────

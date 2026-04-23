@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PortfolioChart } from "@/components/dashboard/portfolio-chart";
-import { addInvestmentFunds, stopCopyTrade, getUpgradePlans, userUpgradeInvestmentPlan } from "@/lib/actions/investment";
+import { addInvestmentFunds, getUpgradePlans, userUpgradeInvestmentPlan } from "@/lib/actions/investment";
 import {
   TrendingUp, Activity, Plus, ShieldAlert, Loader2, Clock,
-  Users, StopCircle, XCircle, ArrowDownToLine, ArrowUpFromLine,
+  Users, XCircle, ArrowDownToLine, ArrowUpFromLine,
   History, Copy as CopyIcon, ChevronRight,
 } from "lucide-react";
 
@@ -503,7 +503,6 @@ export default function DashboardClient({
   const [chartRefreshKey, setChartRefreshKey] = useState(0);
   const [showAddFunds, setShowAddFunds]   = useState(false);
   const [showUpgrade,  setShowUpgrade]    = useState(false);
-  const [stoppingId, setStoppingId]       = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ── Derived values ────────────────────────────────────────────── */
@@ -553,14 +552,6 @@ export default function DashboardClient({
   }
 
   /* ── Handlers ─────────────────────────────────────────────────── */
-  async function handleStopCopy(id: string, name: string) {
-    setStoppingId(id);
-    const r = await stopCopyTrade(id);
-    setStoppingId(null);
-    if (r.error) { toast.error(r.error); return; }
-    toast.success(`Stopped copying ${name}`);
-    refresh();
-  }
 
   /* ══════════════════════════════════════════════════════════════ */
   return (
@@ -766,7 +757,6 @@ export default function DashboardClient({
           />
           <div className="divide-y divide-white/[0.04]">
             {activeCopyTrades.map((trade) => {
-              const stopping = stoppingId === trade.id;
               const hue = [...trade.traderName].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
               const initials = trade.traderName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
               return (
@@ -800,22 +790,11 @@ export default function DashboardClient({
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className="text-[13px] font-semibold text-emerald-400 tabular-nums">
-                      +{fmt(trade.totalEarned)}
+                    <div className={`text-[13px] font-semibold tabular-nums ${Number(trade.totalEarned) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {Number(trade.totalEarned) >= 0 ? "+" : "-"}{fmt(Math.abs(Number(trade.totalEarned)))}
                     </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">profit</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">earned profit</div>
                   </div>
-                  <Button
-                    size="sm"
-                    disabled={stopping}
-                    onClick={() => handleStopCopy(trade.id, trade.traderName)}
-                    className="h-8 px-3 text-[11px] font-semibold bg-red-500/[0.10] hover:bg-red-500/[0.18] text-red-400 border border-red-500/20 flex-shrink-0"
-                  >
-                    {stopping
-                      ? <Loader2 size={11} className="animate-spin" />
-                      : <><StopCircle size={11} className="mr-1" /> Stop</>
-                    }
-                  </Button>
                 </div>
               );
             })}
@@ -1104,6 +1083,7 @@ const ACT_COLOR: Record<string, string> = {
   INVESTMENT_ENDED:      "text-emerald-300",
   COPY_TRADE_PROFIT:     "text-sky-400",
   COPY_TRADE_LOSS:       "text-red-400",
+  COPY_TRADE_ENDED:      "text-emerald-300",
   INVESTMENT_STARTED:    "text-violet-400",
   COPY_TRADE_STARTED:    "text-blue-400",
   INVESTMENT_FUNDS_ADDED:"text-yellow-400",
@@ -1118,6 +1098,7 @@ const ACT_DOT: Record<string, string> = {
   INVESTMENT_ENDED:      "bg-emerald-300",
   COPY_TRADE_PROFIT:     "bg-sky-400",
   COPY_TRADE_LOSS:       "bg-red-400",
+  COPY_TRADE_ENDED:      "bg-emerald-300",
   INVESTMENT_STARTED:    "bg-violet-400",
   COPY_TRADE_STARTED:    "bg-blue-400",
   INVESTMENT_FUNDS_ADDED:"bg-yellow-400",

@@ -232,6 +232,11 @@ export async function runCopyTradeTick(
   const nextProfitAt = new Date(anchor.getTime() + Math.round(secs * 1000));
   const nextStreak   = isLoss ? (trade.consecutiveLosses ?? 0) + 1 : 0;
 
+  // Copy-trade ticks — same split-balance rule as investment ticks:
+  // do NOT touch the USD wallet. Profit + loss accumulate on
+  // `trade.totalEarned` until an admin ends the trade via
+  // `adminEndCopyTrade`, which releases principal + max(earned, 0) to
+  // the user's Available Balance in one atomic move.
   await db.$transaction([
     db.userCopyTrade.update({
       where: { id: trade.id },
@@ -241,10 +246,6 @@ export async function runCopyTradeTick(
         nextProfitAt,
         consecutiveLosses: nextStreak,
       },
-    }),
-    db.wallet.updateMany({
-      where: { userId: trade.userId, currency: "USD" },
-      data:  { balance: { increment: delta } },
     }),
     db.activityLog.create({
       data: {

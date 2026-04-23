@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  Loader2, Users, Plus, StopCircle, ChevronDown,
+  Loader2, Users, Plus, XCircle, ChevronDown,
   UserPlus, Edit2, Trash2, AlertTriangle, Sparkles,
 } from "lucide-react";
 import {
   adminCreateCopyTrader, adminUpdateCopyTrader, adminDeleteCopyTrader,
-  adminAssignCopyTrade, adminStopCopyTrade,
+  adminAssignCopyTrade, adminEndCopyTrade,
   adminGetAllCopyTraders, adminGetAllCopyTrades, adminGetAllUsers,
   adminDeleteAllSeededCopyTraders,
 } from "@/lib/actions/investment";
@@ -713,14 +713,26 @@ export default function AdminCopyTradersPage() {
 
   useEffect(() => { load(); }, []);
 
-  async function handleStop(tradeId: string) {
-    if (!confirm("Stop this copy trade?")) return;
-    setProcessing(tradeId);
+  async function handleEndCopyTrade(trade: CopyTrade) {
+    const principal = Number(trade.amount);
+    const earned    = Math.max(0, Number(trade.totalEarned));
+    const payout    = principal + earned;
+    const msg = `End this copy trade and release $${payout.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to the user's available balance?\n\n` +
+      `  Principal:       $${principal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+      `  Profit released: $${earned.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n` +
+      `This cannot be undone.`;
+    if (!confirm(msg)) return;
+    setProcessing(trade.id);
     try {
-      const r = await adminStopCopyTrade(tradeId);
-      if (r.error) toast.error(r.error);
-      else { toast.success("Stopped"); load(); }
-    } catch { toast.error("Failed to stop trade"); }
+      const r = await adminEndCopyTrade(trade.id);
+      if ("error" in r) toast.error(r.error);
+      else {
+        toast.success("Copy trade ended", {
+          description: `$${(r.payout ?? payout).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} released to available balance.`,
+        });
+        load();
+      }
+    } catch { toast.error("Failed to end copy trade"); }
     setProcessing(null);
   }
 
@@ -1014,12 +1026,13 @@ export default function AdminCopyTradersPage() {
                           <Button
                             size="sm"
                             disabled={processing === trade.id}
-                            onClick={() => handleStop(trade.id)}
-                            className="h-7 px-2 text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
+                            onClick={() => handleEndCopyTrade(trade)}
+                            title="Close the copy trade and release principal + profit to the user's available balance"
+                            className="h-7 px-2 text-xs bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/25"
                           >
                             {processing === trade.id
                               ? <Loader2 size={11} className="animate-spin" />
-                              : <><StopCircle size={11} className="mr-1" />Stop</>
+                              : <><XCircle size={11} className="mr-1" />End Trade</>
                             }
                           </Button>
                         )}

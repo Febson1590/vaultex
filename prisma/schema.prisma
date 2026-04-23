@@ -531,6 +531,11 @@ model UserCopyTrade {
   /** Streak guard — no more than 2 consecutive losses per copy-trade. */
   consecutiveLosses Int        @default(0)
   status       CopyTradeStatus @default(ACTIVE)
+  /** Set by adminEndCopyTrade when the admin closes the trade.
+      Principal + max(totalEarned, 0) is released to the user's
+      Available Balance and recorded on these columns. */
+  completedAt  DateTime?
+  finalReturn  Decimal?        @db.Decimal(20, 2)
   lastProfitAt DateTime?
   nextProfitAt DateTime?
   startedAt    DateTime        @default(now())
@@ -700,5 +705,6 @@ enum ActivityType {
   COPY_TRADE_PROFIT
   COPY_TRADE_LOSS
   COPY_TRADE_STOPPED
+  COPY_TRADE_ENDED
   COPY_TRADE_PAUSED
 }
