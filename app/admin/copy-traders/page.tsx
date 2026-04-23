@@ -14,7 +14,7 @@ import {
   adminDeleteAllSeededCopyTraders,
 } from "@/lib/actions/investment";
 import { COUNTRIES_SORTED, flagEmoji } from "@/lib/countries";
-import { secondsToDisplay, displayToSeconds, type DurationUnit, UNIT_LABELS } from "@/lib/duration";
+import { secondsToDisplay, displayToSeconds, type DurationUnit, UNIT_LABELS, resolvePlanSecs } from "@/lib/duration";
 
 interface CopyTrader {
   id: string; name: string; avatarUrl: string | null;
@@ -96,33 +96,24 @@ function TraderModal({ trader, onClose, onSuccess }: {
     minCopyAmount:    String(trader?.minCopyAmount ?? 100),
     profitInterval:   String(trader?.profitInterval ?? 60),
     maxInterval:      String(trader?.maxInterval ?? 60),
-    // Duration is stored as seconds (profitInterval/maxInterval). The
-    // admin UI uses the shared (value, unit) pair; legacy hour values
-    // on the trader row are promoted to seconds on first load so the
-    // display stays consistent.
-    minDurationValue: (() => {
-      const secs = trader?.profitInterval && trader.profitInterval > 60
-        ? trader.profitInterval
-        : (trader?.minDurationHours ?? 0) * 3600;
-      return secs > 0 ? String(secondsToDisplay(secs).value) : "";
-    })(),
-    minDurationUnit: (() => {
-      const secs = trader?.profitInterval && trader.profitInterval > 60
-        ? trader.profitInterval
-        : (trader?.minDurationHours ?? 0) * 3600;
-      return (secs > 0 ? secondsToDisplay(secs).unit : "hours") as DurationUnit;
-    })(),
-    maxDurationValue: (() => {
-      const secs = trader?.maxInterval && trader.maxInterval > 60
-        ? trader.maxInterval
-        : (trader?.maxDurationHours ?? 0) * 3600;
-      return secs > 0 ? String(secondsToDisplay(secs).value) : "";
-    })(),
-    maxDurationUnit: (() => {
-      const secs = trader?.maxInterval && trader.maxInterval > 60
-        ? trader.maxInterval
-        : (trader?.maxDurationHours ?? 0) * 3600;
-      return (secs > 0 ? secondsToDisplay(secs).unit : "hours") as DurationUnit;
+    // Duration stored as seconds (profitInterval / maxInterval).
+    // `resolvePlanSecs` is the shared helper that already handles the
+    // "is this a legit short value or a legacy placeholder?" distinction
+    // correctly — same helper the investment plan form uses. Ensures a
+    // saved 1-minute cadence (60 s) renders as "1 Minute" on reopen,
+    // not as an empty field that silently reverts on save.
+    ...(() => {
+      const { minSecs, maxSecs } = trader
+        ? resolvePlanSecs(trader)
+        : { minSecs: 0, maxSecs: 0 };
+      const minD = secondsToDisplay(minSecs);
+      const maxD = secondsToDisplay(maxSecs);
+      return {
+        minDurationValue: minSecs > 0 ? String(minD.value) : "",
+        minDurationUnit:  (minSecs > 0 ? minD.unit : "hours") as DurationUnit,
+        maxDurationValue: maxSecs > 0 ? String(maxD.value) : "",
+        maxDurationUnit:  (maxSecs > 0 ? maxD.unit : "hours") as DurationUnit,
+      };
     })(),
     minProfit:        String(trader?.minProfit ?? 0.3),
     maxProfit:        String(trader?.maxProfit ?? 1.2),
@@ -938,18 +929,15 @@ export default function AdminCopyTradersPage() {
                         <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">{tr.minProfit}%–{tr.maxProfit}%</td>
                         <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
                           {(() => {
-                            const mn = tr.profitInterval && tr.profitInterval > 60
-                              ? tr.profitInterval
-                              : (tr.minDurationHours ?? 0) * 3600;
-                            const mx = tr.maxInterval && tr.maxInterval > 60
-                              ? tr.maxInterval
-                              : (tr.maxDurationHours ?? 0) * 3600;
-                            if (mn <= 0 || mx <= 0) return <span className="text-slate-600">—</span>;
-                            const md = secondsToDisplay(mn);
-                            const xd = secondsToDisplay(mx);
+                            // Same shared resolver as the edit modal — a
+                            // legit 1-minute trader renders "1–2m", not "—".
+                            const { minSecs, maxSecs } = resolvePlanSecs(tr);
+                            if (minSecs <= 0 || maxSecs <= 0) return <span className="text-slate-600">—</span>;
+                            const md = secondsToDisplay(minSecs);
+                            const xd = secondsToDisplay(maxSecs);
                             const unit = (md.unit === "hours" || xd.unit === "hours") ? "h" : "m";
                             const div = unit === "h" ? 3600 : 60;
-                            return `${mn / div}–${mx / div}${unit}`;
+                            return `${minSecs / div}–${maxSecs / div}${unit}`;
                           })()}
                         </td>
                         <td className="px-4 py-3 text-xs text-white font-semibold">{tr.userCopyTrades.length}</td>
