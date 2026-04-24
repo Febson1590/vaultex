@@ -67,6 +67,14 @@ const SORT_OPTS: { key: SortKey; label: string }[] = [
 
 const RISK_ORDER: Record<string, number> = { LOW: 1, MEDIUM: 2, HIGH: 3 };
 
+/** Risk chip styling — matches the palette the detail page uses so the
+ *  visual language stays consistent between list and detail views. */
+const RISK_STYLES: Record<string, { label: string; className: string }> = {
+  LOW:    { label: "Low risk",    className: "text-emerald-400 bg-emerald-500/[0.08] border-emerald-500/20" },
+  MEDIUM: { label: "Medium risk", className: "text-amber-400   bg-amber-500/[0.08]   border-amber-500/20"   },
+  HIGH:   { label: "High risk",   className: "text-red-400     bg-red-500/[0.08]     border-red-500/20"     },
+};
+
 /* ══════════════════════════════════════════════════════════════════════
    Copy Trading — list page
 ══════════════════════════════════════════════════════════════════════ */
@@ -195,7 +203,6 @@ export default function CopyTradingClient({ traders, usdBalance, kycStatus }: Pr
 ══════════════════════════════════════════════════════════════════════ */
 
 function TraderCard({ trader, disabled }: { trader: Trader; disabled: boolean }) {
-  const up = trader.performance30d >= 0;
   const hue = avatarHue(trader.name);
   const href = `/dashboard/copy-trading/${trader.id}`;
 
@@ -249,17 +256,7 @@ function TraderCard({ trader, disabled }: { trader: Trader; disabled: boolean })
             )}
           </div>
 
-          <div className="flex items-baseline gap-2 mt-1">
-            <span
-              className={`text-[15px] font-bold tabular-nums ${up ? "text-emerald-400" : "text-red-400"}`}
-            >
-              {up ? "+" : ""}
-              {trader.performance30d.toFixed(1)}%
-            </span>
-            <span className="text-[11px] text-slate-500">30d</span>
-          </div>
-
-          <div className="flex items-center gap-3 mt-1 text-[11.5px] text-slate-500">
+          <div className="flex items-center gap-2.5 mt-1.5 flex-wrap text-[11.5px] text-slate-500">
             {trader.winRate > 0 && (
               <span className="flex items-center gap-1">
                 <TrendingUp size={11} className="text-slate-500" />
@@ -270,6 +267,14 @@ function TraderCard({ trader, disabled }: { trader: Trader; disabled: boolean })
               <Users size={11} className="text-slate-500" />
               {trader.followers.toLocaleString()}
             </span>
+            {(() => {
+              const r = RISK_STYLES[trader.riskLevel] ?? RISK_STYLES.MEDIUM;
+              return (
+                <span className={`inline-flex items-center gap-1 px-2 py-[2px] rounded-full border text-[10.5px] font-semibold leading-none ${r.className}`}>
+                  {r.label}
+                </span>
+              );
+            })()}
           </div>
         </div>
 

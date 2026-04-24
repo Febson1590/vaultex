@@ -190,13 +190,6 @@ export default function TraderDetailClient({
           {trader.specialty && (
             <p className="text-[12.5px] text-slate-500 mt-0.5">{trader.specialty}</p>
           )}
-          <div className="flex items-baseline gap-2 mt-2">
-            <span className={`text-[18px] font-bold tabular-nums ${up ? "text-emerald-400" : "text-red-400"}`}>
-              {up ? "+" : ""}
-              {trader.performance30d.toFixed(1)}%
-            </span>
-            <span className="text-[11px] text-slate-500">last 30 days</span>
-          </div>
         </div>
       </div>
 
