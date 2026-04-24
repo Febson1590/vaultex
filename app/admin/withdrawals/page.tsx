@@ -34,6 +34,10 @@ export default function AdminWithdrawalsPage() {
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  // Reject flow opens a small modal to collect the required reason —
+  // the server action rejects the call outright if notes is empty.
+  const [rejectTarget, setRejectTarget] = useState<AdminWithdrawal | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const fetchWithdrawals = () => {
     setLoading(true);
@@ -46,11 +50,28 @@ export default function AdminWithdrawalsPage() {
 
   useEffect(() => { fetchWithdrawals(); }, []);
 
-  const handle = async (id: string, action: "APPROVE" | "REJECT") => {
+  const approve = async (id: string) => {
     setProcessing(id);
-    const result = await processWithdrawalRequest(id, action);
-    if (result?.success) { toast.success(`Withdrawal ${action.toLowerCase()}d`); fetchWithdrawals(); }
+    const result = await processWithdrawalRequest(id, "APPROVE");
+    if (result?.success) { toast.success("Withdrawal approved"); fetchWithdrawals(); }
     else toast.error(result?.error || "Failed");
+    setProcessing(null);
+  };
+
+  const submitReject = async () => {
+    if (!rejectTarget) return;
+    const reason = rejectReason.trim();
+    if (!reason) { toast.error("Please enter a rejection reason"); return; }
+    setProcessing(rejectTarget.id);
+    const result = await processWithdrawalRequest(rejectTarget.id, "REJECT", reason);
+    if (result?.success) {
+      toast.success("Withdrawal rejected");
+      setRejectTarget(null);
+      setRejectReason("");
+      fetchWithdrawals();
+    } else {
+      toast.error(result?.error || "Failed");
+    }
     setProcessing(null);
   };
 
@@ -119,11 +140,11 @@ export default function AdminWithdrawalsPage() {
                     <td className="px-4 py-3">
                       {w.status === "PENDING" && (
                         <div className="flex gap-1.5">
-                          <Button size="sm" disabled={!!processing} onClick={() => handle(w.id, "APPROVE")}
+                          <Button size="sm" disabled={!!processing} onClick={() => approve(w.id)}
                             className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 h-7 px-2 text-xs">
                             {processing === w.id ? <Loader2 size={11} className="animate-spin" /> : <><CheckCircle2 size={11} className="mr-1" />Approve</>}
                           </Button>
-                          <Button size="sm" disabled={!!processing} onClick={() => handle(w.id, "REJECT")}
+                          <Button size="sm" disabled={!!processing} onClick={() => { setRejectTarget(w); setRejectReason(""); }}
                             className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 h-7 px-2 text-xs">
                             <XCircle size={11} className="mr-1" />Reject
                           </Button>
@@ -143,6 +164,53 @@ export default function AdminWithdrawalsPage() {
           </div>
         )}
       </div>
+
+      {/* ── Reject reason modal ─────────────────────────────────── */}
+      {rejectTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => processing ? null : setRejectTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[rgba(10,18,34,0.98)] p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-white">Reject withdrawal</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              {rejectTarget.user?.email} · {formatCurrency(Number(rejectTarget.amount))}
+            </p>
+            <p className="text-[12.5px] text-slate-400 mt-3">
+              This reason is shown to the user in their notification and email.
+            </p>
+            <textarea
+              autoFocus
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. Destination address didn't match verified wallet on file."
+              rows={4}
+              className="mt-2 w-full rounded-xl bg-white/[0.03] border border-white/[0.08] px-3 py-2.5 text-[13px] text-white placeholder:text-slate-600 focus:outline-none focus:border-sky-500/40 resize-none"
+            />
+            <div className="flex gap-2 mt-4">
+              <Button
+                disabled={!!processing}
+                onClick={() => setRejectTarget(null)}
+                className="flex-1 h-10 bg-white/[0.04] hover:bg-white/[0.07] text-slate-300 border border-white/10 font-semibold text-[13px]"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={!!processing || !rejectReason.trim()}
+                onClick={submitReject}
+                className="flex-1 h-10 bg-red-500 hover:bg-red-400 text-white font-semibold text-[13px] disabled:opacity-50"
+              >
+                {processing === rejectTarget.id
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : "Confirm reject"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
