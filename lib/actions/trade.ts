@@ -117,13 +117,17 @@ export async function placeTrade(data: {
     },
   });
 
-  // Create transaction record
+  // Transaction row tracks the USD leg of the trade so the balance
+  // chart on the dashboard includes the BUY/SELL movements. The
+  // asset-side details (quantity, symbol, price) stay in the
+  // tradeOrder row above; here we record the dollars.
+  const usdMovement = data.side === "BUY" ? total + fee : total - fee;
   await db.transaction.create({
     data: {
       userId,
       type: data.side === "BUY" ? "BUY" : "SELL",
-      currency: asset.symbol,
-      amount: quantity,
+      currency: "USD",
+      amount: usdMovement,
       fee,
       status: "COMPLETED",
       description: `${data.side} ${quantity} ${asset.symbol} @ $${price.toFixed(2)}`,

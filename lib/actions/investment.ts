@@ -266,6 +266,20 @@ export async function addInvestmentFunds(amount: number) {
   await db.$transaction([
     db.wallet.update({ where: { id: usdWallet.id }, data: { balance: { decrement: amount } } }),
     db.userInvestment.update({ where: { userId }, data: { amount: { increment: amount } } }),
+    // Transaction row so the wallet debit is visible to both the
+    // /dashboard/transactions history and the balance chart.
+    // Description uses the "Added funds to <plan>" phrase matched by
+    // the chart's debit markers.
+    db.transaction.create({
+      data: {
+        userId,
+        type:        "ADJUSTMENT",
+        currency:    "USD",
+        amount,
+        status:      "COMPLETED",
+        description: `Added funds to ${investment.planName}`,
+      },
+    }),
     db.activityLog.create({
       data: { userId, type: "INVESTMENT_FUNDS_ADDED", title: `Added $${amount.toLocaleString()} to ${investment.planName}`, amount, currency: "USD" },
     }),

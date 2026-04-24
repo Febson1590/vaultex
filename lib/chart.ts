@@ -10,7 +10,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { ActivityType, TransactionType, TxStatus } from "@prisma/client";
+import { TransactionType, TxStatus } from "@prisma/client";
 
 export type ChartPoint = { date: string; value: number };
 
@@ -60,26 +60,16 @@ export async function buildBalanceChart(
   const currentBalance = usdWallet ? Number(usdWallet.balance) : 0;
 
   // ── Fetch all balance-affecting events (all-time, sorted newest-first) ──
-  const [transactions, activityLogs] = await Promise.all([
-    db.transaction.findMany({
-      where: { userId, currency: "USD", status: TxStatus.COMPLETED },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.activityLog.findMany({
-      where: {
-        userId,
-        currency: "USD",
-        type: {
-          in: [
-            ActivityType.INVESTMENT_PROFIT,
-            ActivityType.COPY_TRADE_PROFIT,
-            ActivityType.INVESTMENT_LOSS,
-          ],
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+  //
+  // Under the split-balance model investment + copy-trade ticks do NOT
+  // touch the USD wallet — they accumulate in the relevant investment's
+  // `totalEarned` and only release to the wallet when admin ends the
+  // trade (which writes a Transaction row). So the USD balance chart is
+  // driven entirely by Transaction rows; activity logs are not consulted.
+  const transactions = await db.transaction.findMany({
+    where: { userId, currency: "USD", status: TxStatus.COMPLETED },
+    orderBy: { createdAt: "desc" },
+  });
 
   // ── Build unified event list with signed USD deltas ───────────────────────
   type BalanceEvent = { ts: Date; delta: number };
@@ -104,20 +94,36 @@ export async function buildBalanceChart(
         break;
 
       case TransactionType.ADJUSTMENT: {
-        // ADJUSTMENT is used for both admin wallet edits and for
-        // user-initiated debits that move money from the wallet into an
-        // investment / copy-trade / plan upgrade. Descriptions we know
-        // to mean "money left the wallet" (negative delta):
-        //   "admin subtract: …"
-        //   "admin balance adjustment: SUBTRACT …"
-        //   "Investment in <plan>"
-        //   "Copy trading <trader>"
-        //   "Upgrade top-up to <plan>"
+        // ADJUSTMENT covers everything that moves through the USD wallet
+        // without a dedicated TransactionType: admin credits/debits,
+        // user moving money into investments / copy trades / upgrades,
+        // and admin-released payouts when a trade ends.
+        //
+        // Debit markers (money leaves the wallet):
+        //   "account adjustment"  — admin SUBTRACT
+        //   "investment in "      — user starts an investment
+        //   "copy trading"        — user starts copying a trader
+        //   "upgrade top-up"      — plan upgrade top-up
+        //   "added funds to"      — addFunds into an active investment
+        //
+        // Credit markers (money arrives in the wallet):
+        //   "bonus credited" / "account credit" — admin ADD
+        //   "trade ended"    / "copy trade ended" — end-trade payouts
+        //
+        // "balance correction" (admin SET) is ambiguous — the stored
+        // amount is the new absolute balance, not a delta. Skip those
+        // from reconstruction; the current-balance anchor still pulls
+        // today's point to the true wallet value.
+        if (desc.includes("balance correction")) {
+          delta = 0;
+          break;
+        }
         const debitMarkers = [
-          "subtract",
+          "account adjustment",
           "investment in ",
           "copy trading",
           "upgrade top-up",
+          "added funds to",
         ];
         const isDebit = debitMarkers.some((m) => desc.includes(m));
         delta = isDebit ? -amount : amount;
@@ -128,16 +134,8 @@ export async function buildBalanceChart(
     if (delta !== 0) events.push({ ts: tx.createdAt, delta });
   }
 
-  for (const log of activityLogs) {
-    if (log.amount === null) continue;
-    // Profit rows store a positive amount; INVESTMENT_LOSS stores a
-    // negative amount. Either way the stored amount IS the signed delta
-    // applied to the wallet at tick time.
-    const raw = Number(log.amount);
-    if (raw !== 0) events.push({ ts: log.createdAt, delta: raw });
-  }
-
-  // Sort newest-first (already sorted by DB query, but merge may reorder)
+  // Sort newest-first (already sorted by DB query but the types may
+  // arrive in different insertion orders within the same millisecond).
   events.sort((a, b) => b.ts.getTime() - a.ts.getTime());
 
   // ── Backward reconstruction ───────────────────────────────────────────────
