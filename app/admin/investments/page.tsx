@@ -1017,7 +1017,14 @@ export default function AdminInvestmentsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {inv.status !== "CANCELLED" && (
+                          {/* Closed trades (COMPLETED / CANCELLED) aren't editable —
+                              their amount, profit, and final payout are
+                              historical records now. Show a muted dash so the
+                              Actions column isn't empty-looking. */}
+                          {(inv.status === "COMPLETED" || inv.status === "CANCELLED") && (
+                            <span className="text-[11px] text-slate-600">—</span>
+                          )}
+                          {(inv.status === "ACTIVE" || inv.status === "PAUSED") && (
                             <Button size="sm" onClick={() => setEditInv(inv)}
                               className="h-7 px-2 text-xs bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20">
                               <Pencil size={11} className="mr-1" />Edit

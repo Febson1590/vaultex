@@ -17,6 +17,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect("/login");
 
+  // Admins always land on /admin, never the user dashboard. Catches the
+  // case where an admin bookmarks /dashboard, opens a stale tab, or
+  // follows a link that points there — the login flow already routes
+  // fresh logins correctly.
+  if (user.role === "ADMIN") redirect("/admin");
+
   // Re-check status on every navigation. If the admin flipped the user
   // to FROZEN or SUSPENDED mid-session, the JWT is still valid but we
   // bounce them to the status page so their old session can't keep
