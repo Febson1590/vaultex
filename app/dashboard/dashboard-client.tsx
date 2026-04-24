@@ -508,10 +508,15 @@ export default function DashboardClient({
   /* ── Derived values ────────────────────────────────────────────── */
   const activeCopyTrades = copyTrades.filter(t => t.status !== "STOPPED");
   const copyTradingTotal = activeCopyTrades.reduce((s, t) => s + t.amount, 0);
+  // Only ACTIVE/PAUSED investments count toward "Active" portfolio figures.
+  // COMPLETED/CANCELLED have already been settled — principal + profit are
+  // back in the wallet, so counting them here would double-display value.
+  const isInvestmentLive =
+    !!investment && (investment.status === "ACTIVE" || investment.status === "PAUSED");
   const totalEarned =
-    (investment ? investment.totalEarned : 0) +
+    (isInvestmentLive ? investment!.totalEarned : 0) +
     activeCopyTrades.reduce((s, t) => s + t.totalEarned, 0);
-  const activeInvested = investment && investment.status !== "CANCELLED" ? investment.amount : 0;
+  const activeInvested = isInvestmentLive ? investment!.amount : 0;
   const roiPct = activeInvested > 0 ? (totalEarned / activeInvested) * 100 : 0;
 
   // Daily change — computed from chart data (last vs previous point)
@@ -684,41 +689,53 @@ export default function DashboardClient({
         </div>
       </Card>
 
-      {/* ── 5. ACTIVE INVESTMENT CARD ───────────────────────── */}
-      {investment && investment.status !== "CANCELLED" ? (
+      {/* ── 5. ACTIVE INVESTMENT CARD ─────────────────────────
+          Only render while the trade is live. Once the admin ends
+          the trade (COMPLETED) or cancels it, principal + profit are
+          already in the wallet and the card would otherwise lie
+          about "active trading." History is available on the
+          investments page. */}
+      {isInvestmentLive ? (
         <Card>
           <CardHeader
             icon={TrendingUp}
-            title={`${investment.planName}`}
+            title={`${investment!.planName}`}
             action={
               <span
                 className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                  investment.status === "ACTIVE"
+                  investment!.status === "ACTIVE"
                     ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
                     : "bg-yellow-500/10 border-yellow-500/25 text-yellow-400"
                 }`}
               >
-                {investment.status}
+                {investment!.status}
               </span>
             }
           />
           <div className="px-5 py-4 space-y-3">
-            <MetaRow label="Invested" value={fmt(investment.amount)} />
-            <MetaRow label="Profit"   value={fmt(investment.totalEarned)} valueClassName="text-emerald-400" />
+            <MetaRow label="Invested" value={fmt(investment!.amount)} />
+            <MetaRow label="Profit"   value={fmt(investment!.totalEarned)} valueClassName="text-emerald-400" />
             <MetaRow
               label="Status"
               value={
-                <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
-                  <span className="relative flex w-1.5 h-1.5">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                investment!.status === "ACTIVE" ? (
+                  <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
+                    <span className="relative flex w-1.5 h-1.5">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                    </span>
+                    Active trading cycle
                   </span>
-                  Active trading cycle
-                </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-yellow-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                    Paused by admin
+                  </span>
+                )
               }
             />
           </div>
-          {investment.status === "ACTIVE" && (
+          {investment!.status === "ACTIVE" && (
             <div className="px-5 pb-5 flex gap-2">
               <Button
                 className="flex-1 h-10 bg-sky-500/[0.10] hover:bg-sky-500/[0.18] text-sky-300 border border-sky-500/25 font-semibold text-[13px]"
