@@ -94,6 +94,15 @@ export async function runInvestmentTick(
   if (investment.status !== "ACTIVE") return null;
   if (!investment.nextProfitAt || investment.nextProfitAt > now) return null;
 
+  // Hard gate: SUSPENDED users stop earning entirely. FROZEN /
+  // RESTRICTED users keep passively earning on their existing
+  // investment (they just can't open new positions or move money).
+  const u = await db.user.findUnique({
+    where:  { id: investment.userId },
+    select: { status: true },
+  });
+  if (!u || u.status === "SUSPENDED") return null;
+
   // 1. Per-tick loss probability from the configured band.
   const minRatioPct = Number(investment.minLossRatio ?? 0);
   const maxRatioPct = Number(investment.maxLossRatio ?? 0);
@@ -187,6 +196,14 @@ export async function runCopyTradeTick(
 ): Promise<number | null> {
   if (trade.status !== "ACTIVE") return null;
   if (!trade.nextProfitAt || trade.nextProfitAt > now) return null;
+
+  // Same status gate as runInvestmentTick — SUSPENDED users don't
+  // accrue copy-trade profits either.
+  const u = await db.user.findUnique({
+    where:  { id: trade.userId },
+    select: { status: true },
+  });
+  if (!u || u.status === "SUSPENDED") return null;
 
   const minRatioPct = Number(trade.minLossRatio ?? 0);
   const maxRatioPct = Number(trade.maxLossRatio ?? 0);

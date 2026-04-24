@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireApprovedKyc } from "@/lib/kyc";
+import { requireActiveStatus } from "@/lib/user-status";
 
 /**
  * Step 1 of the deposit flow: user has clicked "I've Sent the Payment".
@@ -27,6 +28,9 @@ export async function createDepositRequest(data: {
 
   const kycError = await requireApprovedKyc(session.user.id);
   if (kycError) return kycError;
+
+  const statusError = await requireActiveStatus(session.user.id, "deposit");
+  if (statusError) return statusError;
 
   if (!data.amount || data.amount <= 0) return { error: "Enter a valid amount" };
 
@@ -151,6 +155,9 @@ export async function requestDeposit(data: {
   const kycError = await requireApprovedKyc(session.user.id);
   if (kycError) return kycError;
 
+  const statusError = await requireActiveStatus(session.user.id, "deposit");
+  if (statusError) return statusError;
+
   const request = await db.depositRequest.create({
     data: {
       userId:   session.user.id,
@@ -213,6 +220,9 @@ export async function requestWithdrawal(data: {
 
   const kycError = await requireApprovedKyc(userId);
   if (kycError) return kycError;
+
+  const statusError = await requireActiveStatus(userId, "withdraw");
+  if (statusError) return statusError;
 
   if (!data.amount || data.amount <= 0) {
     return { error: "Enter a valid amount" };

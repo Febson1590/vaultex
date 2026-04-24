@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireApprovedKyc } from "@/lib/kyc";
+import { requireActiveStatus } from "@/lib/user-status";
 import { sendNotificationEmail, APP_URL } from "@/lib/notifications";
 import { resolvePlanSecs } from "@/lib/duration";
 
@@ -47,6 +48,9 @@ export async function userStartInvestment(data: {
 
   const kycError = await requireApprovedKyc(userId);
   if (kycError) return kycError;
+
+  const statusError = await requireActiveStatus(userId, "invest");
+  if (statusError) return statusError;
 
   const plan = await db.investmentPlan.findUnique({ where: { id: data.planId } });
   if (!plan || !plan.isActive) return { error: "Plan not found or inactive" };
@@ -152,6 +156,9 @@ export async function userStartCopyTrade(data: {
   const kycError = await requireApprovedKyc(userId);
   if (kycError) return kycError;
 
+  const statusError = await requireActiveStatus(userId, "invest");
+  if (statusError) return statusError;
+
   const trader = await db.copyTrader.findUnique({ where: { id: data.traderId } });
   if (!trader || !trader.isActive) return { error: "Trader not found or inactive" };
   if (data.amount < Number(trader.minCopyAmount)) {
@@ -247,6 +254,9 @@ export async function addInvestmentFunds(amount: number) {
   const kycError = await requireApprovedKyc(userId);
   if (kycError) return kycError;
 
+  const statusError = await requireActiveStatus(userId, "addFunds");
+  if (statusError) return statusError;
+
   const investment = await db.userInvestment.findUnique({ where: { userId } });
   if (!investment) return { error: "No active investment found" };
 
@@ -334,6 +344,9 @@ export async function userUpgradeInvestmentPlan(data: {
 
   const kycError = await requireApprovedKyc(userId);
   if (kycError) return kycError;
+
+  const statusError = await requireActiveStatus(userId, "upgrade");
+  if (statusError) return statusError;
 
   const topUp = Math.max(0, data.topUp ?? 0);
 

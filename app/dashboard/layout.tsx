@@ -17,6 +17,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect("/login");
 
+  // Re-check status on every navigation. If the admin flipped the user
+  // to FROZEN or SUSPENDED mid-session, the JWT is still valid but we
+  // bounce them to the status page so their old session can't keep
+  // using the dashboard. RESTRICTED users can still browse — the
+  // individual actions reject them with a clear reason.
+  if (user.status === "FROZEN" || user.status === "SUSPENDED") {
+    redirect("/account-status");
+  }
+
   const unreadCount = user.notifications.length;
 
   return (
