@@ -231,36 +231,6 @@ export default function TraderDetailClient({
         <PerformanceChart series={perfSeries} up={up} />
       </div>
 
-      {/* ── Trading stats (simple rows) ──────────────────────────── */}
-      <div className="space-y-1">
-        <h2 className="text-[13px] font-semibold text-slate-300 mb-3">Trading stats</h2>
-        <StatRow label="Total trades"      value={trader.totalTrades.toLocaleString()} />
-        <StatRow label="Successful trades" value={trader.successfulTrades.toLocaleString()} valueClass="text-emerald-400" />
-        <StatRow label="Failed trades"     value={trader.failedTrades.toLocaleString()}     valueClass="text-red-400" />
-        <StatRow label="Max drawdown"      value={`${trader.maxDrawdown.toFixed(1)}%`}      valueClass="text-red-400" />
-        <StatRow label="Total ROI"         value={`${trader.totalROI >= 0 ? "+" : ""}${trader.totalROI.toFixed(1)}%`} valueClass={trader.totalROI >= 0 ? "text-emerald-400" : "text-red-400"} />
-      </div>
-
-      {/* ── Copy settings ─────────────────────────────────────────── */}
-      <div className="space-y-1">
-        <h2 className="text-[13px] font-semibold text-slate-300 mb-3">Copy settings</h2>
-        <StatRow label="Minimum copy amount" value={formatCurrency(trader.minCopyAmount)} />
-        <StatRow
-          label="Maximum copy amount"
-          value={trader.maxCopyAmount !== null ? formatCurrency(trader.maxCopyAmount) : "No cap"}
-        />
-        <StatRow
-          label="Profit range"
-          value={`${trader.minProfit}% – ${trader.maxProfit}% per cycle`}
-        />
-        <StatRow
-          label="Cycle speed"
-          value={trader.profitInterval === trader.maxInterval
-            ? `Every ${trader.profitInterval}s`
-            : `Every ${trader.profitInterval}–${trader.maxInterval}s`}
-        />
-      </div>
-
       {/* ── Action: Start Copying ────────────────────────────────── */}
       {alreadyCopying ? (
         <div className="rounded-2xl p-5 border border-emerald-500/20 bg-emerald-500/[0.04]">
@@ -332,25 +302,6 @@ function QuickStat({
       <div className={`text-[14px] font-semibold mt-1 tabular-nums truncate ${valueClass || "text-white"}`}>
         {value}
       </div>
-    </div>
-  );
-}
-
-/* ── Simple row (label left / value right) ───────────────────────────── */
-
-function StatRow({
-  label, value, valueClass = "",
-}: {
-  label:      string;
-  value:      string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between py-2.5 border-b border-white/[0.04] last:border-b-0">
-      <span className="text-[12.5px] text-slate-400">{label}</span>
-      <span className={`text-[13px] font-semibold tabular-nums ${valueClass || "text-white"}`}>
-        {value}
-      </span>
     </div>
   );
 }
