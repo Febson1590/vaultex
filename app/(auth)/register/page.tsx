@@ -195,8 +195,14 @@ export default function RegisterPage() {
     if (s === 1) {
       if (formData.username.trim().length < 2)
         errs.username = "Username must be at least 2 characters";
-      if (formData.fullName.trim().length < 2)
+      const trimmedName = formData.fullName.trim();
+      if (trimmedName.length < 2) {
         errs.fullName = "Full name must be at least 2 characters";
+      } else {
+        const parts = trimmedName.split(/\s+/).filter(Boolean);
+        if (parts.length < 2 || parts[1].length < 1)
+          errs.fullName = "Enter your first and last name (e.g. Jane Doe)";
+      }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
         errs.email = "Enter a valid email address";
       if (formData.phone && !/^\+?[\d\s\-(). ]{6,20}$/.test(formData.phone))
@@ -341,7 +347,7 @@ export default function RegisterPage() {
                 <Input
                   value={formData.fullName}
                   onChange={set("fullName")}
-                  placeholder="Your full legal name"
+                  placeholder="First and last name (e.g. Jane Doe)"
                   className={inputCls}
                 />
               </div>

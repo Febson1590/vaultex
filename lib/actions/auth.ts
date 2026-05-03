@@ -12,7 +12,12 @@ const registerSchema = z.object({
   name:     z.string().min(2),
   email:    z.string().email(),
   password: z.string().min(8),
-  fullName: z.string().optional(),
+  fullName: z
+    .string()
+    .trim()
+    .refine(v => v.split(/\s+/).filter(Boolean).length >= 2, {
+      message: "Full name must include first and last name",
+    }),
   phone:    z.string().optional(),
   country:  z.string().optional(),
 });
@@ -22,7 +27,7 @@ export async function registerUser(data: {
   name:      string;
   email:     string;
   password:  string;
-  fullName?: string;
+  fullName:  string;
   phone?:    string;
   country?:  string;
 }) {
@@ -80,7 +85,7 @@ export async function registerUser(data: {
       data: {
         userId:  user.id,
         title:   "Welcome to Vaultex Market",
-        message: "Your account has been created. Verify your email to unlock full trading features.",
+        message: "Your account has been created. Verify your identity to unlock full trading features.",
         type:    "INFO",
       },
     });

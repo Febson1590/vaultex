@@ -6,7 +6,7 @@ import { getKycStatusForUser } from "@/lib/kyc";
 import type { Metadata } from "next";
 import InvestmentsClient from "./investments-client";
 
-export const metadata: Metadata = { title: "Investment Plans — VaultEx" };
+export const metadata: Metadata = { title: "Investment Plans" };
 
 export default async function InvestmentsPage() {
   const session = await auth();

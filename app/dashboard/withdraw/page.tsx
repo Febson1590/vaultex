@@ -7,7 +7,7 @@ import { getCryptoRates } from "@/lib/rates";
 import WithdrawForm from "./_withdraw-form";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Withdraw — VaultEx" };
+export const metadata: Metadata = { title: "Withdraw" };
 
 /**
  * Withdrawal page — always renders for authenticated users.
