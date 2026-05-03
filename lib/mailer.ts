@@ -1,32 +1,23 @@
 import "server-only";
-import { SendMailClient } from "zeptomail";
+import { Resend } from "resend";
 
 /**
- * Thin wrapper around ZeptoMail that mimics the Resend API shape we
- * relied on across the codebase ({from, to, subject, text, html} →
- * {data, error}). The rest of the app talks to this module, not to
- * the provider SDK directly — that way swapping providers again is
- * a one-file change.
+ * Thin wrapper around Resend that exposes a stable {from, to, subject,
+ * text, html} → {data, error} API. The rest of the app talks to this
+ * module rather than the SDK directly, so swapping providers is a
+ * one-file change.
  *
  * Required env vars:
- *   ZEPTOMAIL_TOKEN — the "Send Mail Token" from ZeptoMail dashboard
- *                     (must include the literal "Zoho-enczapikey "
- *                     prefix as ZeptoMail emits it).
- *   ZEPTOMAIL_URL   — optional; defaults to "api.zeptomail.com/" which
- *                     is correct for the US data center. EU accounts
- *                     should set "api.zeptomail.eu/".
+ *   RESEND_API_KEY — the API key from resend.com/api-keys
  */
 
-const TOKEN = process.env.ZEPTOMAIL_TOKEN ?? "";
-const URL   = process.env.ZEPTOMAIL_URL   ?? "api.zeptomail.com/";
-
-const client = TOKEN
-  ? new SendMailClient({ url: URL, token: TOKEN })
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
 interface SendArgs {
-  from:    string;            // "Name <email@x.com>" or "email@x.com"
-  to:      string | string[]; // single or list of recipient emails
+  from:    string;            // "Name <email@x.com>" or bare "email@x.com"
+  to:      string | string[];
   subject: string;
   text?:   string;
   html?:   string;
@@ -37,52 +28,36 @@ interface SendResult {
   error: { name: string; message: string } | null;
 }
 
-/** Parse "Display Name <email@x.com>" or bare "email@x.com" into the
- *  structured shape ZeptoMail wants: { address, name? }. */
-function parseAddress(raw: string): { address: string; name?: string } {
-  const match = raw.match(/^\s*(.+?)\s*<\s*(.+?)\s*>\s*$/);
-  if (match) return { name: match[1].replace(/^"|"$/g, ""), address: match[2] };
-  return { address: raw.trim() };
-}
-
-/** Send an email via ZeptoMail and return a Resend-compatible result.
- *  Never throws — returns { error } so callers can log + rethrow with
- *  their own context, matching how Resend's SDK behaves. */
+/** Send an email via Resend. Never throws — returns { error } so
+ *  callers can log + rethrow with their own context. */
 export async function sendMail(args: SendArgs): Promise<SendResult> {
-  if (!client) {
+  if (!resend) {
     return {
       data: null,
-      error: { name: "ConfigError", message: "ZEPTOMAIL_TOKEN is not set" },
+      error: { name: "ConfigError", message: "RESEND_API_KEY is not set" },
     };
   }
 
-  const fromParsed = parseAddress(args.from);
-  const tos = Array.isArray(args.to) ? args.to : [args.to];
+  // Resend's type union requires html OR text. We always have at
+  // least one in practice — fall back to a single space so the SDK
+  // never receives an undefined body (callers should still pass html).
+  const result = await resend.emails.send({
+    from:    args.from,
+    to:      args.to,
+    subject: args.subject,
+    text:    args.text ?? " ",
+    html:    args.html ?? args.text ?? " ",
+  });
 
-  try {
-    const res = await client.sendMail({
-      from: { address: fromParsed.address, name: fromParsed.name ?? "" },
-      to: tos.map((addr) => ({
-        email_address: { address: addr, name: addr },
-      })),
-      subject: args.subject,
-      ...(args.html ? { htmlbody: args.html } : {}),
-      ...(args.text ? { textbody: args.text } : {}),
-    }) as { data?: Array<{ message_id?: string }>; message?: string };
-
-    // ZeptoMail returns { data: [{ message_id, ... }], message: "OK" }
-    const id = res?.data?.[0]?.message_id ?? "(no id returned)";
-    return { data: { id }, error: null };
-  } catch (err: unknown) {
-    // ZeptoMail SDK throws on non-2xx. Normalise to Resend error shape.
-    const e = err as { error?: { details?: Array<{ message?: string; code?: string }>; message?: string }; message?: string };
-    const detail = e?.error?.details?.[0];
+  if (result.error) {
     return {
       data: null,
-      error: {
-        name:    detail?.code ?? "ZeptoMailError",
-        message: detail?.message ?? e?.error?.message ?? e?.message ?? "Unknown ZeptoMail error",
-      },
+      error: { name: result.error.name, message: result.error.message },
     };
   }
+
+  return {
+    data: { id: result.data?.id ?? "(no id returned)" },
+    error: null,
+  };
 }
