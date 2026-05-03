@@ -1,10 +1,7 @@
 import "server-only";
 
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
 import { db } from "@/lib/db";
-
-// ─── Resend client (shared) ──────────────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Hosted assets ───────────────────────────────────────────────────────────
 export const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultexmarket.com";
@@ -426,17 +423,17 @@ export async function sendNotificationEmail(opts: {
     "— Vaultex Market",
   ].join("\n");
 
-  const result = await resend.emails.send({ from, to, subject, text, html });
+  const result = await sendMail({ from, to, subject, text, html });
 
   if (result.error) {
-    console.error(`${tag} RESEND ERROR:`, JSON.stringify(result.error));
+    console.error(`${tag} MAILER ERROR:`, JSON.stringify(result.error));
     throw new Error(
       `Email provider rejected the send request. name="${result.error.name}" message="${result.error.message}"`
     );
   }
 
   const messageId = result.data?.id ?? "(no id returned)";
-  console.log(`${tag} Email queued. Resend id: ${messageId}`);
+  console.log(`${tag} Email queued. Message id: ${messageId}`);
   return messageId;
 }
 

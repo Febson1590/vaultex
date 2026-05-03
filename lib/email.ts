@@ -1,8 +1,5 @@
 import "server-only";
-import { Resend } from "resend";
-
-// ─── Resend client ────────────────────────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendMail } from "@/lib/mailer";
 
 // ─── Hosted assets ────────────────────────────────────────────────────────────
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultexmarket.com";
@@ -340,20 +337,16 @@ export async function sendVerificationEmail(opts: {
     "— Vaultex Market",
   ].join("\n");
 
-  console.log(`${tag} Calling resend.emails.send() …`);
+  console.log(`${tag} Calling sendMail() …`);
 
-  // The Resend SDK never throws — it returns { data, error }.
-  // Not checking this return value is the silent-failure bug.
-  const result = await resend.emails.send({ from, to, subject, text, html });
+  const result = await sendMail({ from, to, subject, text, html });
 
-  console.log(`${tag} Raw Resend response:`, JSON.stringify(result));
+  console.log(`${tag} Raw mailer response:`, JSON.stringify(result));
 
   if (result.error) {
-    // Log the full provider error so it appears in Vercel Function logs.
-    console.error(`${tag} ❌ RESEND ERROR ──────────────────────────────`);
+    console.error(`${tag} ❌ MAILER ERROR ──────────────────────────────`);
     console.error(`${tag} name    : ${result.error.name}`);
     console.error(`${tag} message : ${result.error.message}`);
-    console.error(`${tag} full    :`, JSON.stringify(result.error));
     throw new Error(
       `Email provider rejected the send request. ` +
       `name="${result.error.name}" message="${result.error.message}"`
@@ -361,7 +354,7 @@ export async function sendVerificationEmail(opts: {
   }
 
   const messageId = result.data?.id ?? "(no id returned)";
-  console.log(`${tag} ✅ Email queued/delivered. Resend message id: ${messageId}`);
+  console.log(`${tag} ✅ Email queued/delivered. Message id: ${messageId}`);
   console.log(`${tag} ── END ────────────────────────────────────────`);
 
   return messageId;
