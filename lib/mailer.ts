@@ -21,6 +21,7 @@ interface SendArgs {
   subject: string;
   text?:   string;
   html?:   string;
+  replyTo?: string | string[];
 }
 
 interface SendResult {
@@ -47,6 +48,7 @@ export async function sendMail(args: SendArgs): Promise<SendResult> {
     subject: args.subject,
     text:    args.text ?? " ",
     html:    args.html ?? args.text ?? " ",
+    ...(args.replyTo ? { replyTo: args.replyTo } : {}),
   });
 
   if (result.error) {

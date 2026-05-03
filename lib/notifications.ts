@@ -397,6 +397,7 @@ export async function sendNotificationEmail(opts: {
   const { to, name, subject, heading, body, cta, summaryCard } = opts;
 
   const from = process.env.EMAIL_FROM || "Vaultex Market <no-reply@vaultexmarket.com>";
+  const replyTo = process.env.EMAIL_REPLY_TO || undefined;
 
   console.log(`${tag} to: ${to} | subject: ${subject}`);
 
@@ -423,7 +424,7 @@ export async function sendNotificationEmail(opts: {
     "— Vaultex Market",
   ].join("\n");
 
-  const result = await sendMail({ from, to, subject, text, html });
+  const result = await sendMail({ from, to, subject, text, html, replyTo });
 
   if (result.error) {
     console.error(`${tag} MAILER ERROR:`, JSON.stringify(result.error));

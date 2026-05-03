@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { GoogleTranslateHost } from "@/components/language-switcher";
+import { TawkChat } from "@/components/tawk-chat";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -78,6 +79,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
         <GoogleTranslateHost />
+        <TawkChat />
         <Toaster
           position="top-center"
           theme="dark"

@@ -307,6 +307,7 @@ export async function sendVerificationEmail(opts: {
   const { to, name, code, type } = opts;
 
   const from    = process.env.EMAIL_FROM || "Vaultex Market <no-reply@vaultexmarket.com>";
+  const replyTo = process.env.EMAIL_REPLY_TO || undefined;
   const subject = type === "REGISTER"
     ? "Verify your Vaultex account"
     : "Your Vaultex login code";
@@ -339,7 +340,7 @@ export async function sendVerificationEmail(opts: {
 
   console.log(`${tag} Calling sendMail() …`);
 
-  const result = await sendMail({ from, to, subject, text, html });
+  const result = await sendMail({ from, to, subject, text, html, replyTo });
 
   console.log(`${tag} Raw mailer response:`, JSON.stringify(result));
 
