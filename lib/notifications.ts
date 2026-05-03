@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Hosted assets ───────────────────────────────────────────────────────────
-export const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultex-six.vercel.app";
+export const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultexmarket.com";
 const LOGO_URL = `${APP_URL}/vaultex-logo.svg`;
 
 // ─── HTML template for notification emails ───────────────────────────────────

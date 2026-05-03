@@ -5,7 +5,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Hosted assets ────────────────────────────────────────────────────────────
-const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultex-six.vercel.app";
+const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultexmarket.com";
 const LOGO_URL = `${APP_URL}/vaultex-logo.svg`;
 
 // ─── HTML template ────────────────────────────────────────────────────────────
