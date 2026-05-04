@@ -25,11 +25,17 @@ export const COMPANY = {
 } as const;
 
 /* ── Support & security contact points ───────────────────────────────── */
+/* Single inbox model: every public-facing contact channel routes into
+   support@vaultexmarket.com so users always know where to reach us and
+   we don't have to maintain multiple mailboxes. The named keys are
+   preserved (security/compliance/privacy) because public pages still
+   label the link by purpose ("Report a Security Issue" etc.) — but
+   they all resolve to the same address. */
 export const CONTACT = {
   supportEmail:    "support@vaultexmarket.com",
-  securityEmail:   "security@vaultexmarket.com",
-  complianceEmail: "compliance@vaultexmarket.com",
-  privacyEmail:    "privacy@vaultexmarket.com",
+  securityEmail:   "support@vaultexmarket.com",
+  complianceEmail: "support@vaultexmarket.com",
+  privacyEmail:    "support@vaultexmarket.com",
 
   /** Human-readable business hours. Keep it simple and specific. */
   businessHours:   "Monday – Friday, 09:00 – 18:00 UTC",

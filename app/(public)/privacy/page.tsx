@@ -95,8 +95,8 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-white mb-2">9. Contact</h2>
             <p>
               Privacy questions can be sent to{" "}
-              <a href="mailto:privacy@vaultexmarket.com" className="text-sky-400 hover:text-sky-300">
-                privacy@vaultexmarket.com
+              <a href="mailto:support@vaultexmarket.com" className="text-sky-400 hover:text-sky-300">
+                support@vaultexmarket.com
               </a>.
             </p>
           </section>
