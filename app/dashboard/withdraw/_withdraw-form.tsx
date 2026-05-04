@@ -802,6 +802,10 @@ function ConfirmModal({
                 <Label htmlFor="withdraw-otp" className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">
                   Verification Code
                 </Label>
+                {/* Empty-slot placeholder reads as "6 boxes waiting" instead
+                    of "the field already has digits in it". The bullets are
+                    rendered in a muted slate-600 via the placeholder color
+                    so they don't compete with real input once typed. */}
                 <Input
                   id="withdraw-otp"
                   type="text"
@@ -810,8 +814,8 @@ function ConfirmModal({
                   maxLength={6}
                   value={otp}
                   onChange={(e) => onOtpChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="123456"
-                  className="text-center text-2xl tracking-[0.5em] font-mono font-semibold h-14"
+                  placeholder="••••••"
+                  className="text-center text-2xl tracking-[0.5em] font-mono font-semibold h-14 placeholder:text-slate-700 placeholder:tracking-[0.3em]"
                   autoFocus
                 />
                 {otpError && (
