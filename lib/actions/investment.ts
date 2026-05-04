@@ -958,6 +958,68 @@ export async function adminAssignCopyTrade(data: { userId: string; traderId: str
 }
 
 /**
+ * Admin-only: edit an in-flight user copy trade.
+ *
+ * Mirrors `adminEditInvestment` — lets the admin retune amount, profit
+ * band, cadence, and loss simulation on a single user's copy assignment
+ * without ending it. The next tick is randomized inside the new band so
+ * the first post-edit tick doesn't bias toward the lower bound.
+ */
+export async function adminEditCopyTrade(copyTradeId: string, data: {
+  amount:         number;
+  minProfit:      number;
+  maxProfit:      number;
+  profitInterval: number;
+  maxInterval:    number;
+  minLossRatio?:  number;
+  maxLossRatio?:  number;
+  minLoss?:       number;
+  maxLoss?:       number;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const admin = await db.user.findUnique({ where: { id: session.user.id } });
+  if (admin?.role !== "ADMIN") return { error: "Forbidden" };
+
+  const trade = await db.userCopyTrade.findUnique({ where: { id: copyTradeId } });
+  if (!trade) return { error: "Copy trade not found" };
+
+  const now = new Date();
+  const minSecs = Math.max(0, data.profitInterval);
+  const maxSecs = Math.max(minSecs, data.maxInterval);
+  const firstSecs = maxSecs > minSecs ? minSecs + Math.random() * (maxSecs - minSecs) : minSecs;
+  const nextProfitAt = new Date(now.getTime() + Math.round(firstSecs * 1000));
+
+  await db.userCopyTrade.update({
+    where: { id: copyTradeId },
+    data:  {
+      amount:           data.amount,
+      minProfit:        data.minProfit,
+      maxProfit:        data.maxProfit,
+      profitInterval:   minSecs,
+      maxInterval:      maxSecs,
+      // Hour-based legacy fields are deprecated — clear them on every
+      // admin edit so seconds are the sole source of truth.
+      minDurationHours: null,
+      maxDurationHours: null,
+      minLossRatio:     data.minLossRatio ?? 0,
+      maxLossRatio:     data.maxLossRatio ?? 0,
+      minLoss:          data.minLoss      ?? 0,
+      maxLoss:          data.maxLoss      ?? 0,
+      consecutiveLosses: 0,
+      lastProfitAt:      now,
+      nextProfitAt,
+    },
+  });
+
+  revalidatePath("/admin/copy-traders");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/copy-trading");
+  revalidatePath(`/admin/users/${trade.userId}`);
+  return { success: true };
+}
+
+/**
  * Admin-only: end a user's copy trade and release principal + profit.
  *
  * Mirrors `adminEndInvestment`. Releases `principal + max(totalEarned, 0)`

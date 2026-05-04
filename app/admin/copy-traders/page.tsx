@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import {
   adminCreateCopyTrader, adminUpdateCopyTrader, adminDeleteCopyTrader,
-  adminAssignCopyTrade, adminEndCopyTrade,
+  adminAssignCopyTrade, adminEditCopyTrade, adminEndCopyTrade,
   adminGetAllCopyTraders, adminGetAllCopyTrades, adminGetAllUsers,
   adminDeleteAllSeededCopyTraders,
 } from "@/lib/actions/investment";
@@ -33,6 +33,13 @@ interface CopyTrader {
 interface CopyTrade {
   id: string; traderName: string; amount: number; totalEarned: number;
   status: string; startedAt: string; user: { name: string | null; email: string };
+  /* Edit-modal fields — populated by adminGetAllCopyTrades.
+     Optional so older callers don't break, but always present in
+     the admin payload. */
+  minProfit?: number; maxProfit?: number;
+  profitInterval?: number; maxInterval?: number;
+  minLossRatio?: number; maxLossRatio?: number;
+  minLoss?: number; maxLoss?: number;
 }
 interface UserOption { id: string; name: string | null; email: string }
 
@@ -661,6 +668,149 @@ function AssignTradeModal({ traders, users, onClose, onSuccess }: {
   );
 }
 
+// ── Edit Per-User Copy Trade Modal ────────────────────────────────────────────
+function EditCopyTradeModal({ trade, onClose, onSuccess }: {
+  trade: CopyTrade; onClose: () => void; onSuccess: () => void;
+}) {
+  const [form, setForm] = useState({
+    amount:         String(trade.amount),
+    minProfit:      String(trade.minProfit      ?? 0.5),
+    maxProfit:      String(trade.maxProfit      ?? 1.5),
+    profitInterval: String(trade.profitInterval ?? 60),
+    maxInterval:    String(trade.maxInterval    ?? 120),
+    minLossRatio:   String(trade.minLossRatio   ?? 0),
+    maxLossRatio:   String(trade.maxLossRatio   ?? 0),
+    minLoss:        String(trade.minLoss        ?? 0),
+    maxLoss:        String(trade.maxLoss        ?? 0),
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  function set<K extends keyof typeof form>(k: K, v: string) {
+    setForm(f => ({ ...f, [k]: v }));
+    setErrors(e => { const { [k]: _drop, ...rest } = e; return rest; });
+  }
+
+  function validate(): { ok: boolean; errs: Record<string, string> } {
+    const errs: Record<string, string> = {};
+    const nonNeg = (s: string) => parseFloat(s) >= 0;
+    const pct = (s: string) => {
+      const n = parseFloat(s);
+      return !Number.isNaN(n) && n >= 0 && n <= 100;
+    };
+    if (!form.amount || parseFloat(form.amount) <= 0)
+      errs.amount = "Enter a valid amount";
+    if (!nonNeg(form.minProfit)) errs.minProfit = "Must be 0 or more";
+    if (!nonNeg(form.maxProfit)) errs.maxProfit = "Must be 0 or more";
+    if (parseFloat(form.maxProfit) < parseFloat(form.minProfit))
+      errs.maxProfit = "Max must be ≥ min profit";
+    const minS = parseFloat(form.profitInterval);
+    const maxS = parseFloat(form.maxInterval);
+    if (!Number.isFinite(minS) || minS <= 0) errs.profitInterval = "Enter seconds > 0";
+    if (!Number.isFinite(maxS) || maxS <= 0) errs.maxInterval    = "Enter seconds > 0";
+    if (!errs.profitInterval && !errs.maxInterval && maxS < minS)
+      errs.maxInterval = "Max must be ≥ min interval";
+    if (!pct(form.minLossRatio)) errs.minLossRatio = "0–100";
+    if (!pct(form.maxLossRatio)) errs.maxLossRatio = "0–100";
+    if (!errs.minLossRatio && !errs.maxLossRatio &&
+        parseFloat(form.maxLossRatio) < parseFloat(form.minLossRatio))
+      errs.maxLossRatio = "Max must be ≥ min loss ratio";
+    if (!nonNeg(form.minLoss)) errs.minLoss = "Must be 0 or more";
+    if (!nonNeg(form.maxLoss)) errs.maxLoss = "Must be 0 or more";
+    if (parseFloat(form.maxLoss) < parseFloat(form.minLoss))
+      errs.maxLoss = "Max must be ≥ min loss";
+    return { ok: Object.keys(errs).length === 0, errs };
+  }
+
+  async function submit() {
+    const { ok, errs } = validate();
+    setErrors(errs);
+    if (!ok) { toast.error("Please fix the highlighted fields"); return; }
+
+    setLoading(true);
+    try {
+      const r = await adminEditCopyTrade(trade.id, {
+        amount:         parseFloat(form.amount),
+        minProfit:      parseFloat(form.minProfit),
+        maxProfit:      parseFloat(form.maxProfit),
+        profitInterval: parseFloat(form.profitInterval),
+        maxInterval:    parseFloat(form.maxInterval),
+        minLossRatio:   parseFloat(form.minLossRatio) || 0,
+        maxLossRatio:   parseFloat(form.maxLossRatio) || 0,
+        minLoss:        parseFloat(form.minLoss)      || 0,
+        maxLoss:        parseFloat(form.maxLoss)      || 0,
+      });
+      if (r.error) { toast.error(r.error); return; }
+      toast.success("Copy trade updated");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Update failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function NumField({ k, label, suffix, step }: {
+    k: keyof typeof form; label: string; suffix?: string; step?: string;
+  }) {
+    return (
+      <div>
+        <label className={labelCls}>{label}</label>
+        <div className="relative mt-1">
+          <input
+            type="number"
+            step={step}
+            value={form[k]}
+            onChange={e => set(k, e.target.value)}
+            className={inputCls + (suffix ? " pr-10" : "") + (errors[k] ? " border-red-500/60" : "")}
+          />
+          {suffix && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 pointer-events-none">{suffix}</span>
+          )}
+        </div>
+        {errors[k] && <p className="text-[11px] text-red-400 mt-1">{errors[k]}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-2xl shadow-2xl my-8" onClick={e => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-white mb-1">Edit User Copy Trade</h3>
+        <p className="text-xs text-slate-500 mb-5">
+          {trade.user.name || trade.user.email} · {trade.traderName}
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2"><NumField k="amount" label="Principal Amount" suffix="USD" step="0.01" /></div>
+          <NumField k="minProfit" label="Min Profit" suffix="ratio" step="0.01" />
+          <NumField k="maxProfit" label="Max Profit" suffix="ratio" step="0.01" />
+          <NumField k="profitInterval" label="Min Interval" suffix="sec" step="1" />
+          <NumField k="maxInterval"    label="Max Interval" suffix="sec" step="1" />
+          <NumField k="minLossRatio" label="Min Loss Ratio" suffix="%" step="0.01" />
+          <NumField k="maxLossRatio" label="Max Loss Ratio" suffix="%" step="0.01" />
+          <NumField k="minLoss" label="Min Loss" suffix="ratio" step="0.01" />
+          <NumField k="maxLoss" label="Max Loss" suffix="ratio" step="0.01" />
+        </div>
+
+        <p className="text-[11px] text-slate-500 mt-4">
+          Profit ratios are decimals (e.g. <code className="text-slate-400">0.5</code> = 0.5%).
+          Losses don&apos;t eat principal — they only show up in the user&apos;s history. The next
+          tick is randomized inside the new band so the first post-edit tick isn&apos;t biased.
+        </p>
+
+        <div className="flex gap-2 mt-6">
+          <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button className="flex-1 bg-sky-500 hover:bg-sky-400 text-white font-semibold" onClick={submit} disabled={loading}>
+            {loading ? <Loader2 size={14} className="animate-spin mr-1" /> : null}Save
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdminCopyTradersPage() {
   const [traders,    setTraders]    = useState<CopyTrader[]>([]);
@@ -672,6 +822,7 @@ export default function AdminCopyTradersPage() {
   const [deleteTrader, setDeleteTrader] = useState<CopyTrader | null>(null);
   const [deleteBusy,   setDeleteBusy]   = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [editTrade,  setEditTrade]  = useState<CopyTrade | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [removingSeeded, setRemovingSeeded] = useState(false);
   const [tab, setTab] = useState<"traders" | "assignments">("traders");
@@ -1023,18 +1174,28 @@ export default function AdminCopyTradersPage() {
                       </td>
                       <td className="px-4 py-3">
                         {trade.status === "ACTIVE" && (
-                          <Button
-                            size="sm"
-                            disabled={processing === trade.id}
-                            onClick={() => handleEndCopyTrade(trade)}
-                            title="Close the copy trade and release principal + profit to the user's available balance"
-                            className="h-7 px-2 text-xs bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/25"
-                          >
-                            {processing === trade.id
-                              ? <Loader2 size={11} className="animate-spin" />
-                              : <><XCircle size={11} className="mr-1" />End Trade</>
-                            }
-                          </Button>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Button
+                              size="sm"
+                              onClick={() => setEditTrade(trade)}
+                              title="Edit principal, profit band, and cadence for this user"
+                              className="h-7 px-2 text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25"
+                            >
+                              <Edit2 size={11} className="mr-1" />Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={processing === trade.id}
+                              onClick={() => handleEndCopyTrade(trade)}
+                              title="Close the copy trade and release principal + profit to the user's available balance"
+                              className="h-7 px-2 text-xs bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/25"
+                            >
+                              {processing === trade.id
+                                ? <Loader2 size={11} className="animate-spin" />
+                                : <><XCircle size={11} className="mr-1" />End Trade</>
+                              }
+                            </Button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -1049,6 +1210,7 @@ export default function AdminCopyTradersPage() {
       {/* Modals */}
       {showCreate  && <TraderModal onClose={() => setShowCreate(false)} onSuccess={load} />}
       {editTrader  && <TraderModal trader={editTrader} onClose={() => setEditTrader(null)} onSuccess={load} />}
+      {editTrade   && <EditCopyTradeModal trade={editTrade} onClose={() => setEditTrade(null)} onSuccess={load} />}
       {showAssign  && <AssignTradeModal traders={traders} users={users} onClose={() => setShowAssign(false)} onSuccess={load} />}
       {deleteTrader && (
         <DeleteTraderModal
