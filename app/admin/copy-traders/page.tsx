@@ -672,23 +672,30 @@ function AssignTradeModal({ traders, users, onClose, onSuccess }: {
 function EditCopyTradeModal({ trade, onClose, onSuccess }: {
   trade: CopyTrade; onClose: () => void; onSuccess: () => void;
 }) {
+  // Convert stored seconds into the value+unit pair the duration picker
+  // expects, so admins see "5 Hours" instead of "18000 sec".
+  const initMin = secondsToDisplay(trade.profitInterval ?? 0);
+  const initMax = secondsToDisplay(trade.maxInterval    ?? 0);
+
   const [form, setForm] = useState({
-    amount:         String(trade.amount),
-    minProfit:      String(trade.minProfit      ?? 0.5),
-    maxProfit:      String(trade.maxProfit      ?? 1.5),
-    profitInterval: String(trade.profitInterval ?? 60),
-    maxInterval:    String(trade.maxInterval    ?? 120),
-    minLossRatio:   String(trade.minLossRatio   ?? 0),
-    maxLossRatio:   String(trade.maxLossRatio   ?? 0),
-    minLoss:        String(trade.minLoss        ?? 0),
-    maxLoss:        String(trade.maxLoss        ?? 0),
+    amount:           String(trade.amount),
+    minProfit:        String(trade.minProfit    ?? 0.3),
+    maxProfit:        String(trade.maxProfit    ?? 1.2),
+    minDurationValue: String(initMin.value),
+    minDurationUnit:  initMin.unit as DurationUnit,
+    maxDurationValue: String(initMax.value),
+    maxDurationUnit:  initMax.unit as DurationUnit,
+    minLossRatio:     String(trade.minLossRatio ?? 0),
+    maxLossRatio:     String(trade.maxLossRatio ?? 0),
+    minLoss:          String(trade.minLoss      ?? 0),
+    maxLoss:          String(trade.maxLoss      ?? 0),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  function set<K extends keyof typeof form>(k: K, v: string) {
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm(f => ({ ...f, [k]: v }));
-    setErrors(e => { const { [k]: _drop, ...rest } = e; return rest; });
+    setErrors(e => { const { [k as string]: _drop, ...rest } = e; return rest; });
   }
 
   function validate(): { ok: boolean; errs: Record<string, string> } {
@@ -698,27 +705,33 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
       const n = parseFloat(s);
       return !Number.isNaN(n) && n >= 0 && n <= 100;
     };
+
     if (!form.amount || parseFloat(form.amount) <= 0)
       errs.amount = "Enter a valid amount";
+
     if (!nonNeg(form.minProfit)) errs.minProfit = "Must be 0 or more";
     if (!nonNeg(form.maxProfit)) errs.maxProfit = "Must be 0 or more";
     if (parseFloat(form.maxProfit) < parseFloat(form.minProfit))
       errs.maxProfit = "Max must be ≥ min profit";
-    const minS = parseFloat(form.profitInterval);
-    const maxS = parseFloat(form.maxInterval);
-    if (!Number.isFinite(minS) || minS <= 0) errs.profitInterval = "Enter seconds > 0";
-    if (!Number.isFinite(maxS) || maxS <= 0) errs.maxInterval    = "Enter seconds > 0";
-    if (!errs.profitInterval && !errs.maxInterval && maxS < minS)
-      errs.maxInterval = "Max must be ≥ min interval";
-    if (!pct(form.minLossRatio)) errs.minLossRatio = "0–100";
-    if (!pct(form.maxLossRatio)) errs.maxLossRatio = "0–100";
+
+    const minSecs = displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit);
+    const maxSecs = displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit);
+    if (!form.minDurationValue.trim() || minSecs <= 0) errs.minDurationValue = "Enter a positive value";
+    if (!form.maxDurationValue.trim() || maxSecs <= 0) errs.maxDurationValue = "Enter a positive value";
+    if (!errs.minDurationValue && !errs.maxDurationValue && maxSecs < minSecs)
+      errs.maxDurationValue = "Max must be ≥ min duration";
+
+    if (!pct(form.minLossRatio)) errs.minLossRatio = "Must be between 0 and 100";
+    if (!pct(form.maxLossRatio)) errs.maxLossRatio = "Must be between 0 and 100";
     if (!errs.minLossRatio && !errs.maxLossRatio &&
         parseFloat(form.maxLossRatio) < parseFloat(form.minLossRatio))
       errs.maxLossRatio = "Max must be ≥ min loss ratio";
+
     if (!nonNeg(form.minLoss)) errs.minLoss = "Must be 0 or more";
     if (!nonNeg(form.maxLoss)) errs.maxLoss = "Must be 0 or more";
     if (parseFloat(form.maxLoss) < parseFloat(form.minLoss))
       errs.maxLoss = "Max must be ≥ min loss";
+
     return { ok: Object.keys(errs).length === 0, errs };
   }
 
@@ -727,14 +740,17 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
     setErrors(errs);
     if (!ok) { toast.error("Please fix the highlighted fields"); return; }
 
+    const minSecs = displayToSeconds(parseFloat(form.minDurationValue), form.minDurationUnit);
+    const maxSecs = displayToSeconds(parseFloat(form.maxDurationValue), form.maxDurationUnit);
+
     setLoading(true);
     try {
       const r = await adminEditCopyTrade(trade.id, {
         amount:         parseFloat(form.amount),
         minProfit:      parseFloat(form.minProfit),
         maxProfit:      parseFloat(form.maxProfit),
-        profitInterval: parseFloat(form.profitInterval),
-        maxInterval:    parseFloat(form.maxInterval),
+        profitInterval: minSecs,
+        maxInterval:    maxSecs,
         minLossRatio:   parseFloat(form.minLossRatio) || 0,
         maxLossRatio:   parseFloat(form.maxLossRatio) || 0,
         minLoss:        parseFloat(form.minLoss)      || 0,
@@ -751,29 +767,6 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
     }
   }
 
-  function NumField({ k, label, suffix, step }: {
-    k: keyof typeof form; label: string; suffix?: string; step?: string;
-  }) {
-    return (
-      <div>
-        <label className={labelCls}>{label}</label>
-        <div className="relative mt-1">
-          <input
-            type="number"
-            step={step}
-            value={form[k]}
-            onChange={e => set(k, e.target.value)}
-            className={inputCls + (suffix ? " pr-10" : "") + (errors[k] ? " border-red-500/60" : "")}
-          />
-          {suffix && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 pointer-events-none">{suffix}</span>
-          )}
-        </div>
-        {errors[k] && <p className="text-[11px] text-red-400 mt-1">{errors[k]}</p>}
-      </div>
-    );
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
       <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-2xl shadow-2xl my-8" onClick={e => e.stopPropagation()}>
@@ -782,23 +775,140 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
           {trade.user.name || trade.user.email} · {trade.traderName}
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2"><NumField k="amount" label="Principal Amount" suffix="USD" step="0.01" /></div>
-          <NumField k="minProfit" label="Min Profit" suffix="ratio" step="0.01" />
-          <NumField k="maxProfit" label="Max Profit" suffix="ratio" step="0.01" />
-          <NumField k="profitInterval" label="Min Interval" suffix="sec" step="1" />
-          <NumField k="maxInterval"    label="Max Interval" suffix="sec" step="1" />
-          <NumField k="minLossRatio" label="Min Loss Ratio" suffix="%" step="0.01" />
-          <NumField k="maxLossRatio" label="Max Loss Ratio" suffix="%" step="0.01" />
-          <NumField k="minLoss" label="Min Loss" suffix="ratio" step="0.01" />
-          <NumField k="maxLoss" label="Max Loss" suffix="ratio" step="0.01" />
-        </div>
+        <div className="space-y-4">
+          {/* Principal */}
+          <div>
+            <label className={labelCls}>Amount (USD)</label>
+            <input
+              type="number" min={0} step="0.01"
+              className={inputCls + " mt-1"}
+              value={form.amount}
+              onChange={e => set("amount", e.target.value)}
+            />
+            {errors.amount && <p className="text-[11px] text-red-400 mt-1">{errors.amount}</p>}
+          </div>
 
-        <p className="text-[11px] text-slate-500 mt-4">
-          Profit ratios are decimals (e.g. <code className="text-slate-400">0.5</code> = 0.5%).
-          Losses don&apos;t eat principal — they only show up in the user&apos;s history. The next
-          tick is randomized inside the new band so the first post-edit tick isn&apos;t biased.
-        </p>
+          {/* Profit band */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Min Profit (%)</label>
+              <input
+                type="number" step="0.01" min={0}
+                className={inputCls + " mt-1"}
+                value={form.minProfit}
+                onChange={e => set("minProfit", e.target.value)}
+              />
+              {errors.minProfit && <p className="text-[11px] text-red-400 mt-1">{errors.minProfit}</p>}
+            </div>
+            <div>
+              <label className={labelCls}>Max Profit (%)</label>
+              <input
+                type="number" step="0.01" min={0}
+                className={inputCls + " mt-1"}
+                value={form.maxProfit}
+                onChange={e => set("maxProfit", e.target.value)}
+              />
+              {errors.maxProfit && <p className="text-[11px] text-red-400 mt-1">{errors.maxProfit}</p>}
+            </div>
+          </div>
+
+          {/* Duration band */}
+          <div className="grid grid-cols-2 gap-3">
+            {(["Min", "Max"] as const).map(side => {
+              const vKey = side === "Min" ? "minDurationValue" : "maxDurationValue";
+              const uKey = side === "Min" ? "minDurationUnit"  : "maxDurationUnit";
+              return (
+                <div key={side}>
+                  <label className={labelCls}>{side} Duration</label>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={form[vKey] as string}
+                      onChange={e => set(vKey, e.target.value)}
+                      placeholder={side === "Min" ? "e.g. 5" : "e.g. 15"}
+                      className={inputCls + " flex-1"}
+                    />
+                    <div className="relative shrink-0">
+                      <select
+                        value={form[uKey] as DurationUnit}
+                        onChange={e => set(uKey, e.target.value as DurationUnit)}
+                        className={inputCls + " appearance-none pr-8 w-[110px]"}
+                      >
+                        <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
+                        <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  {errors[vKey] && <p className="text-[11px] text-red-400 mt-1">{errors[vKey]}</p>}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-slate-500 -mt-2">
+            Each tick fires after a random wait between min and max duration.
+          </p>
+
+          {/* Loss simulation */}
+          <div className="pt-4 mt-1 border-t border-white/[0.06]">
+            <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider mb-2">
+              Loss simulation
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Min Loss Ratio (%)</label>
+                <input
+                  type="number" step="0.01" min={0} max={100}
+                  className={inputCls + " mt-1"}
+                  value={form.minLossRatio}
+                  onChange={e => set("minLossRatio", e.target.value)}
+                />
+                {errors.minLossRatio && <p className="text-[11px] text-red-400 mt-1">{errors.minLossRatio}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Max Loss Ratio (%)</label>
+                <input
+                  type="number" step="0.01" min={0} max={100}
+                  className={inputCls + " mt-1"}
+                  value={form.maxLossRatio}
+                  onChange={e => set("maxLossRatio", e.target.value)}
+                />
+                {errors.maxLossRatio && <p className="text-[11px] text-red-400 mt-1">{errors.maxLossRatio}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div>
+                <label className={labelCls}>Min Loss (%)</label>
+                <input
+                  type="number" step="0.01" min={0}
+                  className={inputCls + " mt-1"}
+                  value={form.minLoss}
+                  onChange={e => set("minLoss", e.target.value)}
+                />
+                {errors.minLoss && <p className="text-[11px] text-red-400 mt-1">{errors.minLoss}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Max Loss (%)</label>
+                <input
+                  type="number" step="0.01" min={0}
+                  className={inputCls + " mt-1"}
+                  value={form.maxLoss}
+                  onChange={e => set("maxLoss", e.target.value)}
+                />
+                {errors.maxLoss && <p className="text-[11px] text-red-400 mt-1">{errors.maxLoss}</p>}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+              Each tick picks a loss-ratio in [<span className="text-amber-400 font-semibold">Min</span>,{" "}
+              <span className="text-amber-400 font-semibold">Max</span>]% and rolls it as the probability of a loss.
+              Loss magnitude is a random % between Min Loss and Max Loss, applied to the copied amount.
+              Back-to-back losses are capped at 2 in a row.
+            </p>
+          </div>
+        </div>
 
         <div className="flex gap-2 mt-6">
           <Button variant="outline" className="flex-1 border-white/10 text-slate-300 hover:text-white" onClick={onClose} disabled={loading}>Cancel</Button>
