@@ -71,7 +71,41 @@ export default function RiskPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-2">6. No Investment Advice</h2>
+            <h2 className="text-lg font-semibold text-white mb-2">6. Deposits &amp; Custody</h2>
+            <p>
+              Vaultex Market is a brokerage, not a bank. Funds you deposit are not covered by FDIC,
+              NDIC, or any other government deposit-insurance scheme. We hold balances in segregated
+              custodial wallets with monitored controls and a manual review on every withdrawal — but
+              it&apos;s good practice to keep your account funded with amounts that fit your overall
+              plan, not your entire savings.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-2">7. Investment Plans</h2>
+            <p>
+              The daily-return ranges shown on each plan are <strong className="text-slate-300">projections
+              based on historical market activity</strong>, not fixed payouts or guaranteed returns. Actual
+              earnings vary with market conditions and can be lower than projected — including periods
+              with no return or simulated drawdowns. Past performance of any plan is not a reliable
+              indicator of future results.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-2">8. Copy Trading</h2>
+            <p>
+              When you copy a trader, your account mirrors their wins{" "}
+              <strong className="text-slate-300">and</strong> their losses. The win rates and historical
+              statistics displayed on trader profiles describe past activity only; the same trader can
+              underperform or lose money going forward. Choose traders whose style and risk profile you
+              understand, and treat copy-trading as one part of a diversified plan rather than a
+              guaranteed income stream.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-2">9. No Investment Advice</h2>
             <p>
               Vaultex Market does not provide investment, tax, or legal advice. All content on the platform
               is for informational purposes only. You should consult a qualified professional before making
@@ -80,7 +114,7 @@ export default function RiskPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white mb-2">7. Your Responsibility</h2>
+            <h2 className="text-lg font-semibold text-white mb-2">10. Your Responsibility</h2>
             <p>
               By using Vaultex Market, you acknowledge that you understand these risks and accept full
               responsibility for your trading decisions and the outcomes of those decisions.
