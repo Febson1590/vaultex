@@ -306,7 +306,7 @@ function TraderModal({ trader, onClose, onSuccess }: {
           </div>
 
           {/* Country + Specialty */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Country</label>
               <div className="relative mt-1">
@@ -375,7 +375,7 @@ function TraderModal({ trader, onClose, onSuccess }: {
           </div>
 
           {/* Followers + Total ROI */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Followers</label>
               <input type="number" className={inputCls + " mt-1"} value={form.followers} onChange={e => set("followers", e.target.value)} />
@@ -393,7 +393,7 @@ function TraderModal({ trader, onClose, onSuccess }: {
           </div>
 
           {/* Profit Range */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Min Profit (%)</label>
               <input type="number" step="0.01" className={inputCls + " mt-1"} value={form.minProfit} onChange={e => set("minProfit", e.target.value)} />
@@ -405,26 +405,30 @@ function TraderModal({ trader, onClose, onSuccess }: {
           </div>
 
           {/* Duration — unified (value, unit) pair. Canonical seconds in DB. */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(["Min", "Max"] as const).map((side) => {
               const vKey = side === "Min" ? "minDurationValue" : "maxDurationValue";
               const uKey = side === "Min" ? "minDurationUnit"  : "maxDurationUnit";
               return (
                 <div key={side}>
                   <label className={labelCls}>{side} Duration</label>
-                  <div className="mt-1 flex gap-2">
+                  {/* 60/40 split. min-w-0 lets the flex input shrink below
+                      its content's natural width on iOS; without it the
+                      number input collapses to ~30px and the cursor lands
+                      visually inside the unit dropdown. */}
+                  <div className="mt-1 flex items-center gap-2 w-full">
                     <input
                       type="number" min={0} step="0.01"
                       value={form[vKey] as string}
                       onChange={(e) => set(vKey, e.target.value)}
                       placeholder={side === "Min" ? "e.g. 5" : "e.g. 15"}
-                      className={inputCls + " flex-1"}
+                      className={inputCls + " w-3/5 min-w-0"}
                     />
-                    <div className="relative shrink-0">
+                    <div className="relative w-2/5">
                       <select
                         value={form[uKey] as DurationUnit}
                         onChange={(e) => set(uKey, e.target.value)}
-                        className={inputCls + " appearance-none pr-8 w-[110px]"}
+                        className={inputCls + " w-full appearance-none pr-8"}
                       >
                         <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
                         <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>
@@ -447,7 +451,7 @@ function TraderModal({ trader, onClose, onSuccess }: {
               Loss simulation
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Min Loss Ratio (%)</label>
                 <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"}
@@ -464,7 +468,7 @@ function TraderModal({ trader, onClose, onSuccess }: {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <div>
                 <label className={labelCls}>Min Loss (%)</label>
                 <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
@@ -768,8 +772,8 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="glass-card border border-sky-500/20 rounded-2xl p-6 w-full max-w-2xl shadow-2xl my-8" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm overflow-y-auto overscroll-contain" onClick={onClose}>
+      <div className="glass-card border border-sky-500/20 rounded-2xl p-5 sm:p-6 w-full max-w-2xl shadow-2xl my-4 sm:my-8" onClick={e => e.stopPropagation()}>
         <h3 className="text-base font-bold text-white mb-1">Edit User Copy Trade</h3>
         <p className="text-xs text-slate-500 mb-5">
           {trade.user.name || trade.user.email} · {trade.traderName}
@@ -789,7 +793,7 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
           </div>
 
           {/* Profit band */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Min Profit (%)</label>
               <input
@@ -813,26 +817,30 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
           </div>
 
           {/* Duration band */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(["Min", "Max"] as const).map(side => {
               const vKey = side === "Min" ? "minDurationValue" : "maxDurationValue";
               const uKey = side === "Min" ? "minDurationUnit"  : "maxDurationUnit";
               return (
                 <div key={side}>
                   <label className={labelCls}>{side} Duration</label>
-                  <div className="mt-1 flex gap-2">
+                  {/* Single flex row: 60% number input, 40% unit dropdown.
+                      `min-w-0` on the input is what stops the flex child
+                      from refusing to shrink below its content width on
+                      narrow viewports (the iOS-keyboard-misalignment bug). */}
+                  <div className="mt-1 flex items-center gap-2 w-full">
                     <input
                       type="number" min={0} step="0.01"
                       value={form[vKey] as string}
                       onChange={e => set(vKey, e.target.value)}
                       placeholder={side === "Min" ? "e.g. 5" : "e.g. 15"}
-                      className={inputCls + " flex-1"}
+                      className={inputCls + " w-3/5 min-w-0"}
                     />
-                    <div className="relative shrink-0">
+                    <div className="relative w-2/5">
                       <select
                         value={form[uKey] as DurationUnit}
                         onChange={e => set(uKey, e.target.value as DurationUnit)}
-                        className={inputCls + " appearance-none pr-8 w-[110px]"}
+                        className={inputCls + " w-full appearance-none pr-8"}
                       >
                         <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
                         <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>
@@ -855,7 +863,7 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
               Loss simulation
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Min Loss Ratio (%)</label>
                 <input
@@ -878,7 +886,7 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <div>
                 <label className={labelCls}>Min Loss (%)</label>
                 <input
