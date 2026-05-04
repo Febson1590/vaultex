@@ -6,18 +6,31 @@ const APP_URL  = process.env.NEXT_PUBLIC_APP_URL || "https://vaultexmarket.com";
 const LOGO_URL = `${APP_URL}/vaultex-logo.svg`;
 
 // ─── HTML template ────────────────────────────────────────────────────────────
+type OtpEmailType = "REGISTER" | "LOGIN" | "WITHDRAW";
+
 function buildVerificationEmail(opts: {
   name:    string;
   code:    string;
-  type:    "REGISTER" | "LOGIN";
+  type:    OtpEmailType;
 }): string {
   const { name, code, type } = opts;
 
-  const title   = type === "REGISTER" ? "Verify Your Email Address" : "Your Login Verification Code";
-  const heading = type === "REGISTER" ? "Email Verification"        : "Login Verification";
-  const message = type === "REGISTER"
-    ? "You're almost there! Use the code below to verify your email address and activate your Vaultex account."
-    : "A sign-in attempt was made on your account. Use the code below to complete your login.";
+  const title =
+    type === "REGISTER" ? "Verify Your Email Address" :
+    type === "WITHDRAW" ? "Confirm Your Withdrawal"   :
+                          "Your Login Verification Code";
+
+  const heading =
+    type === "REGISTER" ? "Email Verification" :
+    type === "WITHDRAW" ? "Withdrawal Confirmation" :
+                          "Login Verification";
+
+  const message =
+    type === "REGISTER"
+      ? "You're almost there! Use the code below to verify your email address and activate your Vaultex account."
+    : type === "WITHDRAW"
+      ? "A withdrawal request has been initiated on your account. Use the code below to confirm and release the funds. If this wasn't you, do NOT share this code and contact support immediately."
+      : "A sign-in attempt was made on your account. Use the code below to complete your login.";
 
   // Spaced digits for the OTP code
   const spaced = code.split("").join("&nbsp;&nbsp;");
@@ -301,16 +314,17 @@ export async function sendVerificationEmail(opts: {
   to:   string;
   name: string;
   code: string;
-  type: "REGISTER" | "LOGIN";
+  type: OtpEmailType;
 }): Promise<string> {
   const tag = "[sendVerificationEmail]";
   const { to, name, code, type } = opts;
 
   const from    = process.env.EMAIL_FROM || "Vaultex Market <no-reply@vaultexmarket.com>";
   const replyTo = process.env.EMAIL_REPLY_TO || undefined;
-  const subject = type === "REGISTER"
-    ? "Verify your Vaultex account"
-    : "Your Vaultex login code";
+  const subject =
+    type === "REGISTER" ? "Verify your Vaultex account" :
+    type === "WITHDRAW" ? "Confirm your Vaultex withdrawal" :
+                          "Your Vaultex login code";
 
   console.log(`${tag} ── START ──────────────────────────────────────`);
   console.log(`${tag} to      : ${to}`);
@@ -322,18 +336,26 @@ export async function sendVerificationEmail(opts: {
 
   const html = buildVerificationEmail({ name, code, type });
 
+  const textIntro =
+    type === "REGISTER" ? "Use the code below to verify your email address:" :
+    type === "WITHDRAW" ? "Use the code below to confirm your withdrawal request:" :
+                          "Use the code below to complete your login:";
+
+  const textWarn =
+    type === "WITHDRAW"
+      ? "If you did not request a withdrawal, do NOT share this code and contact support immediately."
+      : "If you did not request this, please ignore this email.";
+
   const text = [
     `Hi ${name},`,
     "",
-    type === "REGISTER"
-      ? "Use the code below to verify your email address:"
-      : "Use the code below to complete your login:",
+    textIntro,
     "",
     `Verification code: ${code}`,
     "",
     "This code expires in 10 minutes.",
     "",
-    "If you did not request this, please ignore this email.",
+    textWarn,
     "",
     "— Vaultex Market",
   ].join("\n");

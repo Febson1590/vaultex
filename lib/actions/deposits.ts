@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireApprovedKyc } from "@/lib/kyc";
 import { requireActiveStatus } from "@/lib/user-status";
+import { sendOtp, verifyOtp } from "@/lib/actions/otp";
+import { OtpType } from "@prisma/client";
 
 /**
  * Step 1 of the deposit flow: user has clicked "I've Sent the Payment".
@@ -203,6 +205,19 @@ export async function getActiveDepositWallets() {
  * `method` stores the network (TRC20, ERC20, Bitcoin, etc.) for
  * backward compatibility with existing admin tooling.
  */
+/**
+ * Two-step withdrawal flow:
+ *
+ *   1) Caller submits the form with `otp` omitted. We validate everything,
+ *      send a 6-digit code to the user's email, and return
+ *      `{ otpRequired: true }`.
+ *   2) Caller resubmits with the same payload + `otp`. We re-validate
+ *      (defence-in-depth — never trust the previous validation), check
+ *      the code via verifyOtp, and only then create the WithdrawalRequest.
+ *
+ * Defence-in-depth matters because a stolen session cookie alone isn't
+ * enough to drain funds — the attacker also needs inbox access.
+ */
 export async function requestWithdrawal(data: {
   currency:       string;     // Crypto symbol, e.g. "BTC"
   amount:         number;     // USD — primary amount
@@ -212,6 +227,7 @@ export async function requestWithdrawal(data: {
   cryptoSymbol?:  string;
   cryptoNetwork?: string | null;
   exchangeRate?:  number;
+  otp?:           string;     // Empty on first call (triggers email); supplied on confirm
 }) {
   const session = await auth();
   if (!session?.user?.id) return { error: "Unauthorized" };
@@ -239,6 +255,25 @@ export async function requestWithdrawal(data: {
   if (!usdWallet || Number(usdWallet.balance) < data.amount) {
     return { error: "Insufficient USD balance" };
   }
+
+  // ── Withdrawal 2FA gate ──────────────────────────────────────────────
+  // We use the user's account email as the OTP identifier. Any prior
+  // unused WITHDRAW codes are invalidated by sendOtp, so a leftover
+  // code from a cancelled attempt can't be replayed.
+  const userRecord = await db.user.findUnique({
+    where:  { id: userId },
+    select: { email: true, name: true },
+  });
+  if (!userRecord?.email) return { error: "Account email is missing — contact support" };
+
+  if (!data.otp) {
+    const sendResult = await sendOtp(userRecord.email, OtpType.WITHDRAW, userRecord.name ?? undefined);
+    if ("error" in sendResult) return { error: sendResult.error };
+    return { otpRequired: true } as const;
+  }
+
+  const verifyResult = await verifyOtp(userRecord.email, data.otp.trim(), OtpType.WITHDRAW);
+  if ("error" in verifyResult) return { error: verifyResult.error };
 
   const request = await db.withdrawalRequest.create({
     data: {

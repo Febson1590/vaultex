@@ -159,6 +159,12 @@ export default function WithdrawForm({
   const [error, setError]       = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  /* "review" — read-only summary, primary action is "Confirm" which
+     fires the OTP email. "otp" — the user types the 6-digit code we
+     just emailed; primary action becomes "Verify & Withdraw". */
+  const [confirmStep, setConfirmStep] = useState<"review" | "otp">("review");
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState("");
 
   /* Current live rate for the selected asset (USD per 1 unit). */
   const currentRate = rates[selectedAsset] ?? 0;
@@ -220,33 +226,108 @@ export default function WithdrawForm({
     setShowConfirm(true);
   }
 
-  /* Submit after user confirms in modal. */
+  /* Build the request payload once — reused for the OTP-trigger call
+     and the OTP-confirm call so the two requests stay in sync. The
+     server re-validates the payload on the confirm call, so changing
+     anything between the two calls would be rejected. */
+  function buildWithdrawPayload(otpCode?: string) {
+    return {
+      currency:      selectedAsset,
+      amount:        usdAmount,
+      method:        network || selectedAsset,
+      destination:   address.trim(),
+      cryptoAmount:  dual.cryptoNumber,
+      cryptoSymbol:  selectedAsset,
+      cryptoNetwork: network || null,
+      exchangeRate:  currentRate,
+      otp:           otpCode,
+    };
+  }
+
+  function closeConfirm() {
+    if (submitting) return;
+    setShowConfirm(false);
+    setConfirmStep("review");
+    setOtp("");
+    setOtpError("");
+  }
+
+  /* Step 1: user clicked "Confirm" in the review view.
+     Server validates everything, sends a 6-digit OTP, returns
+     { otpRequired: true }. We then flip the modal into "otp" mode. */
   async function handleConfirm() {
     setSubmitting(true);
     try {
-      const res = await requestWithdrawal({
-        currency:      selectedAsset,
-        amount:        usdAmount,                  // USD
-        method:        network || selectedAsset,
-        destination:   address.trim(),
-        cryptoAmount:  dual.cryptoNumber,
-        cryptoSymbol:  selectedAsset,
-        cryptoNetwork: network || null,
-        exchangeRate:  currentRate,
-      });
+      const res = await requestWithdrawal(buildWithdrawPayload());
       if ("error" in res && res.error) {
         toast.error(res.error);
         setError(res.error);
         setShowConfirm(false);
+      } else if ("otpRequired" in res && res.otpRequired) {
+        setConfirmStep("otp");
+        setOtp("");
+        setOtpError("");
+        toast.success("We sent a 6-digit code to your email");
       } else {
+        // Defensive fallback — server always asks for OTP now, but if
+        // a future change makes OTP optional we still complete cleanly.
         toast.success("Withdrawal submitted — pending review");
-        setShowConfirm(false);
+        closeConfirm();
         dual.clear();
         setAddress("");
       }
     } catch {
-      toast.error("Failed to submit. Please try again.");
+      toast.error("Failed to start withdrawal. Please try again.");
       setShowConfirm(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /* Step 2: user typed the OTP and clicked "Verify & Withdraw". */
+  async function handleVerifyOtp() {
+    setOtpError("");
+    if (otp.trim().length !== 6) {
+      setOtpError("Enter the 6-digit code from your email");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await requestWithdrawal(buildWithdrawPayload(otp.trim()));
+      if ("error" in res && res.error) {
+        setOtpError(res.error);
+        toast.error(res.error);
+      } else if ("success" in res && res.success) {
+        toast.success("Withdrawal submitted — pending review");
+        closeConfirm();
+        dual.clear();
+        setAddress("");
+      } else {
+        // Server still asking for OTP after a verify? Shouldn't happen.
+        setOtpError("Could not verify the code. Please request a new one.");
+      }
+    } catch {
+      setOtpError("Verification failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  /* User asks for a fresh OTP. Re-fires the trigger call (without otp)
+     so sendOtp invalidates any prior code and emails a new one. */
+  async function handleResendOtp() {
+    setSubmitting(true);
+    setOtpError("");
+    try {
+      const res = await requestWithdrawal(buildWithdrawPayload());
+      if ("error" in res && res.error) {
+        setOtpError(res.error);
+        toast.error(res.error);
+      } else {
+        toast.success("New code sent");
+      }
+    } catch {
+      setOtpError("Could not resend the code. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -484,7 +565,13 @@ export default function WithdrawForm({
           netReceiveUsd={netReceiveUsd}
           address={address.trim()}
           loading={submitting}
-          onClose={() => !submitting && setShowConfirm(false)}
+          step={confirmStep}
+          otp={otp}
+          otpError={otpError}
+          onOtpChange={(v) => { setOtp(v); if (otpError) setOtpError(""); }}
+          onResendOtp={handleResendOtp}
+          onVerifyOtp={handleVerifyOtp}
+          onClose={closeConfirm}
           onConfirm={handleConfirm}
         />
       )}
@@ -584,7 +671,9 @@ function WithdrawalCard({ w }: { w: RecentWithdrawal }) {
 
 function ConfirmModal({
   asset, network, usdAmount, cryptoAmount, exchangeRate,
-  feeUsd, netReceiveUsd, address, loading, onClose, onConfirm,
+  feeUsd, netReceiveUsd, address, loading,
+  step, otp, otpError, onOtpChange, onResendOtp, onVerifyOtp,
+  onClose, onConfirm,
 }: {
   asset:         string;
   network:       string;
@@ -595,6 +684,12 @@ function ConfirmModal({
   netReceiveUsd: number;
   address:       string;
   loading:       boolean;
+  step:          "review" | "otp";
+  otp:           string;
+  otpError:      string;
+  onOtpChange:   (v: string) => void;
+  onResendOtp:   () => void;
+  onVerifyOtp:   () => void;
   onClose:       () => void;
   onConfirm:     () => void;
 }) {
@@ -612,9 +707,13 @@ function ConfirmModal({
         <div className="px-5 pt-5 pb-4 border-b border-white/[0.05] flex items-start gap-3">
           <AssetIcon asset={asset} size={36} />
           <div className="flex-1">
-            <h3 className="text-base font-bold text-white">Confirm Withdrawal</h3>
+            <h3 className="text-base font-bold text-white">
+              {step === "review" ? "Confirm Withdrawal" : "Verify it's you"}
+            </h3>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Double-check these details before submitting.
+              {step === "review"
+                ? "Double-check these details before submitting."
+                : "We sent a 6-digit code to your email."}
             </p>
           </div>
           <button
@@ -628,67 +727,141 @@ function ConfirmModal({
           </button>
         </div>
 
-        <div className="p-5 space-y-3 text-[12.5px]">
-          <Row label="Asset"   value={<>{asset}{network ? <span className="text-slate-500"> · {network}</span> : null}</>} />
-          <Row
-            label="Amount"
-            value={
-              <div className="text-right">
-                <div className="tabular-nums font-semibold">${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                <div className="text-[11px] text-slate-500 tabular-nums">
-                  ≈ {formatCrypto(cryptoAmount)} {asset}
+        {step === "review" ? (
+          <>
+            <div className="p-5 space-y-3 text-[12.5px]">
+              <Row label="Asset"   value={<>{asset}{network ? <span className="text-slate-500"> · {network}</span> : null}</>} />
+              <Row
+                label="Amount"
+                value={
+                  <div className="text-right">
+                    <div className="tabular-nums font-semibold">${usdAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-[11px] text-slate-500 tabular-nums">
+                      ≈ {formatCrypto(cryptoAmount)} {asset}
+                    </div>
+                  </div>
+                }
+              />
+              <Row label="Rate" value={<span className="tabular-nums text-slate-300">1 {asset} = ${exchangeRate.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>} />
+              {showFee && (
+                <Row label="Fee" value={<span className="tabular-nums">${feeUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>} />
+              )}
+              {showFee && (
+                <Row
+                  label="You will receive"
+                  value={<span className="tabular-nums text-emerald-300 font-semibold">${netReceiveUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                />
+              )}
+              <div className="pt-2 border-t border-white/[0.05]">
+                <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
+                  Destination Address
+                </div>
+                <code className="block text-[11.5px] text-white font-mono break-all leading-relaxed">
+                  {address}
+                </code>
+              </div>
+
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 flex items-start gap-2 mt-2">
+                <AlertTriangle size={12} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-[11px] text-amber-200/90 leading-relaxed">
+                  Withdrawals are irreversible. Make sure the address is correct. We&apos;ll email a 6-digit code to confirm.
                 </div>
               </div>
-            }
-          />
-          <Row label="Rate" value={<span className="tabular-nums text-slate-300">1 {asset} = ${exchangeRate.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>} />
-          {showFee && (
-            <Row label="Fee" value={<span className="tabular-nums">${feeUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>} />
-          )}
-          {showFee && (
-            <Row
-              label="You will receive"
-              value={<span className="tabular-nums text-emerald-300 font-semibold">${netReceiveUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
-            />
-          )}
-          <div className="pt-2 border-t border-white/[0.05]">
-            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
-              Destination Address
             </div>
-            <code className="block text-[11.5px] text-white font-mono break-all leading-relaxed">
-              {address}
-            </code>
-          </div>
 
-          <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 flex items-start gap-2 mt-2">
-            <AlertTriangle size={12} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="text-[11px] text-amber-200/90 leading-relaxed">
-              Withdrawals are irreversible. Make sure the address is correct.
+            <div className="px-5 pb-5 flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 h-10 border-white/10 text-slate-300 hover:text-white"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 h-10 bg-sky-500 hover:bg-sky-400 text-white font-semibold"
+                onClick={onConfirm}
+                disabled={loading}
+              >
+                {loading ? (
+                  <><Loader2 size={14} className="animate-spin mr-1.5" /> Sending code…</>
+                ) : (
+                  "Confirm"
+                )}
+              </Button>
             </div>
-          </div>
-        </div>
+          </>
+        ) : (
+          <>
+            <div className="p-5 space-y-4 text-[12.5px]">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/[0.05] px-3 py-2.5 text-[12px] text-sky-100/90 leading-relaxed">
+                Enter the 6-digit code we just emailed you. The code expires in 10 minutes.
+              </div>
 
-        <div className="px-5 pb-5 flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1 h-10 border-white/10 text-slate-300 hover:text-white"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="flex-1 h-10 bg-sky-500 hover:bg-sky-400 text-white font-semibold"
-            onClick={onConfirm}
-            disabled={loading}
-          >
-            {loading ? (
-              <><Loader2 size={14} className="animate-spin mr-1.5" /> Submitting…</>
-            ) : (
-              "Confirm"
-            )}
-          </Button>
-        </div>
+              <div>
+                <Label htmlFor="withdraw-otp" className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">
+                  Verification Code
+                </Label>
+                <Input
+                  id="withdraw-otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => onOtpChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="123456"
+                  className="text-center text-2xl tracking-[0.5em] font-mono font-semibold h-14"
+                  autoFocus
+                />
+                {otpError && (
+                  <p className="text-[11.5px] text-red-400 mt-2 leading-relaxed">{otpError}</p>
+                )}
+              </div>
+
+              <div className="text-[11.5px] text-slate-500 text-center">
+                Didn&apos;t receive it?{" "}
+                <button
+                  type="button"
+                  onClick={onResendOtp}
+                  disabled={loading}
+                  className="text-sky-400 hover:text-sky-300 font-semibold disabled:opacity-50"
+                >
+                  Resend code
+                </button>
+              </div>
+
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 flex items-start gap-2">
+                <AlertTriangle size={12} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-[11px] text-amber-200/90 leading-relaxed">
+                  If you didn&apos;t request this withdrawal, do NOT share this code. Contact support immediately.
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 pb-5 flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 h-10 border-white/10 text-slate-300 hover:text-white"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 h-10 bg-sky-500 hover:bg-sky-400 text-white font-semibold"
+                onClick={onVerifyOtp}
+                disabled={loading || otp.length !== 6}
+              >
+                {loading ? (
+                  <><Loader2 size={14} className="animate-spin mr-1.5" /> Verifying…</>
+                ) : (
+                  "Verify & Withdraw"
+                )}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

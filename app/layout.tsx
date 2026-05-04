@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { GoogleTranslateHost } from "@/components/language-switcher";
 import { TawkChat } from "@/components/tawk-chat";
+import { CookieConsent } from "@/components/cookie-consent";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -80,6 +81,7 @@ export default function RootLayout({
         {children}
         <GoogleTranslateHost />
         <TawkChat />
+        <CookieConsent />
         <Toaster
           position="top-center"
           theme="dark"
