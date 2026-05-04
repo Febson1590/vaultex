@@ -105,6 +105,22 @@
        forcing a horizontal scrollbar on narrow viewports. */
     overflow-x: hidden;
     max-width: 100%;
+    /* iOS Safari rescales body text on orientation change; pin it
+       so the layout doesn't visibly jump when the keyboard opens. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* iOS Safari auto-zooms when a focused input's font-size is < 16px.
+     We design with text-sm (14px) inputs across the app, so on small
+     viewports we force form fields to 16px to disable the zoom — the
+     visual delta is small enough to be invisible at phone resolutions
+     but big enough to keep iOS calm. Buttons aren't included because
+     they don't trigger the zoom. */
+  @media (max-width: 640px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
   }
   body {
     @apply bg-background text-foreground;

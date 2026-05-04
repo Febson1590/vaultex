@@ -51,7 +51,12 @@ const STATUS_COLORS: Record<string, string> = {
   PAUSED:  "bg-yellow-500/10 border-yellow-500/25 text-yellow-400",
   STOPPED: "bg-red-500/10 border-red-500/25 text-red-400",
 };
-const inputCls = "w-full bg-white/[0.06] border border-white/[0.15] rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60";
+/* h-14 on mobile (56px touch target, no iOS auto-zoom — globals.css
+   forces 16px font on focus); h-11 on desktop (compact). px-4 keeps
+   16px gap between caret and border so cursor doesn't render flush
+   against the input edge. appearance-none normalises native chrome
+   on iOS Safari + Android. */
+const inputCls = "w-full bg-white/[0.06] border border-white/[0.15] rounded-lg h-14 sm:h-11 px-4 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60 appearance-none";
 const labelCls = "text-xs font-medium text-slate-400 uppercase tracking-wider";
 
 // ── Image compression — resize to max 300×300, JPEG 75% (~30–80 KB) ──────────
@@ -412,23 +417,19 @@ function TraderModal({ trader, onClose, onSuccess }: {
               return (
                 <div key={side}>
                   <label className={labelCls}>{side} Duration</label>
-                  {/* 60/40 split. min-w-0 lets the flex input shrink below
-                      its content's natural width on iOS; without it the
-                      number input collapses to ~30px and the cursor lands
-                      visually inside the unit dropdown. */}
-                  <div className="mt-1 flex items-center gap-2 w-full">
+                  <div className="mt-1 grid items-center gap-3 grid-cols-[minmax(0,1fr)_130px] sm:grid-cols-[minmax(0,1fr)_150px]">
                     <input
                       type="number" min={0} step="0.01"
                       value={form[vKey] as string}
                       onChange={(e) => set(vKey, e.target.value)}
                       placeholder={side === "Min" ? "e.g. 5" : "e.g. 15"}
-                      className={inputCls + " w-3/5 min-w-0"}
+                      className={inputCls}
                     />
-                    <div className="relative w-2/5">
+                    <div className="relative">
                       <select
                         value={form[uKey] as DurationUnit}
                         onChange={(e) => set(uKey, e.target.value)}
-                        className={inputCls + " w-full appearance-none pr-8"}
+                        className={inputCls + " pr-8"}
                       >
                         <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
                         <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>
@@ -824,23 +825,24 @@ function EditCopyTradeModal({ trade, onClose, onSuccess }: {
               return (
                 <div key={side}>
                   <label className={labelCls}>{side} Duration</label>
-                  {/* Single flex row: 60% number input, 40% unit dropdown.
-                      `min-w-0` on the input is what stops the flex child
-                      from refusing to shrink below its content width on
-                      narrow viewports (the iOS-keyboard-misalignment bug). */}
-                  <div className="mt-1 flex items-center gap-2 w-full">
+                  {/* Grid with explicit fixed-width unit cell. minmax(0, 1fr)
+                      on the input column is what lets the number input
+                      shrink in narrow viewports (default min-width: auto
+                      would otherwise force overflow). 130px on phones,
+                      150px on ≥640px so "Minutes" / "Hours" never clip. */}
+                  <div className="mt-1 grid items-center gap-3 grid-cols-[minmax(0,1fr)_130px] sm:grid-cols-[minmax(0,1fr)_150px]">
                     <input
                       type="number" min={0} step="0.01"
                       value={form[vKey] as string}
                       onChange={e => set(vKey, e.target.value)}
                       placeholder={side === "Min" ? "e.g. 5" : "e.g. 15"}
-                      className={inputCls + " w-3/5 min-w-0"}
+                      className={inputCls}
                     />
-                    <div className="relative w-2/5">
+                    <div className="relative">
                       <select
                         value={form[uKey] as DurationUnit}
                         onChange={e => set(uKey, e.target.value as DurationUnit)}
-                        className={inputCls + " w-full appearance-none pr-8"}
+                        className={inputCls + " pr-8"}
                       >
                         <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
                         <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>

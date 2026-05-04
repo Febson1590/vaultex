@@ -47,7 +47,12 @@ const STATUS_COLORS: Record<string, string> = {
   COMPLETED: "bg-sky-500/10 border-sky-500/25 text-sky-400",
   CANCELLED: "bg-red-500/10 border-red-500/25 text-red-400",
 };
-const inputCls = "w-full bg-white/[0.06] border border-white/[0.15] rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60";
+/* h-14 on mobile (56px touch target, no iOS auto-zoom — globals.css
+   forces 16px font on focus); h-11 on desktop (compact). px-4 keeps
+   16px gap between caret and border so cursor doesn't render flush
+   against the input edge. appearance-none normalises native chrome
+   on iOS Safari + Android. */
+const inputCls = "w-full bg-white/[0.06] border border-white/[0.15] rounded-lg h-14 sm:h-11 px-4 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-sky-500/60 appearance-none";
 const labelCls = "text-xs font-medium text-slate-400 uppercase tracking-wider";
 
 /**
@@ -70,19 +75,23 @@ function DurationField({
   return (
     <div>
       <label className={labelCls}>{label}</label>
-      <div className="mt-1 flex gap-2">
+      {/* Grid with explicit fixed-width unit cell. minmax(0, 1fr) on
+          the input column lets the number input shrink in narrow
+          viewports (default min-width: auto would otherwise force
+          overflow). 130px on phones, 150px on ≥640px. */}
+      <div className="mt-1 grid items-center gap-3 grid-cols-[minmax(0,1fr)_130px] sm:grid-cols-[minmax(0,1fr)_150px]">
         <input
           type="number" min={0} step="0.01"
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           placeholder={placeholder}
-          className={inputCls + " flex-1"}
+          className={inputCls}
         />
-        <div className="relative shrink-0">
+        <div className="relative">
           <select
             value={unit}
             onChange={(e) => onUnitChange(e.target.value as DurationUnit)}
-            className={inputCls + " appearance-none pr-8 w-[110px]"}
+            className={inputCls + " pr-8"}
           >
             <option value="minutes" className="bg-[#0d1e3a]">{UNIT_LABELS.minutes}</option>
             <option value="hours"   className="bg-[#0d1e3a]">{UNIT_LABELS.hours}</option>
@@ -241,7 +250,7 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
               onChange={e => set("description", e.target.value)} placeholder="Short description…" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Min Amount (USD)</label>
               <input type="number" min={0} className={inputCls + " mt-1"}
@@ -257,7 +266,7 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Min Profit (%)</label>
               <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
@@ -272,7 +281,7 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <DurationField
               label="Min Duration"
               value={form.minDurationValue}
@@ -303,7 +312,7 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
               Loss simulation
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Min Loss Ratio (%)</label>
                 <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"}
@@ -320,7 +329,7 @@ function PlanModal({ plan, onClose, onSuccess }: { plan?: Plan; onClose: () => v
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <div>
                 <label className={labelCls}>Min Loss (%)</label>
                 <input type="number" step="0.01" min={0} className={inputCls + " mt-1"}
@@ -612,7 +621,7 @@ function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess 
             {err("amount")}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Min Profit (%)</label>
               <input type="number" step="0.01" min={0} className={inputCls + " mt-1"} value={form.minProfit} onChange={e => set("minProfit", e.target.value)} />
@@ -625,7 +634,7 @@ function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <DurationField
               label="Min Duration"
               value={form.minDurationValue}
@@ -655,7 +664,7 @@ function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess 
             <div className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider mb-2">
               Loss simulation
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Min Loss Ratio (%)</label>
                 <input type="number" step="0.01" min={0} max={100} className={inputCls + " mt-1"} value={form.minLossRatio} onChange={e => set("minLossRatio", e.target.value)} />
@@ -667,7 +676,7 @@ function InvestmentModal({ users, plans, investment, isEdit, onClose, onSuccess 
                 {err("maxLossRatio")}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <div>
                 <label className={labelCls}>Min Loss (%)</label>
                 <input type="number" step="0.01" min={0} className={inputCls + " mt-1"} value={form.minLoss} onChange={e => set("minLoss", e.target.value)} />
