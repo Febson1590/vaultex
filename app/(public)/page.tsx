@@ -263,10 +263,10 @@ export default async function HomePage() {
                   Open an Account <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href="/markets"
+                  href="/login"
                   className="vx-btn-ghost inline-flex items-center justify-center gap-2 h-11 px-6 rounded-lg text-[13px]"
                 >
-                  View Markets <ChevronRight className="h-4 w-4" />
+                  Sign In <ChevronRight className="h-4 w-4" />
                 </Link>
               </div>
 
