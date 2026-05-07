@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { alertNewKyc } from "@/lib/admin-alerts";
 
 export async function GET() {
   const session = await auth();
@@ -102,6 +103,21 @@ export async function POST(request: Request) {
       type:    "VERIFICATION",
     },
   });
+
+  /* Admin alert — fire-and-forget. Look up the user's display name +
+     email so the support inbox shows who submitted, not just an id. */
+  const submitter = await db.user.findUnique({
+    where:  { id: userId },
+    select: { name: true, email: true },
+  });
+  if (submitter?.email) {
+    void alertNewKyc({
+      verificationId: verification.id,
+      userName:       submitter.name || submitter.email,
+      userEmail:      submitter.email,
+      documentType:   String(documentType),
+    });
+  }
 
   return NextResponse.json({ success: true, status: verification.status });
 }

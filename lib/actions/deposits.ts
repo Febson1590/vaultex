@@ -7,6 +7,7 @@ import { requireApprovedKyc } from "@/lib/kyc";
 import { requireActiveStatus } from "@/lib/user-status";
 import { sendOtp, verifyOtp } from "@/lib/actions/otp";
 import { OtpType } from "@prisma/client";
+import { alertNewDeposit, alertNewWithdrawal } from "@/lib/admin-alerts";
 
 /**
  * Step 1 of the deposit flow: user has clicked "I've Sent the Payment".
@@ -111,6 +112,25 @@ export async function submitDepositProof(data: {
       type:    "DEPOSIT",
     },
   });
+
+  /* Admin alert — fired only after proof is uploaded, since that's
+     when the deposit actually needs review. The createDepositRequest
+     stage (no proof yet) doesn't warrant a ping. */
+  const userInfo = await db.user.findUnique({
+    where:  { id: session.user.id },
+    select: { name: true, email: true },
+  });
+  if (userInfo?.email) {
+    void alertNewDeposit({
+      requestId:    data.requestId,
+      userName:     userInfo.name || userInfo.email,
+      userEmail:    userInfo.email,
+      amountUsd:    Number(existing.amount),
+      cryptoAmount: existing.cryptoAmount !== null ? Number(existing.cryptoAmount) : null,
+      cryptoSymbol: existing.cryptoSymbol,
+      network:      existing.cryptoNetwork ?? existing.method,
+    });
+  }
 
   revalidatePath("/dashboard/deposit");
   return { success: true };
@@ -300,6 +320,19 @@ export async function requestWithdrawal(data: {
       message: `Your withdrawal of $${data.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD${cryptoSuffix} is pending review.`,
       type:    "WITHDRAWAL",
     },
+  });
+
+  /* Admin alert — fired AFTER OTP verification, so we don't email
+     the admin on aborted/uncompleted withdrawal attempts. */
+  void alertNewWithdrawal({
+    requestId:    request.id,
+    userName:     userRecord.name || userRecord.email,
+    userEmail:    userRecord.email,
+    amountUsd:    data.amount,
+    cryptoAmount: data.cryptoAmount ?? null,
+    cryptoSymbol: data.cryptoSymbol ?? data.currency,
+    network:      data.cryptoNetwork ?? data.method,
+    destination:  data.destination.trim(),
   });
 
   revalidatePath("/dashboard/withdraw");
