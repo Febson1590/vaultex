@@ -91,10 +91,12 @@ export async function registerUser(data: {
       },
     });
 
-    /* Fire-and-forget admin alert. We don't await — registration must
-       succeed even if the alert email fails (Resend hiccup, network, etc).
-       notifyAdmin catches its own errors and logs them. */
-    void alertNewRegistration({
+    /* Admin alert. Awaited (not void) because on Vercel's serverless
+       runtime, in-flight promises are dropped the moment the function
+       returns — fire-and-forget would silently lose alerts. notifyAdmin
+       catches its own errors so a Resend hiccup still won't break the
+       registration response. */
+    await alertNewRegistration({
       userId:  user.id,
       name:    data.fullName.trim(),
       email:   user.email,

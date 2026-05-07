@@ -114,14 +114,15 @@ export async function submitDepositProof(data: {
   });
 
   /* Admin alert — fired only after proof is uploaded, since that's
-     when the deposit actually needs review. The createDepositRequest
-     stage (no proof yet) doesn't warrant a ping. */
+     when the deposit actually needs review. Awaited (not fire-and-
+     forget) because Vercel's serverless runtime would otherwise kill
+     the function before Resend responds. */
   const userInfo = await db.user.findUnique({
     where:  { id: session.user.id },
     select: { name: true, email: true },
   });
   if (userInfo?.email) {
-    void alertNewDeposit({
+    await alertNewDeposit({
       requestId:    data.requestId,
       userName:     userInfo.name || userInfo.email,
       userEmail:    userInfo.email,
@@ -323,8 +324,10 @@ export async function requestWithdrawal(data: {
   });
 
   /* Admin alert — fired AFTER OTP verification, so we don't email
-     the admin on aborted/uncompleted withdrawal attempts. */
-  void alertNewWithdrawal({
+     the admin on aborted/uncompleted withdrawal attempts. Awaited
+     because Vercel kills the function as soon as we return, which
+     would otherwise drop the in-flight Resend call. */
+  await alertNewWithdrawal({
     requestId:    request.id,
     userName:     userRecord.name || userRecord.email,
     userEmail:    userRecord.email,

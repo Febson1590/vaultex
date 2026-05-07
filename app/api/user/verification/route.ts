@@ -104,14 +104,16 @@ export async function POST(request: Request) {
     },
   });
 
-  /* Admin alert — fire-and-forget. Look up the user's display name +
-     email so the support inbox shows who submitted, not just an id. */
+  /* Admin alert. Vercel's serverless runtime kills the function as
+     soon as the response is returned, which truncates fire-and-forget
+     promises mid-flight — so we await. notifyAdmin catches its own
+     errors so a Resend hiccup still won't break this endpoint. */
   const submitter = await db.user.findUnique({
     where:  { id: userId },
     select: { name: true, email: true },
   });
   if (submitter?.email) {
-    void alertNewKyc({
+    await alertNewKyc({
       verificationId: verification.id,
       userName:       submitter.name || submitter.email,
       userEmail:      submitter.email,
