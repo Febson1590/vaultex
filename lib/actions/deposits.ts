@@ -65,6 +65,27 @@ export async function createDepositRequest(data: {
     },
   });
 
+  /* Admin alert — fired the moment the user clicks "I've Sent the
+     Payment". The operator wants to know about every deposit attempt,
+     not just the ones that reach the proof-upload step. Awaited so
+     Vercel's serverless runtime doesn't drop the in-flight Resend
+     call when the function returns. */
+  const userInfo = await db.user.findUnique({
+    where:  { id: session.user.id },
+    select: { name: true, email: true },
+  });
+  if (userInfo?.email) {
+    await alertNewDeposit({
+      requestId:    request.id,
+      userName:     userInfo.name || userInfo.email,
+      userEmail:    userInfo.email,
+      amountUsd:    data.amount,
+      cryptoAmount: data.cryptoAmount ?? null,
+      cryptoSymbol: data.cryptoSymbol ?? null,
+      network:      data.cryptoNetwork ?? data.method,
+    });
+  }
+
   revalidatePath("/dashboard/deposit");
   return { success: true, requestId: request.id };
 }
@@ -113,25 +134,8 @@ export async function submitDepositProof(data: {
     },
   });
 
-  /* Admin alert — fired only after proof is uploaded, since that's
-     when the deposit actually needs review. Awaited (not fire-and-
-     forget) because Vercel's serverless runtime would otherwise kill
-     the function before Resend responds. */
-  const userInfo = await db.user.findUnique({
-    where:  { id: session.user.id },
-    select: { name: true, email: true },
-  });
-  if (userInfo?.email) {
-    await alertNewDeposit({
-      requestId:    data.requestId,
-      userName:     userInfo.name || userInfo.email,
-      userEmail:    userInfo.email,
-      amountUsd:    Number(existing.amount),
-      cryptoAmount: existing.cryptoAmount !== null ? Number(existing.cryptoAmount) : null,
-      cryptoSymbol: existing.cryptoSymbol,
-      network:      existing.cryptoNetwork ?? existing.method,
-    });
-  }
+  /* Admin alert is fired in createDepositRequest (when the user
+     clicks "I've Sent the Payment"). No second alert here. */
 
   revalidatePath("/dashboard/deposit");
   return { success: true };
