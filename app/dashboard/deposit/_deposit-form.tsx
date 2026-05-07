@@ -168,8 +168,21 @@ export default function DepositForm({
   const [creating, setCreating] = useState(false);
   const [error, setError]     = useState("");
 
-  /* Two-way dual-amount state wired to the current asset rate. */
-  const currentRate = rates[selectedAsset] ?? 0;
+  /* Two-way dual-amount state wired to the current asset rate.
+
+     Admins can name a wallet anything ("BTC UK", "USDT TRC20",
+     "ETH Mainnet"), but the rates feed is keyed by canonical crypto
+     symbols (BTC, ETH, USDT…). We resolve in three tiers:
+
+       1. exact match on the full asset name (covers canonical symbols
+          plus any custom name the admin happened to add to /api/rates),
+       2. first whitespace-delimited token in upper-case ("BTC UK" →
+          "BTC"), which catches the common "<symbol> <region/network>"
+          pattern admins use,
+       3. zero — input goes empty and we surface "rates unavailable"
+          rather than autofill garbage. */
+  const baseSymbol  = selectedAsset.split(/\s+/)[0]?.toUpperCase() ?? "";
+  const currentRate = rates[selectedAsset] ?? rates[baseSymbol] ?? 0;
   const dual        = useDualAmount(currentRate);
 
   /* Look up the active wallet for the currently selected asset.
