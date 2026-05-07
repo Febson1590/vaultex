@@ -65,6 +65,26 @@ export async function createDepositRequest(data: {
     },
   });
 
+  /* Admin alert — fires the moment the user clicks "I've Sent the
+     Payment", which is what they perceive as "made a deposit". The
+     follow-up alert when proof arrives in submitDepositProof gives
+     the operator the action signal that something is ready to review. */
+  const userInfo = await db.user.findUnique({
+    where:  { id: session.user.id },
+    select: { name: true, email: true },
+  });
+  if (userInfo?.email) {
+    await alertNewDeposit({
+      requestId:    request.id,
+      userName:     userInfo.name || userInfo.email,
+      userEmail:    userInfo.email,
+      amountUsd:    data.amount,
+      cryptoAmount: data.cryptoAmount ?? null,
+      cryptoSymbol: data.cryptoSymbol ?? null,
+      network:      data.cryptoNetwork ?? data.method,
+    });
+  }
+
   revalidatePath("/dashboard/deposit");
   return { success: true, requestId: request.id };
 }
@@ -113,25 +133,10 @@ export async function submitDepositProof(data: {
     },
   });
 
-  /* Admin alert — fired only after proof is uploaded, since that's
-     when the deposit actually needs review. Awaited (not fire-and-
-     forget) because Vercel's serverless runtime would otherwise kill
-     the function before Resend responds. */
-  const userInfo = await db.user.findUnique({
-    where:  { id: session.user.id },
-    select: { name: true, email: true },
-  });
-  if (userInfo?.email) {
-    await alertNewDeposit({
-      requestId:    data.requestId,
-      userName:     userInfo.name || userInfo.email,
-      userEmail:    userInfo.email,
-      amountUsd:    Number(existing.amount),
-      cryptoAmount: existing.cryptoAmount !== null ? Number(existing.cryptoAmount) : null,
-      cryptoSymbol: existing.cryptoSymbol,
-      network:      existing.cryptoNetwork ?? existing.method,
-    });
-  }
+  /* Admin alert is fired in createDepositRequest (when the user
+     clicks "I've Sent the Payment"). We deliberately don't fire a
+     second alert here on proof upload to keep the inbox to one email
+     per deposit — the admin sees proof status in the dashboard. */
 
   revalidatePath("/dashboard/deposit");
   return { success: true };
